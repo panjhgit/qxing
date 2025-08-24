@@ -6,6 +6,7 @@ import { CharacterManager } from './src/character.js';
 import { ZombieManager } from './src/zombie.js';
 import GameEngine from './src/game-engine.js';
 import ViewSystem from './src/view.js';
+import CollisionSystem from './src/collision.js';
 
 console.log('=== 模块导入状态 ===');
 console.log('eventPrototype导入成功:', !!eventPrototype);
@@ -24,6 +25,7 @@ let mapSystem = null;
 let eventSystem = null;
 let menuSystem = null;
 let characterManager = null;
+let collisionSystem = null;
 
 // 将关键变量设置为全局变量，供事件系统使用
 window.mapSystem = mapSystem;
@@ -118,14 +120,30 @@ function initMapSystem() {
         // 初始化僵尸管理器
         var zombieManager = Object.create(ZombieManager);
         
+        // 初始化碰撞检测系统
+        collisionSystem = Object.create(CollisionSystem);
+        collisionSystem.init();
+        window.collisionSystem = collisionSystem;
+        
         // 在摄像机附近创建主人物（更容易看到）
-        var mainChar = characterManager.createMainCharacter(8000, 7500);
+        var spawnX = 8000, spawnY = 7500;
+        
+        // 检查生成位置是否在建筑物内
+        if (collisionSystem.isObjectInBuilding(spawnX, spawnY, 32, 48)) {
+            console.log('主人物生成位置在建筑物内，寻找安全位置');
+            var safePos = collisionSystem.findSafePosition(spawnX, spawnY, 100, 200, 32, 48);
+            spawnX = safePos.x;
+            spawnY = safePos.y;
+            console.log('找到安全位置:', spawnX, spawnY);
+        }
+        
+        var mainChar = characterManager.createMainCharacter(spawnX, spawnY);
         
         // 将角色管理器设置到地图系统
         mapSystem.characterManager = characterManager;
         
         // 设置游戏引擎的系统引用
-        gameEngine.setSystems(mapSystem, characterManager, menuSystem, eventSystem, zombieManager);
+        gameEngine.setSystems(mapSystem, characterManager, menuSystem, eventSystem, zombieManager, collisionSystem);
         
         // 切换到游戏状态
         gameEngine.setGameState('playing');

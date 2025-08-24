@@ -266,12 +266,19 @@ GameEngine.prototype.setGameState = function(newState) {
 };
 
 // 设置系统引用
-GameEngine.prototype.setSystems = function(mapSystem, characterManager, menuSystem, eventSystem, zombieManager) {
+GameEngine.prototype.setSystems = function(mapSystem, characterManager, menuSystem, eventSystem, zombieManager, collisionSystem) {
     this.mapSystem = mapSystem;
     this.characterManager = characterManager;
     this.menuSystem = menuSystem;
     this.eventSystem = eventSystem;
     this.zombieManager = zombieManager;
+    this.collisionSystem = collisionSystem;
+    
+    // 初始化触摸摇杆（确保所有系统都已加载）
+    if (!this.joystick) {
+        this.joystick = new TouchJoystick(this.canvas, this.ctx);
+        console.log('触摸摇杆初始化完成');
+    }
     
     // 初始化视觉系统
     if (this.viewSystem && mapSystem) {
@@ -316,6 +323,15 @@ GameEngine.prototype.updateJoystickMovement = function() {
     // 计算新位置
     var newX = mainChar.x + direction.x * moveSpeed;
     var newY = mainChar.y + direction.y * moveSpeed;
+    
+    // 检查移动位置是否在建筑物内
+    if (this.collisionSystem && this.collisionSystem.isObjectInBuilding) {
+        if (this.collisionSystem.isObjectInBuilding(newX, newY, mainChar.width, mainChar.height)) {
+            // 如果新位置在建筑物内，不移动
+            console.log('移动位置在建筑物内，阻止移动');
+            return;
+        }
+    }
     
     // 移动主人物
     mainChar.move(newX, newY);
@@ -420,6 +436,19 @@ GameEngine.prototype.spawnZombiesForDay = function() {
         // 随机选择僵尸类型
         var zombieTypes = ['skinny', 'fat', 'fast', 'tank', 'boss'];
         var randomType = zombieTypes[Math.floor(Math.random() * zombieTypes.length)];
+        
+        // 检查僵尸生成位置是否在建筑物内
+        var zombieX = mainChar.x + Math.cos(angle) * distance;
+        var zombieY = mainChar.y + Math.sin(angle) * distance;
+        
+        if (this.collisionSystem && this.collisionSystem.isObjectInBuilding) {
+            if (this.collisionSystem.isObjectInBuilding(zombieX, zombieY, 32, 32)) {
+                // 如果位置在建筑物内，寻找安全位置
+                var safePos = this.collisionSystem.findSafePosition(mainChar.x, mainChar.y, 700, 800, 32, 32);
+                zombieX = safePos.x;
+                zombieY = safePos.y;
+            }
+        }
         
         // 创建僵尸
         this.zombieManager.createZombie(randomType, zombieX, zombieY);
