@@ -2,6 +2,7 @@
 import eventPrototype from './src/event.js';
 import mapPrototype from './src/map.js';
 import menuPrototype from './src/menu.js';
+import { CharacterManager } from './src/character.js';
 
 console.log('=== 模块导入状态 ===');
 console.log('eventPrototype导入成功:', !!eventPrototype);
@@ -19,6 +20,7 @@ let gameState = 'home'; // 'home', 'playing', 'menu'
 let mapSystem = null;
 let eventSystem = null;
 let menuSystem = null;
+let characterManager = null;
 
 // 将关键变量设置为全局变量，供事件系统使用
 window.gameState = gameState;
@@ -61,6 +63,7 @@ function initGame() {
     // 更新全局变量
     window.gameState = gameState;
     window.mapSystem = mapSystem;
+    window.characterManager = characterManager;
 
     console.log('游戏初始化完成');
 }
@@ -89,14 +92,26 @@ window.onGameStateChange = function (newState) {
 
 // 初始化地图系统
 function initMapSystem() {
-
-
     try {
         mapSystem = mapPrototype.createMapSystem(canvas, ctx);
+        
+        // 初始化角色管理器
+        characterManager = Object.create(CharacterManager);
+        
+        // 在摄像机附近创建主人物（更容易看到）
+        var mainChar = characterManager.createMainCharacter(8000, 7500);
+        
+        // 将角色管理器设置到地图系统
+        mapSystem.characterManager = characterManager;
+        
+        console.log('主人物已创建在摄像机附近:', 8000, 7500);
+        console.log('主人物对象:', mainChar);
+        console.log('角色管理器中的角色数量:', characterManager.getAllCharacters().length);
+        console.log('地图系统的角色管理器:', mapSystem.characterManager);
+        
     } catch (error) {
         showMapSystemError();
     }
-
 }
 
 // 显示地图系统错误信息

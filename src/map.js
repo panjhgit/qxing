@@ -27,6 +27,9 @@ mapPrototype.createMapSystem = function (canvas, ctx) {
     // 建筑物和街道尺寸
     mapSystem.blockSize = 750;      // 建筑物大小
     mapSystem.streetWidth = 500;    // 街道宽度（改为500像素）
+    
+    // 角色管理器引用（由外部设置）
+    mapSystem.characterManager = null;
 
     // 动态计算地图尺寸以容纳64个建筑物（8x8网格）
     var gridSize = mapSystem.blockSize + mapSystem.streetWidth; // 750 + 500 = 1250
@@ -38,6 +41,9 @@ mapPrototype.createMapSystem = function (canvas, ctx) {
     // 地图偏移量（初始位置设为地图中心，让玩家看到中心区域）
     mapSystem.offsetX = (mapSystem.mapWidth - canvas.width) / 2;
     mapSystem.offsetY = (mapSystem.mapHeight - canvas.height) / 2;
+    
+    console.log('地图初始偏移量:', mapSystem.offsetX, mapSystem.offsetY);
+    console.log('画布尺寸:', canvas.width, 'x', canvas.height);
 
     // 视角缩放 - 让玩家能看到更远的区域
     mapSystem.zoom = 0.6;  // 缩放比例，小于1表示放大（能看到更多内容）
@@ -152,6 +158,9 @@ mapPrototype.render = function () {
     // 绘制建筑物
     this.drawBuildings(scaledOffsetX, scaledOffsetY);
 
+    // 绘制角色
+    this.drawCharacters(scaledOffsetX, scaledOffsetY);
+
     // 绘制地图边界
     this.drawMapBoundaries(scaledOffsetX, scaledOffsetY);
 
@@ -222,6 +231,23 @@ mapPrototype.drawStreets = function (offsetX, offsetY) {
     }
 
     this.ctx.setLineDash([]); // 重置虚线样式
+};
+
+// 绘制角色
+mapPrototype.drawCharacters = function (offsetX, offsetY) {
+    if (this.characterManager) {
+        // 获取地图中心位置作为摄像机位置
+        var cameraX = offsetX;
+        var cameraY = offsetY;
+        
+        // 调试信息
+        console.log('绘制角色 - 角色数量:', this.characterManager.getAllCharacters().length);
+        
+        // 渲染所有角色
+        this.characterManager.renderAllCharacters(this.ctx, cameraX, cameraY);
+    } else {
+        console.log('角色管理器未设置');
+    }
 };
 
 // 绘制建筑物

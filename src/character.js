@@ -185,9 +185,15 @@ Character.prototype.updateMovement = function() {
 
 // 渲染2.5D模型
 Character.prototype.render = function(ctx, cameraX, cameraY) {
-    // 计算屏幕坐标
-    var screenX = this.x - cameraX;
-    var screenY = this.y - cameraY;
+    // 计算屏幕坐标 - 使用画布中心作为参考点
+    var screenX = ctx.canvas.width / 2 + (this.x - cameraX) * 0.6;
+    var screenY = ctx.canvas.height / 2 + (this.y - cameraY) * 0.6;
+    
+    // 检查是否在屏幕范围内
+    if (screenX < -100 || screenX > ctx.canvas.width + 100 || 
+        screenY < -100 || screenY > ctx.canvas.height + 100) {
+        return;
+    }
     
     // 绘制阴影
     ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
@@ -240,8 +246,59 @@ Character.prototype.changeStatus = function(newStatus) {
     this.status = newStatus;
 };
 
+// 角色管理器
+var CharacterManager = {
+    characters: [], // 存储所有角色
+    
+    // 创建主人物
+    createMainCharacter: function(x, y) {
+        var mainChar = new Character(ROLE.MAIN, x, y);
+        this.characters.push(mainChar);
+        return mainChar;
+    },
+    
+    // 创建伙伴
+    createPartner: function(role, x, y) {
+        var partner = new Character(role, x, y);
+        this.characters.push(partner);
+        return partner;
+    },
+    
+    // 获取主人物
+    getMainCharacter: function() {
+        return this.characters.find(char => char.role === ROLE.MAIN);
+    },
+    
+    // 获取所有角色
+    getAllCharacters: function() {
+        return this.characters;
+    },
+    
+    // 更新所有角色
+    updateAllCharacters: function() {
+        this.characters.forEach(char => {
+            char.updateMovement();
+        });
+    },
+    
+    // 渲染所有角色
+    renderAllCharacters: function(ctx, cameraX, cameraY) {
+        this.characters.forEach(char => {
+            char.render(ctx, cameraX, cameraY);
+        });
+    },
+    
+    // 清除所有角色
+    clearAllCharacters: function() {
+        this.characters = [];
+    },
+    
+
+};
+
 // 导出枚举
 export { ROLE, WEAPON, STATUS };
 
-// 导出
+// 导出角色管理器和角色类
+export { CharacterManager };
 export default Character;
