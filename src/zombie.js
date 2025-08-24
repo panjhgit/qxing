@@ -148,7 +148,7 @@ Zombie.prototype.update = function(characters, deltaTime) {
             this.attackTarget(deltaTime);
             break;
         case ZOMBIE_STATE.WALKING:
-            this.walkToTarget(deltaTime);
+            this.moveTowards(this.targetX, this.targetY, deltaTime);
             break;
         case ZOMBIE_STATE.IDLE:
             this.idleBehavior(deltaTime);
@@ -371,11 +371,8 @@ Zombie.prototype.drawHealthBar = function(ctx, x, y) {
 // 僵尸管理器
 var ZombieManager = {
     zombies: [],
-    spawnTimer: 0,
-    spawnInterval: 1000, // 1秒生成一个僵尸
-    maxZombies: 100,     // 增加最大僵尸数量
+    maxZombies: 100,     // 最大僵尸数量
     difficulty: 1,
-    lastSpawnDay: 0,     // 上次刷新的天数
     
     // 创建僵尸
     createZombie: function(type, x, y) {
@@ -420,7 +417,6 @@ var ZombieManager = {
         }
         
         this.createZombie(randomType, x, y);
-        console.log('生成僵尸:', randomType, '位置:', x, y);
     },
     
     // 更新所有僵尸
@@ -434,12 +430,7 @@ var ZombieManager = {
         this.zombies = this.zombies.filter(zombie => zombie.hp > 0);
     },
     
-    // 渲染所有僵尸
-    renderAllZombies: function(ctx, cameraX, cameraY) {
-        this.zombies.forEach(zombie => {
-            zombie.render(ctx, cameraX, cameraY);
-        });
-    },
+
     
     // 获取僵尸数量
     getZombieCount: function() {
@@ -459,9 +450,7 @@ var ZombieManager = {
     // 调整难度
     adjustDifficulty: function(newDifficulty) {
         this.difficulty = newDifficulty;
-        this.spawnInterval = Math.max(1000, 5000 - (newDifficulty - 1) * 500);
         this.maxZombies = Math.min(50, 20 + (newDifficulty - 1) * 5);
-        console.log('僵尸难度调整:', newDifficulty, '生成间隔:', this.spawnInterval, '最大数量:', this.maxZombies);
     }
 };
 

@@ -451,11 +451,8 @@ ViewSystem.prototype.drawZombieHealthBar = function(zombie, x, y) {
 // 渲染触摸摇杆（不受摄像机变换影响）
 ViewSystem.prototype.renderJoystick = function(joystick) {
     if (joystick && joystick.render) {
-        console.log('ViewSystem渲染触摸摇杆，joystick状态:', joystick.isVisible);
         // 确保触摸摇杆在正确的屏幕位置渲染，传递正确的ctx
         joystick.render(this.ctx);
-    } else {
-        console.warn('触摸摇杆对象无效或没有render方法');
     }
 };
 
