@@ -183,45 +183,6 @@ Character.prototype.updateMovement = function() {
     }
 };
 
-// 渲染2.5D模型
-Character.prototype.render = function(ctx, cameraX, cameraY) {
-    // 计算屏幕坐标 - 使用画布中心作为参考点
-    var screenX = ctx.canvas.width / 2 + (this.x - cameraX) * 0.6;
-    var screenY = ctx.canvas.height / 2 + (this.y - cameraY) * 0.6;
-    
-    // 检查是否在屏幕范围内
-    if (screenX < -100 || screenX > ctx.canvas.width + 100 || 
-        screenY < -100 || screenY > ctx.canvas.height + 100) {
-        return;
-    }
-    
-    // 绘制阴影
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-    ctx.fillRect(screenX - this.width/2, screenY + this.height/2, this.width, 8);
-    
-    // 绘制人物主体（2.5D效果）
-    var bodyY = screenY - this.height/2;
-    
-    // 身体
-    ctx.fillStyle = this.getBodyColor();
-    ctx.fillRect(screenX - this.width/2, bodyY + this.height/3, this.width, this.height * 2/3);
-    
-    // 头部
-    ctx.fillStyle = this.getHeadColor();
-    ctx.fillRect(screenX - this.width/3, bodyY, this.width * 2/3, this.height/3);
-    
-    // 绘制图标
-    ctx.font = '16px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#000';
-    ctx.fillText(this.icon, screenX, bodyY + this.height/3);
-    
-    // 绘制状态指示器
-    if (this.status === STATUS.FOLLOW) {
-        ctx.fillStyle = '#00ff00';
-        ctx.fillRect(screenX - 4, bodyY - 8, 8, 4);
-    }
-};
 
 // 获取身体颜色
 Character.prototype.getBodyColor = function() {
@@ -245,13 +206,6 @@ Character.prototype.getHeadColor = function() {
 Character.prototype.changeStatus = function(newStatus) {
     this.status = newStatus;
 };
-
-
-
-
-
-
-
 
 
 // 角色管理器
@@ -286,13 +240,6 @@ var CharacterManager = {
     updateAllCharacters: function() {
         this.characters.forEach(char => {
             char.updateMovement();
-        });
-    },
-    
-    // 渲染所有角色
-    renderAllCharacters: function(ctx, cameraX, cameraY) {
-        this.characters.forEach(char => {
-            char.render(ctx, cameraX, cameraY);
         });
     },
     
