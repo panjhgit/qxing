@@ -68,19 +68,50 @@ eventPrototype.handleTouchEnd = function (e) {
 
 // 处理首页触摸事件
 eventPrototype.handleHomeTouch = function (x, y) {
+    console.log('=== 处理首页触摸事件 ===');
+    console.log('触摸坐标:', x, y);
+    console.log('window对象存在:', !!window);
+    console.log('window.menuSystem存在:', !!window.menuSystem);
+    
+    if (window.menuSystem) {
+        console.log('menuSystem类型:', typeof window.menuSystem);
+        console.log('menuSystem内容:', window.menuSystem);
+        console.log('menuSystem.checkHomeButtonClick方法存在:', !!(window.menuSystem.checkHomeButtonClick));
+        console.log('menuSystem.startButtonArea存在:', !!(window.menuSystem.startButtonArea));
+        if (window.menuSystem.startButtonArea) {
+            console.log('startButtonArea内容:', window.menuSystem.startButtonArea);
+        }
+    } else {
+        console.error('window.menuSystem不存在！');
+        console.log('window对象的所有属性:', Object.keys(window));
+        console.log('全局变量menuSystem:', typeof menuSystem !== 'undefined' ? menuSystem : 'undefined');
+    }
+    
     // 检查开始游戏按钮点击
     if (window.menuSystem && window.menuSystem.checkHomeButtonClick) {
         var result = window.menuSystem.checkHomeButtonClick.call(window.menuSystem, x, y);
+        console.log('按钮点击检测结果:', result);
+        
         if (result === 'start_game') {
-            console.log('开始游戏按钮被点击');
+            console.log('开始游戏按钮被点击，准备切换状态');
             // 通知游戏状态改变
             if (typeof window.onGameStateChange === 'function') {
+                console.log('调用onGameStateChange函数');
                 window.onGameStateChange('playing');
+                console.log('onGameStateChange调用完成');
+            } else {
+                console.error('onGameStateChange函数不存在！');
             }
             return true;
+        } else {
+            console.log('按钮点击检测失败，结果:', result);
         }
+    } else {
+        console.error('menuSystem或checkHomeButtonClick方法不存在');
+        console.log('menuSystem:', window.menuSystem);
     }
-
+    
+    console.log('=== 首页触摸事件处理完成 ===');
     return false;
 };
 

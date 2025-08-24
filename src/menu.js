@@ -124,6 +124,28 @@ menuPrototype.renderDecorations = function () {
     this.ctx.fill();
 };
 
+// 渲染背景网格
+menuPrototype.renderBackgroundGrid = function () {
+    // 绘制背景网格
+    this.ctx.strokeStyle = 'rgba(255, 87, 51, 0.1)';
+    this.ctx.lineWidth = 1;
+    var gridSize = 50;
+
+    for (var x = 0; x < this.canvas.width; x += gridSize) {
+        this.ctx.beginPath();
+        this.ctx.moveTo(x, 0);
+        this.ctx.lineTo(x, this.canvas.height);
+        this.ctx.stroke();
+    }
+
+    for (var y = 0; y < this.canvas.height; y += gridSize) {
+        this.ctx.beginPath();
+        this.ctx.moveTo(0, y);
+        this.ctx.lineTo(this.canvas.width, y);
+        this.ctx.stroke();
+    }
+};
+
 // 渲染游戏特色
 menuPrototype.renderGameFeatures = function (centerX) {
     var features = [
@@ -179,15 +201,15 @@ menuPrototype.renderStartButton = function (centerX) {
     this.ctx.fillStyle = '#ffffff';
     this.ctx.font = 'bold 24px Arial';
     this.ctx.textAlign = 'center';
-    this.ctx.fillText('开始游戏', centerX, buttonY + buttonHeight / 2 + 8);
+    this.ctx.fillText('🎮 开始游戏', centerX, buttonY + buttonHeight / 2 + 8);
+};
 
-    // 保存按钮区域用于点击检测
-    this.startButtonArea = {
-        x: buttonX,
-        y: buttonY,
-        width: buttonWidth,
-        height: buttonHeight
-    };
+// 渲染页脚信息
+menuPrototype.renderFooterInfo = function (centerX) {
+    this.ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+    this.ctx.font = '16px Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText('© 2024 末日Q行 - 生存挑战', centerX, this.canvas.height - 30);
 };
 
 // 渲染首页开始按钮
