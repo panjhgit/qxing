@@ -14,11 +14,15 @@ eventPrototype.init = function (canvas, gameState) {
 
 // 处理触摸开始事件
 eventPrototype.handleTouchStart = function (e) {
-    var touch = e.touches[0];
+    // 确保事件对象和触摸点存在
+    if (!e || !e.touches || !e.touches[0]) {
+        console.warn('触摸事件对象无效');
+        return false;
+    }
 
-    // 在抖音小游戏环境中，直接使用触摸坐标
-    var x = touch.clientX;
-    var y = touch.clientY;
+    var touch = e.touches[0];
+    var x = touch.clientX || touch.pageX || 0;
+    var y = touch.clientY || touch.pageY || 0;
 
     console.log('触摸开始:', x, y, '游戏状态:', this.gameState);
 
@@ -34,9 +38,15 @@ eventPrototype.handleTouchStart = function (e) {
 // 处理触摸移动事件
 eventPrototype.handleTouchMove = function (e) {
     if (this.gameState === 'playing' && this.isDragging) {
+        // 确保事件对象和触摸点存在
+        if (!e || !e.touches || !e.touches[0]) {
+            console.warn('触摸移动事件对象无效');
+            return false;
+        }
+
         var touch = e.touches[0];
-        var x = touch.clientX;
-        var y = touch.clientY;
+        var x = touch.clientX || touch.pageX || 0;
+        var y = touch.clientY || touch.pageY || 0;
 
         var deltaX = x - this.lastTouchX;
         var deltaY = y - this.lastTouchY;
@@ -49,7 +59,10 @@ eventPrototype.handleTouchMove = function (e) {
         this.lastTouchX = x;
         this.lastTouchY = y;
 
-        e.preventDefault();
+        // 在抖音小游戏环境中，触摸事件没有preventDefault方法
+        if (e.preventDefault && typeof e.preventDefault === 'function') {
+            e.preventDefault();
+        }
         return true;
     }
 

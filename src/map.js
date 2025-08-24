@@ -163,12 +163,29 @@ mapPrototype.render = function () {
 
     // 绘制地图边界
     this.drawMapBoundaries(scaledOffsetX, scaledOffsetY);
+    
+
 
     // 恢复上下文状态
     this.ctx.restore();
 
     // 绘制UI信息（不受缩放影响）
     this.drawUI();
+};
+
+// 渲染地图（无变换，供视觉系统使用）
+mapPrototype.renderWithoutTransform = function () {
+    // 绘制地图背景
+    this.drawMapBackground(0, 0);
+
+    // 绘制街道
+    this.drawStreets(0, 0);
+
+    // 绘制建筑物
+    this.drawBuildings(0, 0);
+
+    // 绘制地图边界
+    this.drawMapBoundaries(0, 0);
 };
 
 // 绘制地图背景
@@ -249,6 +266,8 @@ mapPrototype.drawCharacters = function (offsetX, offsetY) {
         console.log('角色管理器未设置');
     }
 };
+
+
 
 // 绘制建筑物
 mapPrototype.drawBuildings = function (offsetX, offsetY) {

@@ -246,6 +246,14 @@ Character.prototype.changeStatus = function(newStatus) {
     this.status = newStatus;
 };
 
+
+
+
+
+
+
+
+
 // 角色管理器
 var CharacterManager = {
     characters: [], // 存储所有角色
@@ -291,8 +299,7 @@ var CharacterManager = {
     // 清除所有角色
     clearAllCharacters: function() {
         this.characters = [];
-    },
-    
+    }
 
 };
 
