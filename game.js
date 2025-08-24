@@ -1,90 +1,101 @@
-console.log('使用抖音开发者工具开发过程中可以参考以下文档:');
-console.log(
-    'https://developer.open-douyin.com/docs/resource/zh-CN/mini-game/guide/minigame/introduction',
-);
+// 导入模块
+import eventPrototype from './src/event.js';
+import mapPrototype from './src/map.js';
+import menuPrototype from './src/menu.js';
 
 let systemInfo = tt.getSystemInfoSync();
-let canvas = tt.createCanvas(),
-    ctx = canvas.getContext('2d');
+let canvas = tt.createCanvas(), ctx = canvas.getContext('2d');
 canvas.width = systemInfo.windowWidth;
 canvas.height = systemInfo.windowHeight;
 
-// 游戏状态
 let gameState = 'home'; // 'home', 'playing', 'menu'
+let mapSystem = null;
+let eventSystem = null;
+let menuSystem = null;
 
-// 初始化游戏
 function initGame() {
-    // 绑定触摸事件
-    bindTouchEvents();
+    console.log('游戏初始化开始');
     
-    // 开始游戏循环
-    gameLoop();
-}
-
-// 绑定触摸事件
-function bindTouchEvents() {
-    tt.onTouchStart(function(e) {
-        if (gameState === 'home') {
-            var touch = e.touches[0];
-            var result = checkHomeButtonClick(touch.clientX, touch.clientY);
-            
-            if (result === 'start_game') {
-                console.log('开始游戏按钮被点击！');
-                gameState = 'playing';
-                // 这里可以添加切换到游戏逻辑的代码
-            }
-        } else if (gameState === 'playing') {
-            // 游戏进行中点击返回首页
-            gameState = 'home';
-        }
-    });
-}
-
-// 游戏主循环
-function gameLoop() {
-    // 清空画布
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // 根据游戏状态渲染不同内容
-    switch (gameState) {
-        case 'home':
-            renderHomePage();
-            break;
-        case 'playing':
-            renderGame();
-            break;
-        case 'menu':
-            renderMenu();
-            break;
+    // 初始化菜单系统
+    try {
+        menuSystem = Object.create(menuPrototype);
+        menuSystem.canvas = canvas;
+        menuSystem.ctx = ctx;
+        console.log('菜单系统初始化成功');
+    } catch (error) {
+        console.error('菜单系统初始化失败:', error);
     }
     
-    // 继续循环
+    // 初始化事件系统
+    try {
+        eventSystem = Object.create(eventPrototype);
+        eventSystem.init(canvas, gameState);
+        eventSystem.bindTouchEvents();
+        console.log('事件系统初始化成功');
+    } catch (error) {
+        console.error('事件系统初始化失败:', error);
+    }
+    
+    console.log('游戏初始化完成');
+}
+
+// 游戏状态改变回调
+window.onGameStateChange = function(newState) {
+    console.log('游戏状态改变:', gameState, '->', newState);
+    gameState = newState;
+    
+    // 更新事件系统的游戏状态
+    if (eventSystem) {
+        eventSystem.gameState = newState;
+    }
+    
+    // 如果切换到游戏状态，初始化地图系统
+    if (newState === 'playing' && !mapSystem) {
+        initMapSystem();
+    }
+};
+
+// 初始化地图系统
+function initMapSystem() {
+    try {
+        mapSystem = mapPrototype.createMapSystem(canvas, ctx);
+        console.log('地图系统初始化成功');
+    } catch (error) {
+        console.error('地图系统初始化失败:', error);
+        showMapSystemError();
+    }
+}
+
+// 显示地图系统错误信息
+function showMapSystemError() {
+    ctx.fillStyle = '#ff0000';
+    ctx.font = 'bold 20px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('地图系统加载失败', canvas.width / 2, canvas.height / 2);
+    ctx.fillText('请检查map.js文件是否正确加载', canvas.width / 2, canvas.height / 2 + 30);
+    ctx.fillText('确保文件路径和语法正确', canvas.width / 2, canvas.height / 2 + 60);
+}
+
+function gameLoop() {
+    if (gameState === 'home') {
+        renderHomePage();
+    } else if (gameState === 'playing') {
+        renderGame();
+    } else if (gameState === 'menu') {
+        renderMenu();
+    }
+    
     requestAnimationFrame(gameLoop);
 }
 
-// 渲染首页
 function renderHomePage() {
-    // 检查prototype对象是否存在
-    if (typeof prototype !== 'undefined' && prototype.renderHomePage) {
-        // 创建上下文对象
-        var menuContext = {
-            canvas: canvas,
-            ctx: ctx,
-            startButtonArea: null
-        };
-        
-        // 调用首页渲染函数
-        prototype.renderHomePage.call(menuContext);
-        
-        // 保存按钮区域信息
-        window.startButtonArea = menuContext.startButtonArea;
+    if (menuSystem && menuSystem.renderHomePage) {
+        menuSystem.renderHomePage();
     } else {
-        // 如果prototype不存在，显示默认首页
         renderDefaultHomePage();
     }
 }
 
-// 默认首页渲染
 function renderDefaultHomePage() {
     var centerX = canvas.width / 2;
     var centerY = canvas.height / 2;
@@ -118,20 +129,13 @@ function renderDefaultHomePage() {
     
     // 游戏特色介绍
     renderFeatures(centerX, centerY + 80);
-    
-    // 底部信息
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-    ctx.font = '16px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText('© 2024 Q版僵尸沙盒 - 用爱发电 ❤️', centerX, canvas.height - 30);
 }
 
-// 渲染开始按钮
 function renderStartButton(centerX, centerY) {
     var buttonWidth = 200;
     var buttonHeight = 60;
     var buttonX = centerX - buttonWidth / 2;
-    var buttonY = centerY - 20;
+    var buttonY = centerY - buttonHeight / 2;
     
     // 按钮背景
     ctx.save();
@@ -163,17 +167,8 @@ function renderStartButton(centerX, centerY) {
     ctx.font = 'bold 24px Arial';
     ctx.textAlign = 'center';
     ctx.fillText('🎮 开始游戏', centerX, centerY + 15);
-    
-    // 保存按钮区域用于点击检测
-    window.startButtonArea = {
-        x: buttonX,
-        y: buttonY,
-        width: buttonWidth,
-        height: buttonHeight
-    };
 }
 
-// 绘制圆角矩形
 function roundRect(x, y, width, height, radius) {
     ctx.beginPath();
     ctx.moveTo(x + radius, y);
@@ -188,7 +183,6 @@ function roundRect(x, y, width, height, radius) {
     ctx.closePath();
 }
 
-// 渲染特色介绍
 function renderFeatures(centerX, startY) {
     var features = [
         { icon: '🏠', text: '建造你的沙盒世界' },
@@ -207,47 +201,78 @@ function renderFeatures(centerX, startY) {
     });
 }
 
-// 检查首页按钮点击
-function checkHomeButtonClick(x, y) {
-    if (window.startButtonArea && 
-        x >= window.startButtonArea.x && 
-        x <= window.startButtonArea.x + window.startButtonArea.width &&
-        y >= window.startButtonArea.y && 
-        y <= window.startButtonArea.y + window.startButtonArea.height) {
-        return 'start_game';
-    }
-    return null;
-}
-
-// 渲染游戏画面
 function renderGame() {
-    // 游戏进行中的渲染逻辑
-    ctx.fillStyle = '#2d1b69';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 24px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText('游戏进行中...', canvas.width / 2, canvas.height / 2);
-    ctx.fillText('点击返回首页', canvas.width / 2, canvas.height / 2 + 40);
+    if (mapSystem && mapSystem.render) {
+        mapSystem.render();
+    }
+    renderBackButton();
 }
 
-// 渲染菜单
+function renderBackButton() {
+    var buttonWidth = 120;
+    var buttonHeight = 40;
+    var buttonX = 20;
+    var buttonY = 20;
+    
+    // 按钮背景
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    ctx.fillRect(buttonX, buttonY, buttonWidth, buttonHeight);
+    
+    // 按钮边框
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(buttonX, buttonY, buttonWidth, buttonHeight);
+    
+    // 按钮文字
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 16px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('返回首页', buttonX + buttonWidth / 2, buttonY + buttonHeight / 2 + 5);
+}
+
 function renderMenu() {
-    // 菜单渲染逻辑
-    ctx.fillStyle = '#11998e';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 24px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText('游戏菜单', canvas.width / 2, canvas.height / 2);
+    if (menuSystem && menuSystem.renderMenu) {
+        menuSystem.renderMenu();
+    } else {
+        renderDefaultMenu();
+    }
 }
 
-// 启动游戏
+function renderDefaultMenu() {
+    var centerX = canvas.width / 2;
+    
+    var gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    gradient.addColorStop(0, '#1a1a2e');
+    gradient.addColorStop(0.5, '#16213e');
+    gradient.addColorStop(1, '#0f3460');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    ctx.save();
+    ctx.shadowColor = 'rgba(255, 87, 51, 0.8)';
+    ctx.shadowBlur = 20;
+    ctx.fillStyle = '#ff5733';
+    ctx.font = 'bold 42px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('末日Q行', centerX, 120);
+    
+    ctx.strokeStyle = '#ff5733';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(centerX - 100, 140);
+    ctx.lineTo(centerX + 100, 140);
+    ctx.stroke();
+    ctx.restore();
+    
+    ctx.fillStyle = '#e8e8e8';
+    ctx.font = 'bold 18px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('生存至100天的挑战', centerX, 170);
+}
+
 function startGame() {
     initGame();
+    gameLoop();
 }
 
-// 启动游戏
 startGame();
