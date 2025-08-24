@@ -66,6 +66,8 @@ Zombie.prototype.setupProperties = function() {
             this.icon = '🧟‍♂️';
             this.color = '#8B4513';
             this.size = 24;
+            this.width = 24;
+            this.height = 24;
             break;
             
         case ZOMBIE_TYPE.FAT:
@@ -78,6 +80,8 @@ Zombie.prototype.setupProperties = function() {
             this.icon = '🧟‍♂️';
             this.color = '#654321';
             this.size = 32;
+            this.width = 32;
+            this.height = 32;
             break;
             
         case ZOMBIE_TYPE.BOSS:
@@ -90,6 +94,8 @@ Zombie.prototype.setupProperties = function() {
             this.icon = '🧟‍♂️';
             this.color = '#8B0000';
             this.size = 48;
+            this.width = 48;
+            this.height = 48;
             break;
             
         case ZOMBIE_TYPE.FAST:
@@ -102,6 +108,8 @@ Zombie.prototype.setupProperties = function() {
             this.icon = '🧟‍♂️';
             this.color = '#228B22';
             this.size = 20;
+            this.width = 20;
+            this.height = 20;
             break;
             
         case ZOMBIE_TYPE.TANK:
@@ -114,6 +122,8 @@ Zombie.prototype.setupProperties = function() {
             this.icon = '🧟‍♂️';
             this.color = '#2F4F4F';
             this.size = 40;
+            this.width = 40;
+            this.height = 40;
             break;
             
         default:
@@ -126,6 +136,8 @@ Zombie.prototype.setupProperties = function() {
             this.icon = '🧟‍♂️';
             this.color = '#696969';
             this.size = 28;
+            this.width = 28;
+            this.height = 28;
     }
 };
 
@@ -244,14 +256,49 @@ Zombie.prototype.moveTowards = function(targetX, targetY, deltaTime) {
         // 计算移动方向
         this.direction = Math.atan2(deltaY, deltaX);
         
-        // 移动
+        // 计算目标位置
         var moveDistance = this.moveSpeed * deltaTime;
         if (moveDistance > distance) {
             moveDistance = distance;
         }
         
-        this.x += (deltaX / distance) * moveDistance;
-        this.y += (deltaY / distance) * moveDistance;
+        var newX = this.x + (deltaX / distance) * moveDistance;
+        var newY = this.y + (deltaY / distance) * moveDistance;
+        
+        // 使用碰撞检测获取有效移动位置
+        if (window.collisionSystem && window.collisionSystem.getZombieValidMovePosition) {
+            // 获取所有僵尸和人物列表
+            var allZombies = [];
+            var allCharacters = [];
+            
+            // 从僵尸管理器获取所有僵尸
+            if (window.zombieManager && window.zombieManager.getAllZombies) {
+                allZombies = window.zombieManager.getAllZombies();
+            }
+            
+            // 从角色管理器获取所有人物
+            if (window.characterManager && window.characterManager.getAllCharacters) {
+                allCharacters = window.characterManager.getAllCharacters();
+            }
+            
+            // 获取避免重叠的移动位置
+            var validPosition = window.collisionSystem.getZombieValidMovePosition(
+                this, newX, newY, allZombies, allCharacters
+            );
+            
+            // 如果位置有调整，说明发生了碰撞
+            if (validPosition.x !== newX || validPosition.y !== newY) {
+                console.log('僵尸碰撞检测调整:', this.type, '从', newX, newY, '到', validPosition.x, validPosition.y);
+            }
+            
+            // 移动到有效位置
+            this.x = validPosition.x;
+            this.y = validPosition.y;
+        } else {
+            // 如果没有碰撞检测系统，直接移动
+            this.x = newX;
+            this.y = newY;
+        }
         
         this.state = ZOMBIE_STATE.WALKING;
     }
@@ -262,8 +309,33 @@ Zombie.prototype.idleBehavior = function(deltaTime) {
     // 随机游荡
     if (Math.random() < 0.01) { // 1%概率改变方向
         this.direction = Math.random() * Math.PI * 2;
-        this.targetX = this.x + Math.cos(this.direction) * 100;
-        this.targetY = this.y + Math.sin(this.direction) * 100;
+        var targetDistance = 100;
+        this.targetX = this.x + Math.cos(this.direction) * targetDistance;
+        this.targetY = this.y + Math.sin(this.direction) * targetDistance;
+        
+        // 检查目标位置是否安全（不在建筑物内，不与僵尸重叠）
+        if (window.collisionSystem) {
+            var allZombies = [];
+            var allCharacters = [];
+            
+            if (window.zombieManager && window.zombieManager.getAllZombies) {
+                allZombies = window.zombieManager.getAllZombies().filter(z => z.hp > 0 && z.id !== this.id);
+            }
+            
+            if (window.characterManager && window.characterManager.getAllCharacters) {
+                allCharacters = window.characterManager.getAllCharacters();
+            }
+            
+            // 如果目标位置不安全，寻找安全位置
+            if (window.collisionSystem.isObjectInBuilding(this.targetX, this.targetY, 32, 32) ||
+                window.collisionSystem.isObjectOverlappingWithList(this.targetX, this.targetY, 32, 32, allZombies)) {
+                
+                var safePos = window.collisionSystem.findSafePosition(this.x, this.y, 50, 150, 32, 32);
+                this.targetX = safePos.x;
+                this.targetY = safePos.y;
+            }
+        }
+        
         this.state = ZOMBIE_STATE.WALKING;
     }
 };
@@ -378,6 +450,33 @@ var ZombieManager = {
     createZombie: function(type, x, y) {
         if (this.zombies.length >= this.maxZombies) {
             return null;
+        }
+        
+        // 检查生成位置是否与其他僵尸重叠
+        if (window.collisionSystem && window.collisionSystem.isObjectOverlappingWithList) {
+            var zombieWidth = 32; // 僵尸默认宽度
+            var zombieHeight = 32; // 僵尸默认高度
+            
+            // 获取所有现有僵尸
+            var existingZombies = this.zombies.filter(z => z.hp > 0);
+            
+            // 检查是否与现有僵尸重叠
+            if (window.collisionSystem.isObjectOverlappingWithList(x, y, zombieWidth, zombieHeight, existingZombies)) {
+                console.log('僵尸生成位置重叠，寻找新位置');
+                
+                // 寻找不重叠的生成位置
+                var safePosition = window.collisionSystem.findSafePosition(x, y, 50, 200, zombieWidth, zombieHeight);
+                
+                // 再次检查是否与僵尸重叠
+                if (window.collisionSystem.isObjectOverlappingWithList(safePosition.x, safePosition.y, zombieWidth, zombieHeight, existingZombies)) {
+                    // 如果还是重叠，尝试更远的位置
+                    safePosition = window.collisionSystem.findSafePosition(x, y, 100, 300, zombieWidth, zombieHeight);
+                }
+                
+                x = safePosition.x;
+                y = safePosition.y;
+                console.log('僵尸新生成位置:', x, y);
+            }
         }
         
         var zombie = new Zombie(type, x, y);

@@ -324,19 +324,50 @@ GameEngine.prototype.updateJoystickMovement = function() {
     var newX = mainChar.x + direction.x * moveSpeed;
     var newY = mainChar.y + direction.y * moveSpeed;
     
-    // 使用平滑碰撞检测获取有效移动位置
-    if (this.collisionSystem && this.collisionSystem.getSmoothMovePosition) {
-        var validPosition = this.collisionSystem.getSmoothMovePosition(
-            mainChar.x, mainChar.y, newX, newY, mainChar.width, mainChar.height
+    // 使用完整的碰撞检测获取有效移动位置（包括建筑物、僵尸、其他人物）
+    if (this.collisionSystem && this.collisionSystem.getNonOverlappingPosition) {
+        // 创建需要避免的对象列表
+        var avoidObjects = [];
+        
+        // 添加所有僵尸
+        if (this.zombieManager) {
+            var allZombies = this.zombieManager.getAllZombies().filter(z => z.hp > 0);
+            avoidObjects = avoidObjects.concat(allZombies);
+        }
+        
+        // 添加其他人物（除了自己）
+        if (this.characterManager) {
+            var allCharacters = this.characterManager.getAllCharacters();
+            for (var i = 0; i < allCharacters.length; i++) {
+                if (allCharacters[i].id !== mainChar.id) {
+                    avoidObjects.push(allCharacters[i]);
+                }
+            }
+        }
+        
+        // 获取不重叠的移动位置
+        console.log('人物移动碰撞检测:', '从', mainChar.x, mainChar.y, '到', newX, newY);
+        console.log('避免对象数量:', avoidObjects.length, '僵尸:', allZombies.length, '人物:', allCharacters.length);
+        
+        var validPosition = this.collisionSystem.getNonOverlappingPosition(
+            mainChar.x, mainChar.y, newX, newY, mainChar.width, mainChar.height,
+            avoidObjects, true // 启用建筑物碰撞检测
         );
         
         // 如果位置有变化，说明发生了碰撞调整
         if (validPosition.x !== newX || validPosition.y !== newY) {
-            console.log('碰撞检测调整移动位置:', 
+            console.log('人物碰撞检测调整移动位置:', 
                 '从', newX, newY, '到', validPosition.x, validPosition.y);
         }
         
         // 移动主人物到调整后的位置
+        mainChar.move(validPosition.x, validPosition.y);
+    } else if (this.collisionSystem && this.collisionSystem.getSmoothMovePosition) {
+        // 回退到只检查建筑物的碰撞检测
+        var validPosition = this.collisionSystem.getSmoothMovePosition(
+            mainChar.x, mainChar.y, newX, newY, mainChar.width, mainChar.height
+        );
+        
         mainChar.move(validPosition.x, validPosition.y);
     } else {
         // 如果没有碰撞检测系统，直接移动
@@ -454,6 +485,22 @@ GameEngine.prototype.spawnZombiesForDay = function() {
                 var safePos = this.collisionSystem.findSafePosition(mainChar.x, mainChar.y, 700, 800, 32, 32);
                 zombieX = safePos.x;
                 zombieY = safePos.y;
+            }
+        }
+        
+        // 检查是否与现有僵尸重叠
+        if (this.collisionSystem && this.collisionSystem.isObjectOverlappingWithList) {
+            var existingZombies = this.zombieManager.getAllZombies().filter(z => z.hp > 0);
+            
+            if (this.collisionSystem.isObjectOverlappingWithList(zombieX, zombieY, 32, 32, existingZombies)) {
+                // 如果与现有僵尸重叠，寻找不重叠的位置
+                var nonOverlapPos = this.collisionSystem.getNonOverlappingPosition(
+                    mainChar.x, mainChar.y, zombieX, zombieY, 32, 32, 
+                    existingZombies, true
+                );
+                zombieX = nonOverlapPos.x;
+                zombieY = nonOverlapPos.y;
+                console.log('僵尸刷新位置调整，避免重叠:', zombieX, zombieY);
             }
         }
         

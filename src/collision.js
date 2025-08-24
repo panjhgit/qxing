@@ -386,6 +386,189 @@ var CollisionSystem = {
         return true;
     },
     
+    // 检测两个对象是否重叠
+    isObjectsOverlapping: function(obj1X, obj1Y, obj1Width, obj1Height, 
+                                   obj2X, obj2Y, obj2Width, obj2Height) {
+        // 计算对象的边界
+        var obj1Left = obj1X - obj1Width / 2;
+        var obj1Right = obj1X + obj1Width / 2;
+        var obj1Top = obj1Y - obj1Height / 2;
+        var obj1Bottom = obj1Y + obj1Height / 2;
+        
+        var obj2Left = obj2X - obj2Width / 2;
+        var obj2Right = obj2X + obj2Width / 2;
+        var obj2Top = obj2Y - obj2Height / 2;
+        var obj2Bottom = obj2Y + obj2Height / 2;
+        
+        // 检查是否重叠
+        return !(obj1Right < obj2Left || obj1Left > obj2Right || 
+                 obj1Bottom < obj2Top || obj1Top > obj2Bottom);
+    },
+    
+    // 检测对象与对象列表的碰撞
+    isObjectOverlappingWithList: function(objX, objY, objWidth, objHeight, objectList) {
+        if (!objectList || objectList.length === 0) {
+            return false;
+        }
+        
+        for (var i = 0; i < objectList.length; i++) {
+            var otherObj = objectList[i];
+            if (otherObj && otherObj.x !== undefined && otherObj.y !== undefined) {
+                var otherWidth = otherObj.width || 32;
+                var otherHeight = otherObj.height || 32;
+                
+                if (this.isObjectsOverlapping(objX, objY, objWidth, objHeight,
+                                            otherObj.x, otherObj.y, otherWidth, otherHeight)) {
+                    console.log('对象重叠检测:', '位置', objX, objY, '与', otherObj.type || '对象', '重叠');
+                    return true;
+                }
+            }
+        }
+        
+        return false;
+    },
+    
+    // 获取避免重叠的移动位置
+    getNonOverlappingPosition: function(fromX, fromY, toX, toY, objectWidth, objectHeight, 
+                                       avoidObjects, buildingCollision) {
+        // 首先检查建筑物碰撞
+        if (buildingCollision && this.isObjectInBuilding(toX, toY, objectWidth, objectHeight)) {
+            // 如果目标位置在建筑物内，先处理建筑物碰撞
+            var buildingSafePos = this.getSmoothMovePosition(fromX, fromY, toX, toY, objectWidth, objectHeight);
+            toX = buildingSafePos.x;
+            toY = buildingSafePos.y;
+        }
+        
+        // 检查是否与对象重叠
+        if (!this.isObjectOverlappingWithList(toX, toY, objectWidth, objectHeight, avoidObjects)) {
+            return {x: toX, y: toY};
+        }
+        
+        // 如果重叠，尝试寻找不重叠的位置
+        var deltaX = toX - fromX;
+        var deltaY = toY - fromY;
+        var distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+        
+        if (distance === 0) {
+            return {x: fromX, y: fromY};
+        }
+        
+        // 尝试多个距离的移动
+        var testDistances = [0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1];
+        
+        for (var i = 0; i < testDistances.length; i++) {
+            var testDistance = testDistances[i];
+            var testX = fromX + deltaX * testDistance;
+            var testY = fromY + deltaY * testDistance;
+            
+            // 检查建筑物碰撞和对象重叠
+            var buildingOk = !buildingCollision || !this.isObjectInBuilding(testX, testY, objectWidth, objectHeight);
+            var overlapOk = !this.isObjectOverlappingWithList(testX, testY, objectWidth, objectHeight, avoidObjects);
+            
+            if (buildingOk && overlapOk) {
+                return {x: testX, y: testY};
+            }
+        }
+        
+        // 如果还是重叠，尝试8个方向寻找位置
+        var directions = [
+            {x: 1, y: 0}, {x: -1, y: 0}, {x: 0, y: 1}, {x: 0, y: -1},
+            {x: 0.7, y: 0.7}, {x: -0.7, y: 0.7}, {x: 0.7, y: -0.7}, {x: -0.7, y: -0.7}
+        ];
+        
+        var moveDistance = Math.min(distance, 30); // 限制移动距离
+        
+        for (var j = 0; j < directions.length; j++) {
+            var dir = directions[j];
+            var testX = fromX + dir.x * moveDistance;
+            var testY = fromY + dir.y * moveDistance;
+            
+            var buildingOk = !buildingCollision || !this.isObjectInBuilding(testX, testY, objectWidth, objectHeight);
+            var overlapOk = !this.isObjectOverlappingWithList(testX, testY, objectWidth, objectHeight, avoidObjects);
+            
+            if (buildingOk && overlapOk) {
+                return {x: testX, y: testY};
+            }
+        }
+        
+        // 如果找不到合适位置，返回原位置
+        return {x: fromX, y: fromY};
+    },
+    
+    // 检测僵尸与僵尸之间的碰撞
+    isZombieOverlappingWithZombies: function(zombieX, zombieY, zombieWidth, zombieHeight, allZombies, excludeZombieId) {
+        if (!allZombies || allZombies.length === 0) {
+            return false;
+        }
+        
+        for (var i = 0; i < allZombies.length; i++) {
+            var otherZombie = allZombies[i];
+            if (otherZombie && otherZombie.id !== excludeZombieId) {
+                var otherWidth = otherZombie.width || 32;
+                var otherHeight = otherZombie.height || 32;
+                
+                if (this.isObjectsOverlapping(zombieX, zombieY, zombieWidth, zombieHeight,
+                                            otherZombie.x, otherZombie.y, otherWidth, otherHeight)) {
+                    return true;
+                }
+            }
+        }
+        
+        return false;
+    },
+    
+    // 检测僵尸与人物之间的碰撞
+    isZombieOverlappingWithCharacters: function(zombieX, zombieY, zombieWidth, zombieHeight, allCharacters) {
+        if (!allCharacters || allCharacters.length === 0) {
+            return false;
+        }
+        
+        for (var i = 0; i < allCharacters.length; i++) {
+            var character = allCharacters[i];
+            if (character && character.x !== undefined && character.y !== undefined) {
+                var charWidth = character.width || 32;
+                var charHeight = character.height || 48;
+                
+                if (this.isObjectsOverlapping(zombieX, zombieY, zombieWidth, zombieHeight,
+                                            character.x, character.y, charWidth, charHeight)) {
+                    return true;
+                }
+            }
+        }
+        
+        return false;
+    },
+    
+    // 获取僵尸的有效移动位置（避免与建筑物、其他僵尸和人物重叠）
+    getZombieValidMovePosition: function(zombie, toX, toY, allZombies, allCharacters) {
+        var zombieWidth = zombie.width || 32;
+        var zombieHeight = zombie.height || 32;
+        
+        // 创建需要避免的对象列表
+        var avoidObjects = [];
+        
+        // 添加其他僵尸
+        if (allZombies) {
+            for (var i = 0; i < allZombies.length; i++) {
+                var otherZombie = allZombies[i];
+                if (otherZombie && otherZombie.id !== zombie.id) {
+                    avoidObjects.push(otherZombie);
+                }
+            }
+        }
+        
+        // 添加人物
+        if (allCharacters) {
+            avoidObjects = avoidObjects.concat(allCharacters);
+        }
+        
+        // 获取不重叠的移动位置
+        return this.getNonOverlappingPosition(
+            zombie.x, zombie.y, toX, toY, zombieWidth, zombieHeight, 
+            avoidObjects, true // 启用建筑物碰撞检测
+        );
+    },
+    
     // 获取当前地图信息
     getCurrentMapInfo: function() {
         return this.currentMap;
@@ -394,6 +577,28 @@ var CollisionSystem = {
     // 获取所有地图配置
     getAllMaps: function() {
         return this.maps;
+    },
+    
+    // 测试碰撞检测系统
+    testCollisionSystem: function() {
+        console.log('=== 测试碰撞检测系统 ===');
+        
+        // 测试建筑物碰撞
+        var testBuilding = this.isObjectInBuilding(1000, 1000, 32, 32);
+        console.log('测试建筑物碰撞 (1000, 1000):', testBuilding);
+        
+        // 测试对象重叠
+        var obj1 = {x: 100, y: 100, width: 32, height: 32};
+        var obj2 = {x: 120, y: 120, width: 32, height: 32};
+        var testOverlap = this.isObjectsOverlapping(100, 100, 32, 32, 120, 120, 32, 32);
+        console.log('测试对象重叠:', testOverlap);
+        
+        // 测试对象列表重叠
+        var objectList = [obj1, obj2];
+        var testListOverlap = this.isObjectOverlappingWithList(110, 110, 32, 32, objectList);
+        console.log('测试对象列表重叠:', testListOverlap);
+        
+        console.log('=== 碰撞检测系统测试完成 ===');
     },
     
     // 获取指定位置的建筑物信息

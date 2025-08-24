@@ -125,6 +125,11 @@ function initMapSystem() {
         collisionSystem.init();
         window.collisionSystem = collisionSystem;
         
+        // 测试碰撞检测系统
+        if (collisionSystem.testCollisionSystem) {
+            collisionSystem.testCollisionSystem();
+        }
+        
         // 在摄像机附近创建主人物（更容易看到）
         var spawnX = 8000, spawnY = 7500;
         
