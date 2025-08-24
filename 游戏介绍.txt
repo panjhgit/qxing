@@ -1,3 +1,8 @@
+游戏类型
+Q 版 2D 平面末日生存类游戏，基于抖音小程序开发，遵循 “轻量化”“Q 版 2D 平面风格” 核心原则
+抖音小游戏开发参考文档
+https://developer.open-douyin.com/docs/resource/zh-CN/mini-game/guide/minigame/introduction
+
 主地图元素：城镇主地图的街道上分布多个房屋图标
 （警察局、医院、学校、民房、别墅、商店、餐厅）
 固定4个警察局,其中有2个警察局
