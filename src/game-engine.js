@@ -128,39 +128,54 @@ TouchJoystick.prototype.resetJoystick = function() {
 };
 
 // 渲染摇杆
-TouchJoystick.prototype.render = function() {
-    if (!this.isVisible) return;
+TouchJoystick.prototype.render = function(ctx) {
+    if (!this.isVisible) {
+        console.log('触摸摇杆不可见，跳过渲染');
+        return;
+    }
+    
+    // 使用传入的ctx，如果没有传入则使用this.ctx
+    var renderCtx = ctx || this.ctx;
+    
+    if (!renderCtx) {
+        console.error('触摸摇杆渲染失败：没有有效的ctx');
+        return;
+    }
+    
+    console.log('触摸摇杆渲染中，位置:', this.centerX, this.centerY, '可见状态:', this.isVisible);
     
     // 绘制外圈
-    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-    this.ctx.beginPath();
-    this.ctx.arc(this.centerX, this.centerY, this.outerRadius, 0, Math.PI * 2);
-    this.ctx.fill();
+    renderCtx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+    renderCtx.beginPath();
+    renderCtx.arc(this.centerX, this.centerY, this.outerRadius, 0, Math.PI * 2);
+    renderCtx.fill();
     
     // 绘制外圈边框
-    this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-    this.ctx.lineWidth = 2;
-    this.ctx.stroke();
+    renderCtx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+    renderCtx.lineWidth = 2;
+    renderCtx.stroke();
     
     // 绘制内圈（摇杆）
     var innerX = this.centerX + this.joystickX;
     var innerY = this.centerY + this.joystickY;
     
-    this.ctx.fillStyle = this.isActive ? 'rgba(255, 255, 255, 0.9)' : 'rgba(255, 255, 255, 0.6)';
-    this.ctx.beginPath();
-    this.ctx.arc(innerX, innerY, this.innerRadius, 0, Math.PI * 2);
-    this.ctx.fill();
+    renderCtx.fillStyle = this.isActive ? 'rgba(255, 255, 255, 0.9)' : 'rgba(255, 255, 255, 0.6)';
+    renderCtx.beginPath();
+    renderCtx.arc(innerX, innerY, this.innerRadius, 0, Math.PI * 2);
+    renderCtx.fill();
     
     // 绘制内圈边框
-    this.ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
-    this.ctx.lineWidth = 1;
-    this.ctx.stroke();
+    renderCtx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
+    renderCtx.lineWidth = 1;
+    renderCtx.stroke();
     
     // 绘制中心点
-    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-    this.ctx.beginPath();
-    this.ctx.arc(this.centerX, this.centerY, 3, 0, Math.PI * 2);
-    this.ctx.fill();
+    renderCtx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+    renderCtx.beginPath();
+    renderCtx.arc(this.centerX, this.centerY, 3, 0, Math.PI * 2);
+    renderCtx.fill();
+    
+    console.log('触摸摇杆渲染完成');
 };
 
 // 显示摇杆
@@ -196,6 +211,7 @@ var GameEngine = function(canvas, ctx) {
     this.characterManager = null;
     this.menuSystem = null;
     this.eventSystem = null;
+    this.zombieManager = null;
     
     // 计时系统
     this.timeSystem = {
@@ -237,19 +253,28 @@ GameEngine.prototype.setGameState = function(newState) {
     // 根据状态显示/隐藏摇杆
     if (newState === 'playing') {
         this.joystick.show();
+        console.log('触摸摇杆已显示，状态:', this.joystick.isVisible);
+        
+        // 游戏开始时刷新初始僵尸
+        if (this.zombieManager && this.characterManager) {
+            console.log('游戏开始，刷新初始僵尸');
+            this.spawnZombiesForDay();
+        }
     } else {
         this.joystick.hide();
+        console.log('触摸摇杆已隐藏，状态:', this.joystick.isVisible);
     }
     
     console.log('游戏状态切换为:', newState);
 };
 
 // 设置系统引用
-GameEngine.prototype.setSystems = function(mapSystem, characterManager, menuSystem, eventSystem) {
+GameEngine.prototype.setSystems = function(mapSystem, characterManager, menuSystem, eventSystem, zombieManager) {
     this.mapSystem = mapSystem;
     this.characterManager = characterManager;
     this.menuSystem = menuSystem;
     this.eventSystem = eventSystem;
+    this.zombieManager = zombieManager;
     
     // 初始化视觉系统
     if (this.viewSystem && mapSystem) {
@@ -341,6 +366,11 @@ GameEngine.prototype.updateTimeSystem = function() {
             this.timeSystem.food = Math.max(0, this.timeSystem.food - teamSize);
             
             console.log('第', this.timeSystem.day, '天白天开始，团队人数:', teamSize, '剩余食物:', this.timeSystem.food);
+            
+            // 白天刷新僵尸（确保系统已初始化）
+            if (this.zombieManager && this.characterManager) {
+                this.spawnZombiesForDay();
+            }
         }
     }
 };
@@ -364,6 +394,64 @@ GameEngine.prototype.getTimeInfo = function() {
     };
 };
 
+// 白天刷新僵尸
+GameEngine.prototype.spawnZombiesForDay = function() {
+    if (!this.zombieManager || !this.characterManager) {
+        console.warn('僵尸刷新失败：系统未初始化');
+        return;
+    }
+    
+    var mainChar = this.characterManager.getMainCharacter();
+    if (!mainChar) {
+        console.warn('僵尸刷新失败：主人物未找到');
+        return;
+    }
+    
+    // 计算僵尸数量：10 * 天数
+    var zombieCount = 10 * this.timeSystem.day;
+    
+    console.log('开始刷新僵尸，主人物位置:', mainChar.x, mainChar.y, '僵尸数量:', zombieCount);
+    
+    // 清除现有僵尸
+    this.zombieManager.clearAllZombies();
+    
+    // 生成僵尸
+    for (var i = 0; i < zombieCount; i++) {
+        try {
+            // 在距离主人物700px的位置随机生成
+            var angle = (Math.PI * 2 * i) / zombieCount; // 均匀分布
+            var distance = 700 + Math.random() * 100; // 700-800px之间
+            
+            var zombieX = mainChar.x + Math.cos(angle) * distance;
+            var zombieY = mainChar.y + Math.sin(angle) * distance;
+            
+            // 随机选择僵尸类型
+            var zombieTypes = ['skinny', 'fat', 'fast', 'tank', 'boss'];
+            var randomType = zombieTypes[Math.floor(Math.random() * zombieTypes.length)];
+            
+            // 确保僵尸类型有效
+            if (!randomType) {
+                randomType = 'skinny'; // 默认类型
+            }
+            
+            console.log('创建僵尸:', randomType, '位置:', zombieX, zombieY);
+            
+            // 创建僵尸
+            var zombie = this.zombieManager.createZombie(randomType, zombieX, zombieY);
+            
+            if (zombie) {
+                console.log('僵尸创建成功，ID:', zombie.id);
+            } else {
+                console.warn('僵尸创建失败');
+            }
+        } catch (error) {
+            console.error('创建僵尸时出错:', error);
+        }
+    }
+    
+    console.log('僵尸刷新完成，当前僵尸数量:', this.zombieManager.getZombieCount());
+};
+
 // 游戏循环更新
 GameEngine.prototype.update = function() {
     // 更新触摸摇杆控制的角色移动
@@ -371,6 +459,17 @@ GameEngine.prototype.update = function() {
     
     // 更新计时系统
     this.updateTimeSystem();
+    
+    // 更新僵尸
+    if (this.zombieManager) {
+        try {
+            var characters = this.characterManager ? this.characterManager.getAllCharacters() : [];
+            console.log('更新僵尸，角色数量:', characters.length, '僵尸数量:', this.zombieManager.getZombieCount());
+            this.zombieManager.updateAllZombies(characters, 1/60);
+        } catch (error) {
+            console.error('更新僵尸时出错:', error);
+        }
+    }
     
     // 更新视觉系统
     if (this.viewSystem) {
@@ -394,8 +493,10 @@ GameEngine.prototype.render = function() {
             // 渲染角色
             this.viewSystem.renderCharacters(this.characterManager);
             
-            // 渲染僵尸（如果有的话）
-            // this.viewSystem.renderZombies(this.zombieManager);
+            // 渲染僵尸
+            if (this.zombieManager) {
+                this.viewSystem.renderZombies(this.zombieManager);
+            }
             
             // 渲染触摸摇杆
             this.viewSystem.renderJoystick(this.joystick);

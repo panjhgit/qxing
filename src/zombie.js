@@ -372,9 +372,10 @@ Zombie.prototype.drawHealthBar = function(ctx, x, y) {
 var ZombieManager = {
     zombies: [],
     spawnTimer: 0,
-    spawnInterval: 5000, // 5秒生成一个僵尸
-    maxZombies: 20,
+    spawnInterval: 1000, // 1秒生成一个僵尸
+    maxZombies: 100,     // 增加最大僵尸数量
     difficulty: 1,
+    lastSpawnDay: 0,     // 上次刷新的天数
     
     // 创建僵尸
     createZombie: function(type, x, y) {
@@ -424,13 +425,6 @@ var ZombieManager = {
     
     // 更新所有僵尸
     updateAllZombies: function(characters, deltaTime) {
-        // 生成新僵尸
-        this.spawnTimer += deltaTime;
-        if (this.spawnTimer >= this.spawnInterval) {
-            this.spawnRandomZombie(10000, 10000); // 地图尺寸
-            this.spawnTimer = 0;
-        }
-        
         // 更新僵尸
         this.zombies.forEach(zombie => {
             zombie.update(characters, deltaTime);
@@ -450,6 +444,11 @@ var ZombieManager = {
     // 获取僵尸数量
     getZombieCount: function() {
         return this.zombies.length;
+    },
+    
+    // 获取所有僵尸
+    getAllZombies: function() {
+        return this.zombies;
     },
     
     // 清除所有僵尸

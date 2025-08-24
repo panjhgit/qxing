@@ -3,6 +3,7 @@ import eventPrototype from './src/event.js';
 import mapPrototype from './src/map.js';
 import menuPrototype from './src/menu.js';
 import { CharacterManager } from './src/character.js';
+import { ZombieManager } from './src/zombie.js';
 import GameEngine from './src/game-engine.js';
 import ViewSystem from './src/view.js';
 
@@ -114,6 +115,9 @@ function initMapSystem() {
         // 初始化角色管理器
         characterManager = Object.create(CharacterManager);
         
+        // 初始化僵尸管理器
+        var zombieManager = Object.create(ZombieManager);
+        
         // 在摄像机附近创建主人物（更容易看到）
         var mainChar = characterManager.createMainCharacter(8000, 7500);
         
@@ -121,7 +125,7 @@ function initMapSystem() {
         mapSystem.characterManager = characterManager;
         
         // 设置游戏引擎的系统引用
-        gameEngine.setSystems(mapSystem, characterManager, menuSystem, eventSystem);
+        gameEngine.setSystems(mapSystem, characterManager, menuSystem, eventSystem, zombieManager);
         
         // 切换到游戏状态
         gameEngine.setGameState('playing');
@@ -131,6 +135,7 @@ function initMapSystem() {
         console.log('主人物对象:', mainChar);
         console.log('角色管理器中的角色数量:', characterManager.getAllCharacters().length);
         console.log('地图系统的角色管理器:', mapSystem.characterManager);
+        console.log('僵尸管理器已初始化');
         
     } catch (error) {
         showMapSystemError();
