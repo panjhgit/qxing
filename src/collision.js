@@ -240,15 +240,150 @@ var CollisionSystem = {
         return {x: 100, y: 100};
     },
     
-    // 获取有效的移动位置
+    // 获取有效的移动位置（改进版：支持平滑滑动）
     getValidMovePosition: function(fromX, fromY, toX, toY, objectWidth, objectHeight) {
         // 检查目标位置是否安全
         if (!this.isObjectInBuilding(toX, toY, objectWidth, objectHeight)) {
             return {x: toX, y: toY};
         }
         
-        // 如果目标位置不安全，返回起点
+        // 如果目标位置不安全，尝试分别移动X和Y轴
+        var newX = fromX;
+        var newY = fromY;
+        
+        // 尝试只移动X轴
+        var testX = toX;
+        var testY = fromY;
+        if (!this.isObjectInBuilding(testX, testY, objectWidth, objectHeight)) {
+            newX = testX;
+        }
+        
+        // 尝试只移动Y轴
+        var testX2 = fromX;
+        var testY2 = toY;
+        if (!this.isObjectInBuilding(testX2, testY2, objectWidth, objectHeight)) {
+            newY = testY2;
+        }
+        
+        // 如果X和Y都不能移动，尝试对角线移动（距离减半）
+        if (newX === fromX && newY === fromY) {
+            var halfDistanceX = (toX - fromX) * 0.5;
+            var halfDistanceY = (toY - fromY) * 0.5;
+            
+            var testX3 = fromX + halfDistanceX;
+            var testY3 = fromY + halfDistanceY;
+            
+            if (!this.isObjectInBuilding(testX3, testY3, objectWidth, objectHeight)) {
+                newX = testX3;
+                newY = testY3;
+            }
+        }
+        
+        return {x: newX, y: newY};
+    },
+    
+    // 获取平滑的移动位置（更智能的碰撞响应）
+    getSmoothMovePosition: function(fromX, fromY, toX, toY, objectWidth, objectHeight) {
+        // 检查目标位置是否安全
+        if (!this.isObjectInBuilding(toX, toY, objectWidth, objectHeight)) {
+            return {x: toX, y: toY};
+        }
+        
+        // 计算移动向量
+        var deltaX = toX - fromX;
+        var deltaY = toY - fromY;
+        var distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+        
+        if (distance === 0) {
+            return {x: fromX, y: fromY};
+        }
+        
+        // 尝试多个距离的移动，找到最远的可行位置
+        var testDistances = [0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1];
+        
+        for (var i = 0; i < testDistances.length; i++) {
+            var testDistance = testDistances[i];
+            var testX = fromX + deltaX * testDistance;
+            var testY = fromY + deltaY * testDistance;
+            
+            if (!this.isObjectInBuilding(testX, testY, objectWidth, objectHeight)) {
+                return {x: testX, y: testY};
+            }
+        }
+        
+        // 如果都不能移动，尝试分别移动X和Y轴
+        var result = this.getValidMovePosition(fromX, fromY, toX, toY, objectWidth, objectHeight);
+        
+        // 如果还是不能移动，尝试寻找附近的可行位置
+        if (result.x === fromX && result.y === fromY) {
+            result = this.findNearestSafePosition(fromX, fromY, toX, toY, objectWidth, objectHeight);
+        }
+        
+        return result;
+    },
+    
+    // 寻找最近的可行位置（沿着建筑物边缘）
+    findNearestSafePosition: function(fromX, fromY, toX, toY, objectWidth, objectHeight) {
+        var deltaX = toX - fromX;
+        var deltaY = toY - fromY;
+        var distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+        
+        if (distance === 0) {
+            return {x: fromX, y: fromY};
+        }
+        
+        // 尝试8个方向的移动
+        var directions = [
+            {x: 1, y: 0},   // 右
+            {x: -1, y: 0},  // 左
+            {x: 0, y: 1},   // 下
+            {x: 0, y: -1},  // 上
+            {x: 0.7, y: 0.7},   // 右下
+            {x: -0.7, y: 0.7},  // 左下
+            {x: 0.7, y: -0.7},  // 右上
+            {x: -0.7, y: -0.7}  // 左上
+        ];
+        
+        var moveDistance = Math.min(distance, 50); // 限制移动距离，避免跳跃太远
+        
+        for (var i = 0; i < directions.length; i++) {
+            var dir = directions[i];
+            var testX = fromX + dir.x * moveDistance;
+            var testY = fromY + dir.y * moveDistance;
+            
+            if (!this.isObjectInBuilding(testX, testY, objectWidth, objectHeight)) {
+                return {x: testX, y: testY};
+            }
+        }
+        
+        // 如果8个方向都不能移动，返回原位置
         return {x: fromX, y: fromY};
+    },
+    
+    // 检测移动路径是否有效（改进版：支持部分移动）
+    isMovePathValid: function(fromX, fromY, toX, toY, objectWidth, objectHeight) {
+        // 检查起点和终点
+        if (this.isObjectInBuilding(fromX, fromY, objectWidth, objectHeight)) {
+            return false;
+        }
+        
+        if (this.isObjectInBuilding(toX, toY, objectWidth, objectHeight)) {
+            return false;
+        }
+        
+        // 检查路径中间点（简单的线性插值检查）
+        var steps = 5;
+        for (var i = 1; i < steps; i++) {
+            var t = i / steps;
+            var testX = fromX + (toX - fromX) * t;
+            var testY = fromY + (toY - fromY) * t;
+            
+            if (this.isObjectInBuilding(testX, testY, objectWidth, objectHeight)) {
+                return false;
+            }
+        }
+        
+        return true;
     },
     
     // 获取当前地图信息

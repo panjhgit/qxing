@@ -324,17 +324,24 @@ GameEngine.prototype.updateJoystickMovement = function() {
     var newX = mainChar.x + direction.x * moveSpeed;
     var newY = mainChar.y + direction.y * moveSpeed;
     
-    // 检查移动位置是否在建筑物内
-    if (this.collisionSystem && this.collisionSystem.isObjectInBuilding) {
-        if (this.collisionSystem.isObjectInBuilding(newX, newY, mainChar.width, mainChar.height)) {
-            // 如果新位置在建筑物内，不移动
-            console.log('移动位置在建筑物内，阻止移动');
-            return;
+    // 使用平滑碰撞检测获取有效移动位置
+    if (this.collisionSystem && this.collisionSystem.getSmoothMovePosition) {
+        var validPosition = this.collisionSystem.getSmoothMovePosition(
+            mainChar.x, mainChar.y, newX, newY, mainChar.width, mainChar.height
+        );
+        
+        // 如果位置有变化，说明发生了碰撞调整
+        if (validPosition.x !== newX || validPosition.y !== newY) {
+            console.log('碰撞检测调整移动位置:', 
+                '从', newX, newY, '到', validPosition.x, validPosition.y);
         }
+        
+        // 移动主人物到调整后的位置
+        mainChar.move(validPosition.x, validPosition.y);
+    } else {
+        // 如果没有碰撞检测系统，直接移动
+        mainChar.move(newX, newY);
     }
-    
-    // 移动主人物
-    mainChar.move(newX, newY);
     
     // 更新状态
     if (Math.abs(direction.x) > 0.1 || Math.abs(direction.y) > 0.1) {
