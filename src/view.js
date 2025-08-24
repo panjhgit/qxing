@@ -137,7 +137,7 @@ var ViewSystem = function(canvas, ctx) {
     
     // 渲染设置
     this.renderDistance = 1000; // 渲染距离
-    this.showDebugInfo = true; // 是否显示调试信息
+    this.showDebugInfo = false; // 不显示调试信息
 };
 
 // 初始化视觉系统
@@ -483,6 +483,43 @@ ViewSystem.prototype.renderDebugInfo = function() {
     this.ctx.fillText('屏幕尺寸: ' + this.canvas.width + ' x ' + this.canvas.height, 15, 60);
     this.ctx.fillText('地图尺寸: ' + this.camera.mapWidth + ' x ' + this.camera.mapHeight, 15, 75);
     this.ctx.fillText('渲染距离: ' + this.renderDistance, 15, 90);
+};
+
+// 渲染时间信息（左上角）
+ViewSystem.prototype.renderTimeInfo = function(gameEngine) {
+    if (!gameEngine || !gameEngine.getTimeInfo) return;
+    
+    var timeInfo = gameEngine.getTimeInfo();
+    
+    // 绘制背景面板
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+    this.ctx.fillRect(10, 10, 180, 60);
+    
+    // 绘制边框
+    this.ctx.strokeStyle = timeInfo.isDay ? '#FFD700' : '#4169E1';
+    this.ctx.lineWidth = 2;
+    this.ctx.strokeRect(10, 10, 180, 60);
+    
+    // 设置文字样式
+    this.ctx.fillStyle = '#FFFFFF';
+    this.ctx.font = 'bold 16px Arial';
+    this.ctx.textAlign = 'left';
+    
+    // 显示天数
+    var dayText = '第 ' + timeInfo.day + ' 天';
+    var timeText = timeInfo.isDay ? '☀️ 白天' : '🌙 夜晚';
+    this.ctx.fillText(dayText, 20, 30);
+    this.ctx.fillText(timeText, 20, 50);
+    
+    // 显示团队人数和食物数量
+    var teamText = '👥 团队: ' + timeInfo.teamSize + ' 人';
+    var foodText = '🍖 食物: ' + timeInfo.food;
+    
+    this.ctx.fillStyle = '#FFFFFF';
+    this.ctx.fillText(teamText, 20, 70);
+    
+    this.ctx.fillStyle = timeInfo.food > 0 ? '#00FF00' : '#FF0000';
+    this.ctx.fillText(foodText, 120, 70);
 };
 
 // 导出

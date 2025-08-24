@@ -197,6 +197,14 @@ var GameEngine = function(canvas, ctx) {
     this.menuSystem = null;
     this.eventSystem = null;
     
+    // 计时系统
+    this.timeSystem = {
+        day: 1,              // 当前天数
+        isDay: true,         // 是否为白天
+        dayTime: 0,          // 当前时段计时器（0-30秒）
+        food: 5              // 食物数量
+    };
+    
     // 初始化
     this.init();
 };
@@ -308,10 +316,61 @@ GameEngine.prototype.getJoystick = function() {
     return this.joystick;
 };
 
+// 更新计时系统
+GameEngine.prototype.updateTimeSystem = function() {
+    if (this.gameState !== 'playing') return;
+    
+    // 每帧增加时间（假设60帧=1秒）
+    this.timeSystem.dayTime += 1/60;
+    
+    // 每30秒切换一次
+    if (this.timeSystem.dayTime >= 30) {
+        this.timeSystem.dayTime = 0;
+        
+        if (this.timeSystem.isDay) {
+            // 白天变夜晚
+            this.timeSystem.isDay = false;
+            console.log('第', this.timeSystem.day, '天夜晚开始');
+        } else {
+            // 夜晚变白天，天数+1
+            this.timeSystem.isDay = true;
+            this.timeSystem.day++;
+            
+            // 减少食物（每人消耗1个）
+            var teamSize = this.getTeamSize();
+            this.timeSystem.food = Math.max(0, this.timeSystem.food - teamSize);
+            
+            console.log('第', this.timeSystem.day, '天白天开始，团队人数:', teamSize, '剩余食物:', this.timeSystem.food);
+        }
+    }
+};
+
+// 获取团队人数
+GameEngine.prototype.getTeamSize = function() {
+    if (!this.characterManager) return 0;
+    
+    var characters = this.characterManager.getAllCharacters();
+    return characters.length;
+};
+
+// 获取时间系统信息
+GameEngine.prototype.getTimeInfo = function() {
+    return {
+        day: this.timeSystem.day,
+        isDay: this.timeSystem.isDay,
+        dayTime: this.timeSystem.dayTime,
+        food: this.timeSystem.food,
+        teamSize: this.getTeamSize()
+    };
+};
+
 // 游戏循环更新
 GameEngine.prototype.update = function() {
     // 更新触摸摇杆控制的角色移动
     this.updateJoystickMovement();
+    
+    // 更新计时系统
+    this.updateTimeSystem();
     
     // 更新视觉系统
     if (this.viewSystem) {
@@ -340,6 +399,9 @@ GameEngine.prototype.render = function() {
             
             // 渲染触摸摇杆
             this.viewSystem.renderJoystick(this.joystick);
+            
+            // 渲染时间信息（左上角）
+            this.viewSystem.renderTimeInfo(this);
             
             // 渲染调试信息
             this.viewSystem.renderDebugInfo();
