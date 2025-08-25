@@ -233,6 +233,9 @@ var GameEngine = function(canvas, ctx) {
         food: 5              // 食物数量
     };
     
+    // 帧计数器（用于定期执行某些操作）
+    this.frameCount = 0;
+    
     // 初始化
     this.init();
 };
@@ -510,6 +513,9 @@ GameEngine.prototype.spawnZombiesForDay = function() {
 
 // 游戏循环更新
 GameEngine.prototype.update = function() {
+    // 增加帧计数器
+    this.frameCount++;
+    
     // 更新触摸摇杆控制的角色移动
     this.updateJoystickMovement();
     
@@ -520,6 +526,14 @@ GameEngine.prototype.update = function() {
     if (this.zombieManager) {
         var characters = this.characterManager ? this.characterManager.getAllCharacters() : [];
         this.zombieManager.updateAllZombies(characters, 1/60);
+        
+        // 每60帧（1秒）执行一次紧急分离，防止僵尸重叠卡死
+        if (this.frameCount % 60 === 0) {
+            var allZombies = this.zombieManager.getAllZombies().filter(z => z.hp > 0);
+            if (this.collisionSystem && this.collisionSystem.emergencySeparation) {
+                this.collisionSystem.emergencySeparation(allZombies, characters);
+            }
+        }
     }
     
     // 更新视觉系统
