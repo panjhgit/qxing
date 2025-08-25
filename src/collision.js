@@ -570,8 +570,13 @@ var CollisionSystem = {
             var testX = fromX + deltaX * testDistance;
             var testY = fromY + deltaY * testDistance;
             
-            if (!this.isObjectInBuilding(testX, testY, objectWidth, objectHeight)) {
-                return { x: testX, y: testY };
+            // 添加边界检查
+            if (testX >= 0 && testX < this.currentMap.mapWidth && 
+                testY >= 0 && testY < this.currentMap.mapHeight) {
+                
+                if (!this.isObjectInBuilding(testX, testY, objectWidth, objectHeight)) {
+                    return { x: testX, y: testY };
+                }
             }
         }
         
@@ -656,8 +661,13 @@ var CollisionSystem = {
             var testX = fromX + dir.x * moveDistance;
             var testY = fromY + dir.y * moveDistance;
             
-            if (!this.isObjectInBuilding(testX, testY, objectWidth, objectHeight)) {
-                return { x: testX, y: testY };
+            // 添加边界检查
+            if (testX >= 0 && testX < this.currentMap.mapWidth && 
+                testY >= 0 && testY < this.currentMap.mapHeight) {
+                
+                if (!this.isObjectInBuilding(testX, testY, objectWidth, objectHeight)) {
+                    return { x: testX, y: testY };
+                }
             }
         }
         

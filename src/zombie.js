@@ -304,7 +304,7 @@ Zombie.prototype.moveTowards = function(targetX, targetY, deltaTime) {
         
         console.log('僵尸', this.type, '移动计算:', '从', this.x, this.y, '到', newX, newY, '移动距离:', moveDistance);
         
-        // 使用四叉树碰撞检测系统获取有效移动位置，实现平滑绕开障碍物
+        // 使用碰撞检测获取有效移动位置，实现平滑绕开障碍物
         if (window.collisionSystem && window.collisionSystem.getZombieValidMovePosition) {
             // 获取所有僵尸和人物列表（排除自己）
             var allZombies = [];
@@ -320,14 +320,14 @@ Zombie.prototype.moveTowards = function(targetX, targetY, deltaTime) {
                 allCharacters = window.characterManager.getAllCharacters();
             }
             
-            // 使用四叉树优化的碰撞检测获取避免重叠的移动位置
+            // 获取避免重叠的移动位置，启用平滑移动
             var validPosition = window.collisionSystem.getZombieValidMovePosition(
                 this, newX, newY, allZombies, allCharacters
             );
             
             // 如果位置有调整，说明发生了碰撞，尝试平滑绕开
             if (validPosition.x !== newX || validPosition.y !== newY) {
-                console.log('僵尸四叉树碰撞检测调整:', this.type, '从', newX, newY, '到', validPosition.x, validPosition.y);
+                console.log('僵尸碰撞检测调整:', this.type, '从', newX, newY, '到', validPosition.x, validPosition.y);
                 
                 // 尝试寻找平滑的绕行路径
                 if (window.collisionSystem.findNearestSafePosition) {
