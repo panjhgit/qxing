@@ -60,9 +60,10 @@ Zombie.prototype.setupProperties = function() {
             this.hp = 30;
             this.maxHp = 30;
             this.attack = 15;
-            this.moveSpeed = 1.5;
+            this.moveSpeed = 120; // 与人物相同的移动速度 (2 * 60帧)
             this.attackRange = 40;
             this.detectionRange = 200;
+            this.mainCharacterDetectionRange = 1000; // 对主人物的检测范围
             this.icon = '🧟‍♂️';
             this.color = '#8B4513';
             this.size = 24;
@@ -74,9 +75,10 @@ Zombie.prototype.setupProperties = function() {
             this.hp = 60;
             this.maxHp = 60;
             this.attack = 25;
-            this.moveSpeed = 0.8;
+            this.moveSpeed = 120; // 与人物相同的移动速度 (2 * 60帧)
             this.attackRange = 50;
             this.detectionRange = 180;
+            this.mainCharacterDetectionRange = 1000; // 对主人物的检测范围
             this.icon = '🧟‍♂️';
             this.color = '#654321';
             this.size = 32;
@@ -88,9 +90,10 @@ Zombie.prototype.setupProperties = function() {
             this.hp = 200;
             this.maxHp = 200;
             this.attack = 50;
-            this.moveSpeed = 1.2;
+            this.moveSpeed = 120; // 与人物相同的移动速度 (2 * 60帧)
             this.attackRange = 80;
             this.detectionRange = 300;
+            this.mainCharacterDetectionRange = 1000; // 对主人物的检测范围
             this.icon = '🧟‍♂️';
             this.color = '#8B0000';
             this.size = 48;
@@ -102,9 +105,10 @@ Zombie.prototype.setupProperties = function() {
             this.hp = 20;
             this.maxHp = 20;
             this.attack = 10;
-            this.moveSpeed = 3.0;
+            this.moveSpeed = 120; // 与人物相同的移动速度 (2 * 60帧)
             this.attackRange = 30;
             this.detectionRange = 250;
+            this.mainCharacterDetectionRange = 1000; // 对主人物的检测范围
             this.icon = '🧟‍♂️';
             this.color = '#228B22';
             this.size = 20;
@@ -116,9 +120,10 @@ Zombie.prototype.setupProperties = function() {
             this.hp = 150;
             this.maxHp = 150;
             this.attack = 35;
-            this.moveSpeed = 0.5;
+            this.moveSpeed = 120; // 与人物相同的移动速度 (2 * 60帧)
             this.attackRange = 60;
             this.detectionRange = 150;
+            this.mainCharacterDetectionRange = 1000; // 对主人物的检测范围
             this.icon = '🧟‍♂️';
             this.color = '#2F4F4F';
             this.size = 40;
@@ -130,9 +135,10 @@ Zombie.prototype.setupProperties = function() {
             this.hp = 40;
             this.maxHp = 40;
             this.attack = 20;
-            this.moveSpeed = 1.0;
+            this.moveSpeed = 120; // 与人物相同的移动速度 (2 * 60帧)
             this.attackRange = 45;
             this.detectionRange = 200;
+            this.mainCharacterDetectionRange = 1000; // 对主人物的检测范围
             this.icon = '🧟‍♂️';
             this.color = '#696969';
             this.size = 28;
@@ -173,6 +179,35 @@ Zombie.prototype.update = function(characters, deltaTime) {
 
 // 寻找目标
 Zombie.prototype.findTarget = function(characters) {
+    // 寻找主人物作为目标
+    var mainCharacter = null;
+    characters.forEach(character => {
+        if (character.hp > 0 && character.role === 1) { // 主人物
+            mainCharacter = character;
+        }
+    });
+    
+    if (mainCharacter) {
+        var distance = this.getDistanceTo(mainCharacter);
+        
+        // 使用配置的检测范围主动追击主人物
+        if (distance <= this.mainCharacterDetectionRange) {
+            this.targetCharacter = mainCharacter;
+            this.targetX = mainCharacter.x;
+            this.targetY = mainCharacter.y;
+            
+            if (distance <= this.attackRange) {
+                this.state = ZOMBIE_STATE.ATTACKING;
+            } else {
+                this.state = ZOMBIE_STATE.CHASING;
+            }
+            
+            console.log('僵尸', this.type, '发现主人物，距离:', distance, '状态:', this.state);
+            return;
+        }
+    }
+    
+    // 如果没有主人物目标，寻找其他角色
     if (this.targetCharacter && this.targetCharacter.hp > 0) {
         var distance = this.getDistanceTo(this.targetCharacter);
         if (distance <= this.detectionRange) {
@@ -218,6 +253,8 @@ Zombie.prototype.chaseTarget = function(deltaTime) {
         this.state = ZOMBIE_STATE.ATTACKING;
         return;
     }
+    
+    console.log('僵尸', this.type, '追击中，距离目标:', distance, '移动速度:', this.moveSpeed);
     
     // 移动向目标
     this.moveTowards(this.targetX, this.targetY, deltaTime);
@@ -265,15 +302,17 @@ Zombie.prototype.moveTowards = function(targetX, targetY, deltaTime) {
         var newX = this.x + (deltaX / distance) * moveDistance;
         var newY = this.y + (deltaY / distance) * moveDistance;
         
-        // 使用碰撞检测获取有效移动位置
+        console.log('僵尸', this.type, '移动计算:', '从', this.x, this.y, '到', newX, newY, '移动距离:', moveDistance);
+        
+        // 使用碰撞检测获取有效移动位置，实现平滑绕开障碍物
         if (window.collisionSystem && window.collisionSystem.getZombieValidMovePosition) {
-            // 获取所有僵尸和人物列表
+            // 获取所有僵尸和人物列表（排除自己）
             var allZombies = [];
             var allCharacters = [];
             
-            // 从僵尸管理器获取所有僵尸
+            // 从僵尸管理器获取所有僵尸（排除自己）
             if (window.zombieManager && window.zombieManager.getAllZombies) {
-                allZombies = window.zombieManager.getAllZombies();
+                allZombies = window.zombieManager.getAllZombies().filter(z => z.hp > 0 && z.id !== this.id);
             }
             
             // 从角色管理器获取所有人物
@@ -281,14 +320,29 @@ Zombie.prototype.moveTowards = function(targetX, targetY, deltaTime) {
                 allCharacters = window.characterManager.getAllCharacters();
             }
             
-            // 获取避免重叠的移动位置
+            // 获取避免重叠的移动位置，启用平滑移动
             var validPosition = window.collisionSystem.getZombieValidMovePosition(
                 this, newX, newY, allZombies, allCharacters
             );
             
-            // 如果位置有调整，说明发生了碰撞
+            // 如果位置有调整，说明发生了碰撞，尝试平滑绕开
             if (validPosition.x !== newX || validPosition.y !== newY) {
                 console.log('僵尸碰撞检测调整:', this.type, '从', newX, newY, '到', validPosition.x, validPosition.y);
+                
+                // 尝试寻找平滑的绕行路径
+                if (window.collisionSystem.findNearestSafePosition) {
+                    var smoothPosition = window.collisionSystem.findNearestSafePosition(
+                        this.x, this.y, newX, newY, this.width, this.height
+                    );
+                    
+                    if (smoothPosition && smoothPosition.x !== this.x && smoothPosition.y !== this.y) {
+                        // 使用平滑位置
+                        this.x = smoothPosition.x;
+                        this.y = smoothPosition.y;
+                        console.log('僵尸平滑绕行到:', smoothPosition.x, smoothPosition.y);
+                        return;
+                    }
+                }
             }
             
             // 移动到有效位置
@@ -520,6 +574,8 @@ var ZombieManager = {
     
     // 更新所有僵尸
     updateAllZombies: function(characters, deltaTime) {
+        console.log('更新僵尸，数量:', this.zombies.length, '角色数量:', characters.length);
+        
         // 更新僵尸
         this.zombies.forEach(zombie => {
             zombie.update(characters, deltaTime);
