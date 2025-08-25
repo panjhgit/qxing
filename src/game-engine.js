@@ -522,6 +522,13 @@ GameEngine.prototype.update = function() {
     // 更新计时系统
     this.updateTimeSystem();
     
+    // 重建动态四叉树（每帧更新，支持实时碰撞检测）
+    if (this.collisionSystem && this.collisionSystem.rebuildDynamicQuadTree) {
+        var characters = this.characterManager ? this.characterManager.getAllCharacters() : [];
+        var zombies = this.zombieManager ? this.zombieManager.getAllZombies().filter(z => z.hp > 0) : [];
+        this.collisionSystem.rebuildDynamicQuadTree(characters, zombies);
+    }
+    
     // 更新僵尸
     if (this.zombieManager) {
         var characters = this.characterManager ? this.characterManager.getAllCharacters() : [];
