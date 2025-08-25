@@ -459,8 +459,7 @@ GameEngine.prototype.spawnZombiesForDay = function() {
     // 计算僵尸数量：10 * 天数
     var zombieCount = 10 * this.timeSystem.day;
     
-    // 清除现有僵尸
-    this.zombieManager.clearAllZombies();
+    // 不清除现有僵尸，只添加新的僵尸
     
     // 生成僵尸
     for (var i = 0; i < zombieCount; i++) {
