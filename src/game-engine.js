@@ -863,13 +863,7 @@ GameEngine.prototype.update = function() {
         
         this.zombieManager.updateAllZombies(characters, deltaTime);
         
-        // 每60帧（1秒）执行一次紧急分离，防止僵尸重叠卡死
-        if (this.frameCount % 60 === 0) {
-            var allZombies = this.zombieManager.getAllZombies().filter(z => z.hp > 0);
-            if (this.collisionSystem && this.collisionSystem.emergencySeparation) {
-                this.collisionSystem.emergencySeparation(allZombies, characters);
-            }
-        }
+
     }
     
     // 更新动态障碍物

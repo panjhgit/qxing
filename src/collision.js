@@ -1031,6 +1031,228 @@ var CollisionSystem = {
         return {x: fromX, y: fromY, safe: false, source: 'blocked'};
     },
 
+    // 简洁高效的碰撞检测和移动系统
+    // 核心原则：不能重叠、不能穿墙、平滑移动
+    
+    // 检测两个矩形是否重叠
+    isRectOverlapping: function (rect1, rect2) {
+        return !(rect1.right <= rect2.left || rect1.left >= rect2.right || rect1.bottom <= rect2.top || rect1.top >= rect2.bottom);
+    },
+    
+    // 检测对象是否与建筑物碰撞
+    isObjectCollidingWithBuildings: function (x, y, width, height) {
+        if (!this._collisionEnabled) return false;
+        
+        // 计算对象边界
+        var objBounds = {
+            left: x - width / 2,
+            right: x + width / 2,
+            top: y - height / 2,
+            bottom: y + height / 2
+        };
+        
+        // 获取地图信息
+        var currentMap = this.getCurrentMap();
+        if (!currentMap) return false;
+        
+        // 边界检查
+        var mapWidth = currentMap.config ? currentMap.config.width : 4000;
+        var mapHeight = currentMap.config ? currentMap.config.height : 4000;
+        
+        if (objBounds.left < 0 || objBounds.top < 0 || objBounds.right >= mapWidth || objBounds.bottom >= mapHeight) {
+            return true; // 超出地图边界
+        }
+        
+        // 检查建筑物碰撞
+        if (currentMap.buildings) {
+            for (var i = 0; i < currentMap.buildings.length; i++) {
+                var building = currentMap.buildings[i];
+                if (building && building.bounds && this.isRectOverlapping(objBounds, building.bounds)) {
+                    return true;
+                }
+            }
+        }
+        
+        return false;
+    },
+    
+    // 检测对象是否与其他对象重叠
+    isObjectOverlappingWithOthers: function (x, y, width, height, excludeObject = null) {
+        if (!this.dynamicQuadTree) return false;
+        
+        var objBounds = {
+            left: x - width / 2,
+            right: x + width / 2,
+            top: y - height / 2,
+            bottom: y + height / 2
+        };
+        
+        var nearbyObjects = this.dynamicQuadTree.query(objBounds);
+        
+        for (var i = 0; i < nearbyObjects.length; i++) {
+            var other = nearbyObjects[i];
+            if (other === excludeObject || !other || other.hp <= 0) continue;
+            
+            var otherBounds = {
+                left: other.x - (other.width || 32) / 2,
+                right: other.x + (other.width || 32) / 2,
+                top: other.y - (other.height || 32) / 2,
+                bottom: other.y + (other.height || 32) / 2
+            };
+            
+            if (this.isRectOverlapping(objBounds, otherBounds)) {
+                return true;
+            }
+        }
+        
+        return false;
+    },
+    
+    // 获取安全的移动位置（核心移动逻辑 + 墙体滑动）
+    getSafeMovePosition: function (fromX, fromY, toX, toY, width, height, excludeObject = null) {
+        // 如果目标位置完全安全，直接返回
+        if (!this.isObjectCollidingWithBuildings(toX, toY, width, height) && 
+            !this.isObjectOverlappingWithOthers(toX, toY, width, height, excludeObject)) {
+            return {x: toX, y: toY, safe: true, source: 'direct'};
+        }
+        
+        // 计算移动向量
+        var deltaX = toX - fromX;
+        var deltaY = toY - fromY;
+        var distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+        
+        if (distance === 0) {
+            return {x: fromX, y: fromY, safe: true, source: 'no_movement'};
+        }
+        
+        // 尝试找到最远的可移动位置
+        var bestX = fromX;
+        var bestY = fromY;
+        var bestDistance = 0;
+        
+        // 使用二分查找找到最佳位置
+        var minDistance = 0;
+        var maxDistance = distance;
+        var stepSize = 4; // 4像素的精度
+        
+        while (maxDistance - minDistance > stepSize) {
+            var testDistance = (minDistance + maxDistance) / 2;
+            var testX = fromX + (deltaX / distance) * testDistance;
+            var testY = fromY + (deltaY / distance) * testDistance;
+            
+            if (!this.isObjectCollidingWithBuildings(testX, testY, width, height) && 
+                !this.isObjectOverlappingWithOthers(testX, testY, width, height, excludeObject)) {
+                // 这个位置安全，尝试更远
+                minDistance = testDistance;
+                bestX = testX;
+                bestY = testY;
+                bestDistance = testDistance;
+            } else {
+                // 这个位置不安全，尝试更近
+                maxDistance = testDistance;
+            }
+        }
+        
+        // 如果找到了可移动位置
+        if (bestDistance > 0) {
+            return {x: bestX, y: bestY, safe: true, source: 'partial_move', distance: bestDistance};
+        }
+        
+        // 如果完全无法移动，尝试墙体滑动
+        return this.getWallSlidePosition(fromX, fromY, toX, toY, width, height, excludeObject);
+    },
+    
+    // 墙体滑动：让角色贴着建筑物边缘平滑移动
+    getWallSlidePosition: function (fromX, fromY, toX, toY, width, height, excludeObject) {
+        // 计算移动向量
+        var deltaX = toX - fromX;
+        var deltaY = toY - fromY;
+        var distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+        
+        if (distance === 0) {
+            return {x: fromX, y: fromY, safe: false, source: 'no_movement'};
+        }
+        
+        // 尝试X轴滑动（水平移动）
+        var slideX = this.tryAxisSlide(fromX, fromY, toX, toY, width, height, true, excludeObject);
+        if (slideX.safe && slideX.distance > 0) {
+            return slideX;
+        }
+        
+        // 尝试Y轴滑动（垂直移动）
+        var slideY = this.tryAxisSlide(fromX, fromY, toX, toY, width, height, false, excludeObject);
+        if (slideY.safe && slideY.distance > 0) {
+            return slideY;
+        }
+        
+        // 如果都无法滑动，返回原位置
+        return {x: fromX, y: fromY, safe: false, source: 'wall_slide_failed'};
+    },
+    
+    // 尝试沿特定轴滑动
+    tryAxisSlide: function (fromX, fromY, toX, toY, width, height, isXAxis, excludeObject) {
+        var deltaX = toX - fromX;
+        var deltaY = toY - fromY;
+        var distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+        
+        if (distance === 0) {
+            return {x: fromX, y: fromY, safe: false, source: 'no_movement'};
+        }
+        
+        // 计算这个轴上的移动距离
+        var axisDistance = isXAxis ? Math.abs(deltaX) : Math.abs(deltaY);
+        var axisDirection = isXAxis ? (deltaX > 0 ? 1 : -1) : (deltaY > 0 ? 1 : -1);
+        
+        // 逐步检测这个轴上的移动
+        var stepSize = 4; // 4像素的精度
+        var currentDistance = 0;
+        var lastSafeX = fromX;
+        var lastSafeY = fromY;
+        
+        while (currentDistance <= axisDistance) {
+            var testX = isXAxis ? fromX + axisDirection * currentDistance : fromX;
+            var testY = isXAxis ? fromY : fromY + axisDirection * currentDistance;
+            
+            // 检测这个位置是否安全
+            if (!this.isObjectCollidingWithBuildings(testX, testY, width, height) && 
+                !this.isObjectOverlappingWithOthers(testX, testY, width, height, excludeObject)) {
+                // 更新最后的安全位置
+                lastSafeX = testX;
+                lastSafeY = testY;
+                currentDistance += stepSize;
+            } else {
+                // 找到碰撞点，停止
+                break;
+            }
+        }
+        
+        if (lastSafeX !== fromX || lastSafeY !== fromY) {
+            var actualDistance = Math.sqrt(Math.pow(lastSafeX - fromX, 2) + Math.pow(lastSafeY - fromY, 2));
+            return {
+                x: lastSafeX,
+                y: lastSafeY,
+                safe: true,
+                source: 'wall_slide',
+                axis: isXAxis ? 'x' : 'y',
+                distance: actualDistance
+            };
+        }
+        
+        return {x: fromX, y: fromY, safe: false, source: 'axis_slide_failed'};
+    },
+    
+
+    
+    // 获取当前地图
+    getCurrentMap: function() {
+        if (window.MapManager && window.MapManager.getCurrentMap) {
+            return window.MapManager.getCurrentMap();
+        } else if (window.mapSystem && window.mapSystem.currentMap) {
+            return window.mapSystem.currentMap;
+        }
+        return null;
+    },
+
     // 获取当前地图尺寸的辅助方法
     getCurrentMapDimensions: function() {
         var currentMap = null;
@@ -1156,10 +1378,7 @@ var CollisionSystem = {
         // 如果都不能移动，尝试分别移动X和Y轴
         var result = this.getValidMovePosition(fromX, fromY, toX, toY, objectWidth, objectHeight);
 
-        // 如果还是不能移动，尝试寻找附近的可行位置
-        if (result.x === fromX && result.y === fromY) {
-            result = this.findNearestSafePosition(fromX, fromY, toX, toY, objectWidth, objectHeight);
-        }
+
 
         return result;
     },
@@ -1206,44 +1425,7 @@ var CollisionSystem = {
     },
 
     // 寻找最近的可行位置
-    findNearestSafePosition: function (fromX, fromY, toX, toY, objectWidth, objectHeight) {
-        var deltaX = toX - fromX;
-        var deltaY = toY - fromY;
-        var distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
 
-        if (distance === 0) {
-            return {x: fromX, y: fromY};
-        }
-
-        // 尝试8个方向的移动
-        var directions = [{x: 1, y: 0},      // 右
-            {x: -1, y: 0},     // 左
-            {x: 0, y: 1},      // 下
-            {x: 0, y: -1},     // 上
-            {x: 0.7, y: 0.7},  // 右下
-            {x: -0.7, y: 0.7}, // 左下
-            {x: 0.7, y: -0.7}, // 右上
-            {x: -0.7, y: -0.7} // 左上
-        ];
-
-        var moveDistance = Math.min(distance, 50);
-
-        for (var i = 0; i < directions.length; i++) {
-            var dir = directions[i];
-            var testX = fromX + dir.x * moveDistance;
-            var testY = fromY + dir.y * moveDistance;
-
-            // 添加边界检查
-            if (testX >= 0 && testX < this.currentMap.mapWidth && testY >= 0 && testY < this.currentMap.mapHeight) {
-
-                if (!this.isRectCollidingWithBuildings(testX, testY, objectWidth, objectHeight)) {
-                    return {x: testX, y: testY};
-                }
-            }
-        }
-
-        return {x: fromX, y: fromY};
-    },
 
     // 检测对象与对象列表的碰撞（使用四叉树优化）
     isObjectOverlappingWithList: function (objX, objY, objWidth, objHeight, objectList) {
@@ -1789,66 +1971,7 @@ var CollisionSystem = {
         return count;
     },
 
-    // 僵尸紧急分离算法（防止僵尸重叠卡死）
-    emergencySeparation: function (zombies, characters) {
-        if (!zombies || zombies.length === 0) return;
 
-        var separationForce = 2.0; // 分离力强度
-        var separationRadius = 40;  // 分离检测半径
-
-        for (var i = 0; i < zombies.length; i++) {
-            var zombie = zombies[i];
-            if (!zombie || zombie.hp <= 0) continue;
-
-            var separationX = 0;
-            var separationY = 0;
-            var neighborCount = 0;
-
-            // 检测附近的僵尸
-            var range = {
-                left: zombie.x - separationRadius,
-                right: zombie.x + separationRadius,
-                top: zombie.y - separationRadius,
-                bottom: zombie.y + separationRadius
-            };
-
-            if (this.dynamicQuadTree) {
-                var nearbyObjects = this.dynamicQuadTree.query(range);
-
-                for (var j = 0; j < nearbyObjects.length; j++) {
-                    var otherObj = nearbyObjects[j];
-                    if (otherObj === zombie || !otherObj || otherObj.hp <= 0) continue;
-
-                    var distance = Math.sqrt(Math.pow(zombie.x - otherObj.x, 2) + Math.pow(zombie.y - otherObj.y, 2));
-
-                    if (distance > 0 && distance < separationRadius) {
-                        // 计算分离向量
-                        var angle = Math.atan2(zombie.y - otherObj.y, zombie.x - otherObj.x);
-                        var force = (separationRadius - distance) / separationRadius;
-
-                        separationX += Math.cos(angle) * force * separationForce;
-                        separationY += Math.sin(angle) * force * separationForce;
-                        neighborCount++;
-                    }
-                }
-            }
-
-            // 应用分离力
-            if (neighborCount > 0) {
-                separationX /= neighborCount;
-                separationY /= neighborCount;
-
-                // 检查分离后的位置是否安全
-                var newX = zombie.x + separationX;
-                var newY = zombie.y + separationY;
-
-                if (!this.isRectCollidingWithBuildings(newX, newY, zombie.width || 32, zombie.height || 32)) {
-                    zombie.x = newX;
-                    zombie.y = newY;
-                }
-            }
-        }
-    },
 
     // 获取僵尸的有效移动位置（避免与建筑物、其他僵尸和人物重叠）
     getZombieValidMovePosition: function (zombie, toX, toY, allZombies, allCharacters) {
@@ -2267,100 +2390,9 @@ var CollisionSystem = {
 
     // 统一的位置生成验证机制
     spawnPositionValidator: {
-        // 获取对象配置
-        getObjectConfig: function (objectType, customConfig) {
-            var defaultConfigs = {
-                character: {width: 32, height: 48, minDistance: 50, searchRadius: 200},
-                zombie: {width: 32, height: 32, minDistance: 30, searchRadius: 150},
-                item: {width: 16, height: 16, minDistance: 20, searchRadius: 100},
-                building: {width: 64, height: 64, minDistance: 100, searchRadius: 300}
-            };
-
-            var config = defaultConfigs[objectType] || defaultConfigs.item;
-            if (customConfig) {
-                for (var key in customConfig) {
-                    config[key] = customConfig[key];
-                }
-            }
-
-            return config;
-        },
-
-        // 验证边界
-        validateBoundaries: function (x, y, width, height) {
-            var margin = 10; // 边界安全边距
-
-            // 使用中心点坐标系统，与碰撞系统保持一致
-            var halfWidth = width / 2;
-            var halfHeight = height / 2;
-
-            return (x - halfWidth) >= margin && (y - halfHeight) >= margin && (x + halfWidth) <= window.collisionSystem.currentMap.mapWidth - margin && (y + halfHeight) <= window.collisionSystem.currentMap.mapHeight - margin;
-        },
-
-        // 检查建筑物碰撞
-        checkBuildingCollision: function (x, y, width, height) {
-            if (!window.collisionSystem || !window.collisionSystem.isRectCollidingWithBuildings) {
-                return false;
-            }
-            return window.collisionSystem.isRectCollidingWithBuildings(x, y, width, height);
-        },
-
-        // 检查对象重叠
-        checkObjectOverlap: function (x, y, width, height, objectType) {
-            if (!window.collisionSystem || !window.collisionSystem.isObjectOverlappingWithList) {
-                return false;
-            }
-
-            // 获取需要避免的对象
-            var avoidObjects = this.getAvoidObjects(objectType);
-            return window.collisionSystem.isObjectOverlappingWithList(x, y, width, height, avoidObjects);
-        },
-
-        // 获取需要避免的对象
-        getAvoidObjects: function (objectType) {
-            var avoidObjects = [];
-
-            // 添加所有僵尸
-            if (window.zombieManager) {
-                var allZombies = window.zombieManager.getAllZombies().filter(z => z.hp > 0);
-                avoidObjects = avoidObjects.concat(allZombies);
-            }
-
-            // 添加所有人物
-            if (window.characterManager) {
-                var allCharacters = window.characterManager.getAllCharacters();
-                avoidObjects = avoidObjects.concat(allCharacters);
-            }
-
-            // 根据对象类型过滤
-            if (objectType === 'zombie') {
-                // 僵尸不需要避免其他僵尸
-                avoidObjects = avoidObjects.filter(obj => !obj.type || !obj.type.includes('zombie'));
-            }
-
-            return avoidObjects;
-        },
+ 
 
 
-        // 内部验证方法，避免递归调用
-        isPositionSafeInternal: function (x, y, width, height, objectType) {
-            // 边界检查
-            if (!this.validateBoundaries(x, y, width, height)) {
-                return false;
-            }
-
-            // 建筑物碰撞检查
-            if (this.checkBuildingCollision(x, y, width, height)) {
-                return false;
-            }
-
-            // 对象重叠检查
-            if (this.checkObjectOverlap(x, y, width, height, objectType)) {
-                return false;
-            }
-
-            return true;
-        }
     },
 
     // 智能缓存清理：只在必要时清理
