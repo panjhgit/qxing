@@ -25,6 +25,13 @@ var TouchJoystick = function(canvas, ctx) {
     console.log('触摸摇杆触摸区域:', '中心:', this.centerX, this.centerY, '半径:', this.outerRadius);
     console.log('触摸区域范围:', 'X:', this.centerX - this.outerRadius, '到', this.centerX + this.outerRadius, 'Y:', this.centerY - this.outerRadius, '到', this.centerY + this.outerRadius);
     
+    // 触摸摇杆位置验证
+    console.log('触摸摇杆位置验证:');
+    console.log('- 画布尺寸:', canvas.width, 'x', canvas.height);
+    console.log('- 摇杆中心:', this.centerX, this.centerY);
+    console.log('- 摇杆半径:', this.outerRadius);
+    console.log('- 触摸区域:', '左:', this.centerX - this.outerRadius, '右:', this.centerX + this.outerRadius, '上:', this.centerY - this.outerRadius, '下:', this.centerY + this.outerRadius);
+    
     console.log('触摸摇杆初始化，画布尺寸:', canvas.width, canvas.height, '中心位置:', this.centerX, this.centerY);
     
     // 触摸状态
@@ -57,7 +64,8 @@ TouchJoystick.prototype.bindEvents = function() {
         var x = touch.x || touch.clientX || touch.pageX || 0;
         var y = touch.y || touch.clientY || touch.pageY || 0;
         
-        console.log('触摸开始，位置:', x, y, '摇杆中心:', self.centerX, self.centerY, '摇杆可见:', self.isVisible);
+        console.log('触摸开始，原始触摸坐标:', touch.x, touch.y, 'clientX/Y:', touch.clientX, touch.clientY, 'pageX/Y:', touch.pageX, touch.pageY);
+        console.log('触摸开始，处理后位置:', x, y, '摇杆中心:', self.centerX, self.centerY, '摇杆可见:', self.isVisible);
         
         // 检查触摸是否在摇杆范围内
         var distance = Math.sqrt(Math.pow(x - self.centerX, 2) + Math.pow(y - self.centerY, 2));
@@ -109,6 +117,8 @@ TouchJoystick.prototype.bindEvents = function() {
             // 抖音小游戏环境：触摸坐标通常是相对于画布的
             var x = touch.x || touch.clientX || touch.pageX || 0;
             var y = touch.y || touch.clientY || touch.pageY || 0;
+            
+            console.log('触摸移动，原始触摸坐标:', touch.x, touch.y, '处理后坐标:', x, y);
             self.updateJoystickPosition(x, y);
             console.log('触摸移动更新，位置:', x, y, '移动方向:', self.moveDirection);
         } else {
@@ -162,7 +172,7 @@ TouchJoystick.prototype.bindEvents = function() {
     }
 };
 
-// 更新摇杆位置
+// 更新摇杆位置 - 8方向控制
 TouchJoystick.prototype.updateJoystickPosition = function(x, y) {
     var deltaX = x - this.centerX;
     var deltaY = y - this.centerY;
@@ -177,15 +187,42 @@ TouchJoystick.prototype.updateJoystickPosition = function(x, y) {
     this.joystickX = deltaX;
     this.joystickY = deltaY;
     
-    // 计算移动方向
-    this.moveDirection.x = deltaX / this.outerRadius;
-    this.moveDirection.y = deltaY / this.outerRadius;
+    // 16方向控制：竖屏游戏方向修正
+    console.log('触摸摇杆16方向控制调试:');
+    console.log('- 触摸位置:', x, y);
+    console.log('- 摇杆中心:', this.centerX, this.centerY);
+    console.log('- 触摸偏移:', deltaX, deltaY);
     
-    // 抖音小游戏环境：确保移动方向在合理范围内
-    this.moveDirection.x = Math.max(-1, Math.min(1, this.moveDirection.x));
-    this.moveDirection.y = Math.max(-1, Math.min(1, this.moveDirection.y));
+    // 360度连续方向控制：竖屏游戏方向修正
+    // 修复角度计算，确保方向完全正确
+    var distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
     
-    console.log('摇杆位置更新:', '触摸位置:', x, y, '中心:', this.centerX, this.centerY, '偏移:', deltaX, deltaY, '移动方向:', this.moveDirection);
+    if (distance > 0) {
+        // 直接计算单位向量，确保方向完全正确
+        var unitX = deltaX / distance;
+        var unitY = deltaY / distance;
+        
+        // 应用触摸摇杆的移动范围限制
+        var maxDistance = this.outerRadius;
+        var clampedDistance = Math.min(distance, maxDistance);
+        
+        // 计算最终的移动向量
+        this.moveDirection = {
+            x: (unitX * clampedDistance) / maxDistance,
+            y: (unitY * clampedDistance) / maxDistance,
+            name: '360度连续方向'
+        };
+        
+        // 调试信息
+        console.log('触摸偏移:', deltaX, deltaY);
+        console.log('触摸距离:', distance.toFixed(1));
+        console.log('单位向量:', unitX.toFixed(3), unitY.toFixed(3));
+        console.log('最终移动向量:', this.moveDirection.x.toFixed(3), this.moveDirection.y.toFixed(3));
+    } else {
+        // 触摸点在中心，不移动
+        this.moveDirection = { x: 0, y: 0, name: '中心' };
+        console.log('触摸点在中心，不移动');
+    }
 };
 
 // 重置摇杆
