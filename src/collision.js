@@ -784,6 +784,13 @@ var CollisionSystem = {
             
             for (var [id, record] of this.registeredObjects) {
                 if (currentTime - record.lastUpdateTime > maxAge) {
+                    // 更新类型统计
+                    if (this.typeStats[record.type] !== undefined) {
+                        this.typeStats[record.type] = Math.max(0, this.typeStats[record.type] - 1);
+                    } else {
+                        this.typeStats.other = Math.max(0, this.typeStats.other - 1);
+                    }
+                    
                     this.registeredObjects.delete(id);
                     removedCount++;
                 }
@@ -1276,15 +1283,20 @@ var CollisionSystem = {
                 var streetX = col * gridSize;
                 var streetY = row * gridSize;
                 
-                // 检查街道位置是否安全
-                if (!this.isObjectInBuilding(streetX, streetY, objectWidth, objectHeight)) {
-                    var distance = Math.sqrt(Math.pow(streetX - centerX, 2) + Math.pow(streetY - centerY, 2));
-                    if (distance >= minDistance && distance <= maxDistance) {
-                        streetPositions.push({
-                            x: streetX,
-                            y: streetY,
-                            distance: distance
-                        });
+                // 添加边界检查，防止街道位置超出地图范围
+                if (streetX >= 0 && streetX < this.currentMap.mapWidth && 
+                    streetY >= 0 && streetY < this.currentMap.mapHeight) {
+                    
+                    // 检查街道位置是否安全
+                    if (!this.isObjectInBuilding(streetX, streetY, objectWidth, objectHeight)) {
+                        var distance = Math.sqrt(Math.pow(streetX - centerX, 2) + Math.pow(streetY - centerY, 2));
+                        if (distance >= minDistance && distance <= maxDistance) {
+                            streetPositions.push({
+                                x: streetX,
+                                y: streetY,
+                                distance: distance
+                            });
+                        }
                     }
                 }
             }
@@ -1613,9 +1625,9 @@ var CollisionSystem = {
                 if (this.isObjectValid(character)) {
                     if (this.dynamicQuadTree.insert(character)) {
                         addedCount++;
-                        // 确保对象有四叉树标识
+                        // 确保对象有四叉树标识，使用递增ID避免重复
                         if (!character._quadTreeId) {
-                            character._quadTreeId = 'char_' + Date.now() + '_' + Math.random();
+                            character._quadTreeId = 'char_' + this._getNextObjectId();
                             character._quadTreeType = 'character';
                             character._quadTreeAddedTime = Date.now();
                         }
@@ -1635,9 +1647,9 @@ var CollisionSystem = {
                 if (this.isObjectValid(zombie)) {
                     if (this.dynamicQuadTree.insert(zombie)) {
                         addedCount++;
-                        // 确保对象有四叉树标识
+                        // 确保对象有四叉树标识，使用递增ID避免重复
                         if (!zombie._quadTreeId) {
-                            zombie._quadTreeId = 'zombie_' + Date.now() + '_' + Math.random();
+                            zombie._quadTreeId = 'zombie_' + this._getNextObjectId();
                             zombie._quadTreeType = 'zombie';
                             zombie._quadTreeAddedTime = Date.now();
                         }
@@ -2086,6 +2098,11 @@ var CollisionSystem = {
                 complexity: 'simple'
             };
 
+            // 确保障碍物参数有效
+            if (!obstacles) {
+                obstacles = [];
+            }
+
             // 尝试直接路径
             if (this.isPathClear(startX, startY, endX, endY, objectWidth, objectHeight, obstacles)) {
                 result.path = [{ x: endX, y: endY }];
@@ -2326,8 +2343,20 @@ var CollisionSystem = {
 
     // 智能缓存清理：只在必要时清理
     _shouldClearCache: function(characters, zombies) {
-        // 如果对象数量变化很大，清理缓存
+        // 缓存清理策略优化：减少不必要的计算
         var currentObjectCount = this._objectIdCache ? this._objectIdCache.size : 0;
+        
+        // 只在对象数量变化显著时才计算新数量
+        if (currentObjectCount === 0) {
+            return false; // 缓存为空时不需要清理
+        }
+        
+        // 如果缓存过大，直接清理
+        if (currentObjectCount > 1000) {
+            return true;
+        }
+        
+        // 计算对象数量变化
         var newObjectCount = (characters ? characters.length : 0) + (zombies ? zombies.length : 0);
         
         // 对象数量变化超过50%时清理缓存
@@ -2338,12 +2367,14 @@ var CollisionSystem = {
             }
         }
         
-        // 缓存大小超过1000时清理
-        if (currentObjectCount > 1000) {
-            return true;
-        }
-        
         return false;
+    },
+
+    // 获取下一个对象ID
+    _getNextObjectId: function() {
+        // 使用递增计数器确保ID唯一性
+        this._objectIdCounter = (this._objectIdCounter || 0) + 1;
+        return this._objectIdCounter;
     }
 };
 
