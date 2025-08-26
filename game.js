@@ -99,20 +99,6 @@ function initMapSystem() {
     collisionSystem.init();
     window.collisionSystem = collisionSystem;
 
-    // 测试碰撞检测系统
-    if (collisionSystem.testCollisionSystem) {
-        collisionSystem.testCollisionSystem();
-    }
-
-    // 测试安全位置生成
-    console.log('=== 测试安全位置生成 ===');
-    var testSafePos = collisionSystem.generateGameSafePosition(8000, 7500, 100, 200, 32, 48);
-    console.log('测试安全位置结果:', testSafePos);
-
-    // 验证生成位置是否真的安全
-    var isSafe = !collisionSystem.isRectCollidingWithBuildings(testSafePos.x, testSafePos.y, 32, 48);
-    console.log('生成位置是否安全:', isSafe);
-
     // 在摄像机附近创建主人物（更容易看到）
     var spawnX = 8000, spawnY = 7500;
 
