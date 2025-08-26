@@ -396,9 +396,9 @@ Zombie.prototype.idleBehavior = function (deltaTime) {
             }
 
             // 如果目标位置不安全，寻找安全位置
-            if (window.collisionSystem.isObjectInBuilding(this.targetX, this.targetY, 32, 32) || window.collisionSystem.isObjectOverlappingWithList(this.targetX, this.targetY, 32, 32, allZombies)) {
+            if (window.collisionSystem.isRectCollidingWithBuildings(this.targetX, this.targetY, 32, 32) || window.collisionSystem.isObjectOverlappingWithList(this.targetX, this.targetY, 32, 32, allZombies)) {
 
-                var safePos = window.collisionSystem.findSafePosition(this.x, this.y, 50, 150, 32, 32);
+                var safePos = window.collisionSystem.generateGameSafePosition(this.x, this.y, 50, 150, 32, 32);
                 this.targetX = safePos.x;
                 this.targetY = safePos.y;
             }
@@ -541,9 +541,9 @@ var ZombieManager = {
     },
 
     // 统一的生成位置验证机制
-    validateSpawnPosition: function(x, y, zombieType) {
+    validateSpawnPosition: function (x, y, zombieType) {
         if (!window.collisionSystem) {
-            return { x: x, y: y };
+            return {x: x, y: y};
         }
 
         var zombieWidth = 32; // 僵尸默认宽度
@@ -556,10 +556,9 @@ var ZombieManager = {
         }
 
         // 验证步骤1：检查是否在建筑物内
-        if (window.collisionSystem.isObjectInBuilding && 
-            window.collisionSystem.isObjectInBuilding(x, y, zombieWidth, zombieHeight)) {
+        if (window.collisionSystem.isRectCollidingWithBuildings && window.collisionSystem.isRectCollidingWithBuildings(x, y, zombieWidth, zombieHeight)) {
             console.log('僵尸生成位置在建筑物内，寻找安全位置');
-            var safePosition = window.collisionSystem.findSafePosition(x, y, 100, 300, zombieWidth, zombieHeight);
+            var safePosition = window.collisionSystem.generateGameSafePosition(x, y, 100, 300, zombieWidth, zombieHeight);
             if (safePosition) {
                 x = safePosition.x;
                 y = safePosition.y;
@@ -606,18 +605,17 @@ var ZombieManager = {
         }
 
         // 验证步骤4：最终安全检查
-        if (window.collisionSystem.isObjectInBuilding && 
-            window.collisionSystem.isObjectInBuilding(x, y, zombieWidth, zombieHeight)) {
+        if (window.collisionSystem.isRectCollidingWithBuildings && window.collisionSystem.isRectCollidingWithBuildings(x, y, zombieWidth, zombieHeight)) {
             console.warn('最终位置仍在建筑物内，生成失败');
             return null;
         }
 
         console.log('僵尸生成位置验证完成:', x, y, '类型:', zombieType);
-        return { x: x, y: y };
+        return {x: x, y: y};
     },
 
     // 检查僵尸重叠
-    checkZombieOverlap: function(x, y, width, height, zombies) {
+    checkZombieOverlap: function (x, y, width, height, zombies) {
         if (!window.collisionSystem || !window.collisionSystem.isObjectOverlappingWithList) {
             return false;
         }
@@ -626,7 +624,7 @@ var ZombieManager = {
     },
 
     // 检查人物重叠
-    checkCharacterOverlap: function(x, y, width, height, characters) {
+    checkCharacterOverlap: function (x, y, width, height, characters) {
         for (var i = 0; i < characters.length; i++) {
             var character = characters[i];
             if (character && character.x !== undefined && character.y !== undefined) {
@@ -634,9 +632,7 @@ var ZombieManager = {
                 var charHeight = character.height || 48;
 
                 // 计算两个对象中心点之间的距离
-                var distance = Math.sqrt(
-                    Math.pow(x - character.x, 2) + Math.pow(y - character.y, 2)
-                );
+                var distance = Math.sqrt(Math.pow(x - character.x, 2) + Math.pow(y - character.y, 2));
 
                 // 计算安全距离（对象半径之和 + 额外安全距离）
                 var safeDistance = (width + charWidth) / 2 + 30; // 30像素额外安全距离
@@ -650,7 +646,7 @@ var ZombieManager = {
     },
 
     // 寻找不与僵尸重叠的位置
-    findNonOverlappingPosition: function(centerX, centerY, width, height, zombies) {
+    findNonOverlappingPosition: function (centerX, centerY, width, height, zombies) {
         var searchRadius = 100;
         var searchStep = 20;
         var maxAttempts = 50;
@@ -663,9 +659,8 @@ var ZombieManager = {
             var testY = centerY + Math.sin(angle) * distance;
 
             // 检查位置是否安全
-            if (!this.checkZombieOverlap(testX, testY, width, height, zombies) &&
-                !window.collisionSystem.isObjectInBuilding(testX, testY, width, height)) {
-                return { x: testX, y: testY };
+            if (!this.checkZombieOverlap(testX, testY, width, height, zombies) && !window.collisionSystem.isRectCollidingWithBuildings(testX, testY, width, height)) {
+                return {x: testX, y: testY};
             }
         }
 
@@ -673,7 +668,7 @@ var ZombieManager = {
     },
 
     // 寻找远离人物的安全位置
-    findCharacterSafePosition: function(centerX, centerY, width, height, characters) {
+    findCharacterSafePosition: function (centerX, centerY, width, height, characters) {
         var searchRadius = 200;
         var searchStep = 30;
         var maxAttempts = 60;
@@ -686,10 +681,8 @@ var ZombieManager = {
             var testY = centerY + Math.sin(angle) * distance;
 
             // 检查位置是否安全
-            if (!this.checkCharacterOverlap(testX, testY, width, height, characters) &&
-                !this.checkZombieOverlap(testX, testY, width, height, this.zombies.filter(z => z.hp > 0)) &&
-                !window.collisionSystem.isObjectInBuilding(testX, testY, width, height)) {
-                return { x: testX, y: testY };
+            if (!this.checkCharacterOverlap(testX, testY, width, height, characters) && !this.checkZombieOverlap(testX, testY, width, height, this.zombies.filter(z => z.hp > 0)) && !window.collisionSystem.isRectCollidingWithBuildings(testX, testY, width, height)) {
+                return {x: testX, y: testY};
             }
         }
 

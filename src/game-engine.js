@@ -332,13 +332,13 @@ GameEngine.prototype.updateJoystickMovement = function() {
         if (safePath) {
             // 验证路径安全性
             if (this.validateMovePath(mainChar, mainChar.x, mainChar.y, safePath.x, safePath.y)) {
-                mainChar.move(safePath.x, safePath.y);
+                mainChar.setMoveTarget(safePath.x, safePath.y);
                 console.log('找到安全移动路径:', safePath);
             } else {
                 console.log('路径验证失败，尝试最小移动');
                 var minimalMove = this.findMinimalSafeMove(mainChar, direction, moveSpeed);
                 if (minimalMove && this.validateMovePath(mainChar, mainChar.x, mainChar.y, minimalMove.x, minimalMove.y)) {
-                    mainChar.move(minimalMove.x, minimalMove.y);
+                    mainChar.setMoveTarget(minimalMove.x, minimalMove.y);
                     console.log('使用最小安全移动:', minimalMove);
                 } else {
                     console.log('无法移动，保持原位置');
@@ -348,7 +348,7 @@ GameEngine.prototype.updateJoystickMovement = function() {
             // 无法找到安全路径，尝试最小移动
             var minimalMove = this.findMinimalSafeMove(mainChar, direction, moveSpeed);
             if (minimalMove && this.validateMovePath(mainChar, mainChar.x, mainChar.y, minimalMove.x, minimalMove.y)) {
-                mainChar.move(minimalMove.x, minimalMove.y);
+                mainChar.setMoveTarget(minimalMove.x, minimalMove.y);
                 console.log('使用最小安全移动:', minimalMove);
             } else {
                 // 完全无法移动，保持原位置
@@ -362,7 +362,7 @@ GameEngine.prototype.updateJoystickMovement = function() {
         
         // 最终验证
         if (this.validateMovePath(mainChar, mainChar.x, mainChar.y, newX, newY)) {
-            mainChar.move(newX, newY);
+            mainChar.setMoveTarget(newX, newY);
         } else {
             console.log('最终路径验证失败，保持原位置');
         }
@@ -472,10 +472,10 @@ GameEngine.prototype.spawnZombiesForDay = function() {
         var zombieX = mainChar.x + Math.cos(angle) * distance;
         var zombieY = mainChar.y + Math.sin(angle) * distance;
         
-        if (this.collisionSystem && this.collisionSystem.isObjectInBuilding) {
-            if (this.collisionSystem.isObjectInBuilding(zombieX, zombieY, 32, 32)) {
+        if (this.collisionSystem && this.collisionSystem.isRectCollidingWithBuildings) {
+            if (this.collisionSystem.isRectCollidingWithBuildings(zombieX, zombieY, 32, 32)) {
                 // 如果位置在建筑物内，寻找安全位置
-                var safePos = this.collisionSystem.findSafePosition(mainChar.x, mainChar.y, 700, 800, 32, 32);
+                var safePos = this.collisionSystem.generateGameSafePosition(mainChar.x, mainChar.y, 700, 800, 32, 32);
                 zombieX = safePos.x;
                 zombieY = safePos.y;
             }
@@ -509,6 +509,11 @@ GameEngine.prototype.update = function() {
     
     // 更新触摸摇杆控制的角色移动
     this.updateJoystickMovement();
+    
+    // 更新角色移动
+    if (this.characterManager) {
+        this.characterManager.updateAllCharacters();
+    }
     
     // 更新计时系统
     this.updateTimeSystem();
@@ -634,8 +639,8 @@ GameEngine.prototype.preCollisionCheck = function(character, targetX, targetY) {
     }
 
     // 检查建筑物碰撞
-    if (this.collisionSystem.isObjectInBuilding && 
-        this.collisionSystem.isObjectInBuilding(targetX, targetY, character.width, character.height)) {
+    if (this.collisionSystem.isRectCollidingWithBuildings && 
+        this.collisionSystem.isRectCollidingWithBuildings(targetX, targetY, character.width, character.height)) {
         result.isSafe = false;
         result.buildingCollision = true;
         result.obstacles.push({ type: 'building', x: targetX, y: targetY });
@@ -726,8 +731,8 @@ GameEngine.prototype.validateFinalPosition = function(character, finalX, finalY)
     }
 
     // 检查是否在建筑物内
-    if (this.collisionSystem.isObjectInBuilding && 
-        this.collisionSystem.isObjectInBuilding(finalX, finalY, character.width, character.height)) {
+    if (this.collisionSystem.isRectCollidingWithBuildings && 
+        this.collisionSystem.isRectCollidingWithBuildings(finalX, finalY, character.width, character.height)) {
         result.isValid = false;
         result.issues.push('final_position_in_building');
     }
@@ -771,10 +776,10 @@ GameEngine.prototype.validateMovePath = function(character, startX, startY, endX
     }
 
     // 检查建筑物碰撞
-    if (this.collisionSystem.isObjectInBuilding && 
-        this.collisionSystem.isObjectInBuilding(endX, endY, character.width, character.height)) {
+    if (this.collisionSystem.isRectCollidingWithBuildings && 
+        this.collisionSystem.isRectCollidingWithBuildings(endX, endY, character.width, character.height)) {
         result.isValid = false;
-        result.issues.push('move_path_in_building');
+        result.issues.push('move_path_overlapping');
     }
 
     // 检查对象碰撞
