@@ -1,10 +1,9 @@
 /**
  * 地图渲染器 - 适配新的模块化地图系统
- * 替代旧的 mapSystem 渲染功能
+ * 专门处理统一格式的地图（包含config、buildingTypes、matrix等属性）
  */
 
-
- import MapManager from './map-manager.js';
+import MapManager from './map-manager.js';
 
 /**
  * 地图渲染器类
@@ -34,7 +33,14 @@ export class MapRenderer {
             // 直接使用ES6导入的MapManager
             this.currentMap = MapManager.getCurrentMap();
             if (this.currentMap) {
-                console.log('✅ 从地图管理器获取地图:', this.currentMap.name);
+                console.log('✅ 从地图管理器获取地图:', this.currentMap.config.name);
+                
+                // 如果是矩阵类型的地图，需要解析矩阵数据
+                if (this.currentMap.matrix && this.currentMap.buildingTypes) {
+                    console.log('✅ 检测到矩阵地图，解析矩阵数据...');
+                    this.parseMatrixMap();
+                }
+                
                 return;
             }
             
@@ -67,12 +73,147 @@ export class MapRenderer {
         
         // 设置完整的地图配置
         this.currentMap = {
-            ...defaultConfig,
+            config: defaultConfig,
             buildings: buildings,
             walkableAreas: walkableAreas
         };
         
-        console.log('✅ 默认地图配置已生成:', this.currentMap.name);
+        console.log('✅ 默认地图配置已生成:', this.currentMap.config.name);
+    }
+    
+    /**
+     * 解析矩阵地图数据
+     * 将矩阵转换为建筑物和可通行区域
+     */
+    parseMatrixMap() {
+        if (!this.currentMap.matrix || !this.currentMap.buildingTypes) {
+            console.warn('矩阵地图数据不完整');
+            return;
+        }
+        
+        console.log('开始解析矩阵地图...');
+        console.log('矩阵尺寸:', this.currentMap.matrix.length, 'x', this.currentMap.matrix[0].length);
+        console.log('建筑类型数量:', Object.keys(this.currentMap.buildingTypes).length);
+        
+        const buildings = [];
+        const walkableAreas = [];
+        const matrix = this.currentMap.matrix;
+        const buildingTypes = this.currentMap.buildingTypes;
+        const cellSize = this.currentMap.config.cellSize;
+        
+        // 遍历矩阵，识别连续的建筑块
+        for (let row = 0; row < matrix.length; row++) {
+            for (let col = 0; col < matrix[row].length; col++) {
+                const cellType = matrix[row][col];
+                
+                if (cellType === 0) {
+                    // 马路/空地 - 添加到可通行区域
+                    const areaX = col * cellSize;
+                    const areaY = row * cellSize;
+                    walkableAreas.push({
+                        x: areaX,
+                        y: areaY,
+                        width: cellSize,
+                        height: cellSize,
+                        type: 'road',
+                        bounds: {
+                            left: areaX,
+                            right: areaX + cellSize,
+                            top: areaY,
+                            bottom: areaY + cellSize
+                        }
+                    });
+                } else {
+                    // 建筑物 - 查找连续的建筑块
+                    const buildingInfo = buildingTypes[cellType];
+                    if (buildingInfo) {
+                        const buildingBlock = this.findBuildingBlock(matrix, row, col, cellType);
+                        if (buildingBlock) {
+                            const building = this.createBuildingFromBlock(buildingBlock, buildingInfo, cellSize);
+                            buildings.push(building);
+                            
+                            // 跳过已处理的建筑块
+                            col += buildingBlock.width - 1;
+                        }
+                    }
+                }
+            }
+        }
+        
+        // 更新地图数据
+        this.currentMap.buildings = buildings;
+        this.currentMap.walkableAreas = walkableAreas;
+        
+        console.log('✅ 矩阵地图解析完成');
+        console.log('生成的建筑物数量:', buildings.length);
+        console.log('生成的可通行区域数量:', walkableAreas.length);
+    }
+    
+    /**
+     * 查找连续的建筑块
+     */
+    findBuildingBlock(matrix, startRow, startCol, cellType) {
+        const maxRows = matrix.length;
+        const maxCols = matrix[0].length;
+        
+        // 计算建筑块的宽度
+        let width = 1;
+        while (startCol + width < maxCols && matrix[startRow][startCol + width] === cellType) {
+            width++;
+        }
+        
+        // 计算建筑块的高度
+        let height = 1;
+        while (startRow + height < maxRows) {
+            let canExtend = true;
+            for (let col = startCol; col < startCol + width; col++) {
+                if (matrix[startRow + height][col] !== cellType) {
+                    canExtend = false;
+                    break;
+                }
+            }
+            if (canExtend) {
+                height++;
+            } else {
+                break;
+            }
+        }
+        
+        return {
+            row: startRow,
+            col: startCol,
+            width: width,
+            height: height,
+            type: cellType
+        };
+    }
+    
+    /**
+     * 从建筑块创建建筑物对象
+     */
+    createBuildingFromBlock(block, buildingInfo, cellSize) {
+        const buildingX = (block.col + block.width / 2) * cellSize;
+        const buildingY = (block.row + block.height / 2) * cellSize;
+        const buildingWidth = block.width * cellSize;
+        const buildingHeight = block.height * cellSize;
+        
+        return {
+            x: buildingX,
+            y: buildingY,
+            width: buildingWidth,
+            height: buildingHeight,
+            type: buildingInfo.name,
+            color: buildingInfo.color,
+            icon: buildingInfo.icon,
+            walkable: buildingInfo.walkable,
+            hasDoor: buildingInfo.hasDoor,
+            bounds: {
+                left: buildingX - buildingWidth / 2,
+                right: buildingX + buildingWidth / 2,
+                top: buildingY - buildingHeight / 2,
+                bottom: buildingY + buildingHeight / 2
+            }
+        };
     }
     
     /**
@@ -118,9 +259,9 @@ export class MapRenderer {
     generateDefaultWalkableAreas(config) {
         const areas = [];
         const cellSize = config.cellSize;
+        const gridCols = config.gridCols;
         const gridRows = config.gridRows;
         
-        // 生成街道区域（建筑物之间的空隙）
         for (let col = 0; col <= gridCols; col++) {
             for (let row = 0; row <= gridRows; row++) {
                 const areaX = col * cellSize;
@@ -129,16 +270,8 @@ export class MapRenderer {
                 const areaHeight = cellSize;
                 
                 areas.push({
-                    x: areaX,
-                    y: areaY,
-                    width: areaWidth,
-                    height: areaHeight,
-                    type: 'street',
-                    bounds: {
-                        left: areaX,
-                        right: areaX + areaWidth,
-                        top: areaY,
-                        bottom: areaY + areaHeight
+                    x: areaX, y: areaY, width: areaWidth, height: areaHeight, type: 'street', bounds: {
+                        left: areaX, right: areaX + areaWidth, top: areaY, bottom: areaY + areaHeight
                     }
                 });
             }
@@ -148,357 +281,181 @@ export class MapRenderer {
     }
     
     /**
-     * 切换地图
-     */
-    switchMap(mapId) {
-        try {
-            this.mapId = mapId;
-            this.currentMap = MapManager.switchMap(mapId);
-            console.log('✅ 地图切换成功:', this.currentMap.name);
-            return true;
-        } catch (error) {
-            console.error('❌ 地图切换失败:', error);
-            return false;
-        }
-    }
-    
-    /**
      * 渲染地图（主要渲染方法）
+     * @param {CanvasRenderingContext2D} externalCtx - 外部传入的绘图上下文（可选）
      */
-    render() {
+    render(externalCtx = null) {
         if (!this.currentMap) {
             console.warn('没有可渲染的地图');
             return;
         }
         
+        // 使用外部上下文或内部上下文
+        const ctx = externalCtx || this.ctx;
+        
         // 渲染地图背景
-        this.renderBackground();
+        this.renderBackground(ctx);
         
         // 渲染可通行区域
-        this.renderWalkableAreas();
+        this.renderWalkableAreas(ctx);
         
         // 渲染建筑物
-        this.renderBuildings();
+        this.renderBuildings(ctx);
         
         // 渲染地图边界
-        this.renderBoundaries();
+        this.renderBoundaries(ctx);
         
         // 渲染网格（可选）
         if (this.showGrid) {
-            this.renderGrid();
+            this.renderGrid(ctx);
         }
         
         // 渲染调试信息
         if (this.showDebug) {
-            this.renderDebugInfo();
+            this.renderDebugInfo(ctx);
         }
     }
     
     /**
      * 渲染地图背景
+     * @param {CanvasRenderingContext2D} ctx - 绘图上下文
      */
-    renderBackground() {
-        this.ctx.fillStyle = '#F0F8FF'; // 浅蓝色背景
-        this.ctx.fillRect(0, 0, this.currentMap.width, this.currentMap.height);
+    renderBackground(ctx) {
+        ctx.fillStyle = '#F0F8FF'; // 浅蓝色背景
+        ctx.fillRect(0, 0, this.currentMap.config.width, this.currentMap.config.height);
     }
     
     /**
      * 渲染可通行区域（街道）
+     * @param {CanvasRenderingContext2D} ctx - 绘图上下文
      */
-    renderWalkableAreas() {
+    renderWalkableAreas(ctx) {
         if (!this.currentMap.walkableAreas) return;
         
-        this.ctx.fillStyle = '#FFFFFF'; // 白色街道
-        this.ctx.strokeStyle = '#E0E0E0'; // 浅灰色边框
-        this.ctx.lineWidth = 1;
+        ctx.fillStyle = '#FFFFFF'; // 白色街道
+        ctx.strokeStyle = '#E0E0E0'; // 浅灰色边框
+        ctx.lineWidth = 1;
         
         for (const area of this.currentMap.walkableAreas) {
             if (!area || !area.bounds) continue;
             
-            const { left, top, right, bottom } = area.bounds;
+            const {left, top, right, bottom} = area.bounds;
             const width = right - left;
             const height = bottom - top;
             
             // 填充街道
-            this.ctx.fillRect(left, top, width, height);
+            ctx.fillRect(left, top, width, height);
             
             // 绘制边框
-            this.ctx.strokeRect(left, top, width, height);
+            ctx.strokeRect(left, top, width, height);
         }
     }
     
     /**
      * 渲染建筑物
+     * @param {CanvasRenderingContext2D} ctx - 绘图上下文
      */
-    renderBuildings() {
+    renderBuildings(ctx) {
         if (!this.currentMap.buildings) return;
         
         for (const building of this.currentMap.buildings) {
             if (!building || !building.bounds) continue;
             
-            this.renderBuilding(building);
+            this.renderBuilding(building, ctx);
         }
     }
     
     /**
      * 渲染单个建筑物
+     * @param {Object} building - 建筑物对象
+     * @param {CanvasRenderingContext2D} ctx - 绘图上下文
      */
-    renderBuilding(building) {
-        const { left, top, right, bottom } = building.bounds;
+    renderBuilding(building, ctx) {
+        const {left, top, right, bottom} = building.bounds;
         const width = right - left;
         const height = bottom - top;
         
         // 建筑物主体
-        this.ctx.fillStyle = building.color || '#8B4513';
-        this.ctx.fillRect(left, top, width, height);
+        ctx.fillStyle = building.color || '#8B4513';
+        ctx.fillRect(left, top, width, height);
         
         // 建筑物边框
-        this.ctx.strokeStyle = '#654321';
-        this.ctx.lineWidth = 2;
-        this.ctx.strokeRect(left, top, width, height);
+        ctx.strokeStyle = '#654321';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(left, top, width, height);
         
         // 建筑物标签
         if (building.type) {
-            this.ctx.fillStyle = '#000000';
-            this.ctx.font = '12px Arial';
-            this.ctx.textAlign = 'center';
-            this.ctx.fillText(building.type, building.x, building.y);
+            ctx.fillStyle = '#000000';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(building.type, building.x, building.y);
         }
     }
     
     /**
      * 渲染地图边界
+     * @param {CanvasRenderingContext2D} ctx - 绘图上下文
      */
-    renderBoundaries() {
-        this.ctx.strokeStyle = '#FF0000';
-        this.ctx.lineWidth = 5;
-        this.ctx.strokeRect(0, 0, this.currentMap.width, this.currentMap.height);
+    renderBoundaries(ctx) {
+        ctx.strokeStyle = '#FF0000';
+        ctx.lineWidth = 5;
+        ctx.strokeRect(0, 0, this.currentMap.config.width, this.currentMap.config.height);
     }
     
     /**
      * 渲染网格
+     * @param {CanvasRenderingContext2D} ctx - 绘图上下文
      */
-    renderGrid() {
-        if (!this.currentMap.cellSize) return;
+    renderGrid(ctx) {
+        if (!this.currentMap.config.cellSize) return;
         
-        this.ctx.strokeStyle = '#CCCCCC';
-        this.ctx.lineWidth = 1;
+        ctx.strokeStyle = '#CCCCCC';
+        ctx.lineWidth = 1;
         
-        const cellSize = this.currentMap.cellSize;
-        const gridCols = this.currentMap.gridCols;
-        const gridRows = this.currentMap.gridRows;
+        const cellSize = this.currentMap.config.cellSize;
+        const gridCols = this.currentMap.config.gridCols;
+        const gridRows = this.currentMap.config.gridRows;
         
         // 绘制垂直线
         for (let col = 0; col <= gridCols; col++) {
             const x = col * cellSize;
-            this.ctx.beginPath();
-            this.ctx.moveTo(x, 0);
-            this.ctx.lineTo(x, this.currentMap.height);
-            this.ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, this.currentMap.config.height);
+            ctx.stroke();
         }
         
         // 绘制水平线
         for (let row = 0; row <= gridRows; row++) {
             const y = row * cellSize;
-            this.ctx.beginPath();
-            this.ctx.moveTo(0, y);
-            this.ctx.lineTo(this.currentMap.width, y);
-            this.ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(this.currentMap.config.width, y);
+            ctx.stroke();
         }
     }
     
     /**
      * 渲染调试信息
+     * @param {CanvasRenderingContext2D} ctx - 绘图上下文
      */
-    renderDebugInfo() {
-        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        this.ctx.fillRect(10, 10, 300, 150);
+    renderDebugInfo(ctx) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(10, 10, 300, 150);
         
-        this.ctx.fillStyle = '#FFFFFF';
-        this.ctx.font = '12px Arial';
-        this.ctx.textAlign = 'left';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = '12px Arial';
+        ctx.textAlign = 'left';
         
         let y = 30;
-        this.ctx.fillText(`地图: ${this.currentMap.name}`, 15, y); y += 15;
-        this.ctx.fillText(`类型: ${this.currentMap.type}`, 15, y); y += 15;
-        this.ctx.fillText(`尺寸: ${this.currentMap.width} x ${this.currentMap.height}`, 15, y); y += 15;
-        this.ctx.fillText(`网格: ${this.currentMap.gridCols} x ${this.currentMap.gridRows}`, 15, y); y += 15;
-        this.ctx.fillText(`单元格: ${this.currentMap.cellSize}px`, 15, y); y += 15;
-        this.ctx.fillText(`建筑物: ${this.currentMap.buildings?.length || 0}`, 15, y); y += 15;
-        this.ctx.fillText(`可通行区域: ${this.currentMap.walkableAreas?.length || 0}`, 15, y);
-    }
-    
-    /**
-     * 获取地图信息
-     */
-    getMapInfo() {
-        return {
-            name: this.currentMap.name,
-            type: this.currentMap.type,
-            width: this.currentMap.width,
-            height: this.currentMap.height,
-            cellSize: this.currentMap.cellSize,
-            gridCols: this.currentMap.gridCols,
-            gridRows: this.currentMap.gridRows,
-            buildings: this.currentMap.buildings,
-            walkableAreas: this.currentMap.walkableAreas
-        };
-    }
-    
-    /**
-     * 切换网格显示
-     */
-    toggleGrid() {
-        this.showGrid = !this.showGrid;
-    }
-    
-    /**
-     * 切换调试信息显示
-     */
-    toggleDebug() {
-        this.showDebug = !this.showDebug;
-    }
-    
-    /**
-     * 设置缩放
-     */
-    setZoom(zoom) {
-        this.zoom = Math.max(0.1, Math.min(2.0, zoom));
-    }
-    
-    /**
-     * 检查点是否在建筑物内
-     */
-    isPointInBuilding(x, y) {
-        if (!this.currentMap.buildings) return false;
-        
-        for (const building of this.currentMap.buildings) {
-            if (!building.bounds) continue;
-            
-            const { left, right, top, bottom } = building.bounds;
-            if (x >= left && x < right && y >= top && y < bottom) {
-                return true;
-            }
-        }
-        
-        return false;
-    }
-    
-    /**
-     * 检查点是否在可通行区域内
-     */
-    isPointWalkable(x, y) {
-        if (!this.currentMap.walkableAreas) return true; // 默认可通行
-        
-        for (const area of this.currentMap.walkableAreas) {
-            if (!area.bounds) continue;
-            
-            const { left, right, top, bottom } = area.bounds;
-            if (x >= left && x < right && y >= top && y < bottom) {
-                return true;
-            }
-        }
-        
-        return false;
-    }
-    
-    // ==================== 兼容性方法 ====================
-    // 这些方法是为了与现有的游戏系统兼容
-    
-    /**
-     * 获取地图宽度（兼容性）
-     */
-    get mapWidth() {
-        return this.currentMap ? this.currentMap.width : 4000;
-    }
-    
-    /**
-     * 获取地图高度（兼容性）
-     */
-    get mapHeight() {
-        return this.currentMap ? this.currentMap.height : 4000;
-    }
-    
-    /**
-     * 获取单元格大小（兼容性）
-     */
-    get cellSize() {
-        return this.currentMap ? this.currentMap.cellSize : 100;
-    }
-    
-    /**
-     * 获取网格列数（兼容性）
-     */
-    get gridCols() {
-        return this.currentMap ? this.currentMap.gridCols : 40;
-    }
-    
-    /**
-     * 获取网格行数（兼容性）
-     */
-    get gridRows() {
-        return this.currentMap ? this.currentMap.gridRows : 40;
-    }
-    
-    /**
-     * 获取建筑物列表（兼容性）
-     */
-    get buildings() {
-        return this.currentMap ? this.currentMap.buildings : [];
-    }
-    
-    /**
-     * 获取可通行区域列表（兼容性）
-     */
-    get walkableAreas() {
-        return this.currentMap ? this.currentMap.walkableAreas : [];
-    }
-    
-    /**
-     * 设置角色管理器（兼容性）
-     */
-    setCharacterManager(characterManager) {
-        this.characterManager = characterManager;
-    }
-    
-    /**
-     * 移动地图视图（兼容性）
-     */
-    moveMap(deltaX, deltaY) {
-        // 这里可以实现地图视图移动逻辑
-        console.log('地图视图移动:', deltaX, deltaY);
-    }
-    
-    /**
-     * 检查建筑物点击（兼容性）
-     */
-    checkBuildingClick(x, y) {
-        if (!this.currentMap.buildings) return null;
-        
-        for (const building of this.currentMap.buildings) {
-            if (!building.bounds) continue;
-            
-            const { left, right, top, bottom } = building.bounds;
-            if (x >= left && x < right && y >= top && y < bottom) {
-                return building;
-            }
-        }
-        
-        return null;
-    }
-    
-    /**
-     * 获取建筑物信息（兼容性）
-     */
-    getBuildingInfo(building) {
-        if (!building) return null;
-        
-        return {
-            type: building.type,
-            position: { x: building.x, y: building.y },
-            size: { width: building.width, height: building.height },
-            color: building.color
-        };
+        ctx.fillText(`地图: ${this.currentMap.config.name}`, 15, y); y += 15;
+        ctx.fillText(`类型: ${this.currentMap.config.type || 'matrix'}`, 15, y); y += 15;
+        ctx.fillText(`尺寸: ${this.currentMap.config.width} x ${this.currentMap.config.height}`, 15, y); y += 15;
+        ctx.fillText(`网格: ${this.currentMap.config.gridCols} x ${this.currentMap.config.gridRows}`, 15, y); y += 15;
+        ctx.fillText(`单元格: ${this.currentMap.config.cellSize}px`, 15, y); y += 15;
+        ctx.fillText(`建筑物: ${this.currentMap.buildings?.length || 0}`, 15, y); y += 15;
+        ctx.fillText(`可通行区域: ${this.currentMap.walkableAreas?.length || 0}`, 15, y);
     }
 }
 

@@ -235,24 +235,46 @@ Character.prototype.updateMovement = function () {
         this.isMoving = false;
         this.status = STATUS.IDLE;
     } else {
-        // 继续移动 - 使用移动工具的安全移动检查
+        // 继续移动 - 使用新的路径碰撞检测
         var newX = this.x + moveVector.x;
         var newY = this.y + moveVector.y;
 
-        // 检查移动后的位置是否安全
-        if (window.collisionSystem && window.collisionSystem.isRectCollidingWithBuildings) {
-            if (window.collisionSystem.isRectCollidingWithBuildings(newX, newY, this.width, this.height)) {
-                // 位置不安全，停止移动
+        // 使用新的安全移动检测（包括路径碰撞检测）
+        if (window.collisionSystem && window.collisionSystem.getSafeMovePosition) {
+            var safeMove = window.collisionSystem.getSafeMovePosition(
+                this.x, this.y, newX, newY, this.width, this.height, 16
+            );
+
+            if (safeMove.safe) {
+                // 移动安全，更新位置
+                this.x = safeMove.x;
+                this.y = safeMove.y;
+                this.status = STATUS.MOVING;
+                
+                if (safeMove.source === 'alternative') {
+                    console.log('使用替代路径移动，来源:', safeMove.source, '尝试次数:', safeMove.attempt);
+                }
+            } else {
+                // 移动被阻挡
                 this.status = STATUS.BLOCKED;
-                console.log('移动被阻挡，位置:', newX, newY);
+                console.log('移动被阻挡，无法找到安全路径');
                 return;
             }
+        } else {
+            // 兼容旧的碰撞检测
+            if (window.collisionSystem && window.collisionSystem.isRectCollidingWithBuildings) {
+                if (window.collisionSystem.isRectCollidingWithBuildings(newX, newY, this.width, this.height)) {
+                    this.status = STATUS.BLOCKED;
+                    console.log('移动被阻挡，位置:', newX, newY);
+                    return;
+                }
+            }
+            
+            // 应用移动
+            this.x = newX;
+            this.y = newY;
+            this.status = STATUS.MOVING;
         }
-
-        // 应用匀速移动
-        this.x = newX;
-        this.y = newY;
-        this.status = STATUS.MOVING;
     }
 
     // 使用动画工具更新动画帧 - 优化动画更新频率

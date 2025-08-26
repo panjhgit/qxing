@@ -94,12 +94,7 @@ Camera.prototype.worldToScreen = function(worldX, worldY) {
     return { x: screenX, y: screenY };
 };
 
-// 屏幕坐标转世界坐标
-Camera.prototype.screenToWorld = function(screenX, screenY) {
-    var worldX = (screenX - this.screenWidth / 2) / this.zoom + this.x;
-    var worldY = (screenY - this.screenHeight / 2) / this.zoom + this.y;
-    return { x: worldX, y: worldY };
-};
+
 
 // 检查对象是否在屏幕范围内
 Camera.prototype.isInView = function(worldX, worldY, width, height) {
@@ -118,11 +113,7 @@ Camera.prototype.getPosition = function() {
     return { x: this.x, y: this.y };
 };
 
-// 设置缩放
-Camera.prototype.setZoom = function(newZoom) {
-    this.zoom = Math.max(0.3, Math.min(2.0, newZoom));
-    this.constrainToMap();
-};
+
 
 // 获取缩放
 Camera.prototype.getZoom = function() {
@@ -173,7 +164,8 @@ ViewSystem.prototype.renderMap = function(mapRenderer) {
     
     // 使用新的地图渲染器
     if (mapRenderer.render) {
-        mapRenderer.render();
+        // 传递当前的绘图上下文，这样地图渲染器就能使用摄像机的变换
+        mapRenderer.render(this.ctx);
     } else {
         // 兼容旧的mapSystem
         this.renderMapBackground(mapRenderer);
@@ -436,15 +428,7 @@ ViewSystem.prototype.renderJoystick = function(joystick) {
     }
 };
 
-// 获取摄像机引用
-ViewSystem.prototype.getCamera = function() {
-    return this.camera;
-};
 
-// 设置调试信息显示
-ViewSystem.prototype.setDebugInfo = function(show) {
-    this.showDebugInfo = show;
-};
 
 // 渲染调试信息
 ViewSystem.prototype.renderDebugInfo = function() {
