@@ -2008,11 +2008,408 @@ var CollisionSystem = {
     }
 };
 
+// ==================== 动态障碍物管理系统 ====================
+/**
+ * 动态障碍物类 - 管理可移动的障碍物（如车辆、临时物体等）
+ */
+function DynamicObstacle(id, x, y, width, height, type) {
+    this.id = id; // 唯一标识
+    this.x = x; // 中心点X
+    this.y = y; // 中心点Y
+    this.width = width; // 碰撞盒宽度
+    this.height = height; // 碰撞盒高度
+    this.type = type; // 类型（如"car"、"tree"、"barrier"）
+    this.isActive = true; // 是否激活
+    this.lastUpdateTime = Date.now(); // 最后更新时间
+    
+    // 计算边界框（用于四叉树查询）
+    this.bounds = {
+        left: x - width / 2,
+        right: x + width / 2,
+        top: y - height / 2,
+        bottom: y + height / 2
+    };
+    
+    // 移动相关属性
+    this.velocity = { x: 0, y: 0 }; // 移动速度
+    this.targetPosition = { x: x, y: y }; // 目标位置
+    this.isMoving = false; // 是否在移动
+}
+
+/**
+ * 更新动态障碍物位置
+ * @param {number} newX - 新X坐标
+ * @param {number} newY - 新Y坐标
+ */
+DynamicObstacle.prototype.updatePosition = function(newX, newY) {
+    this.x = newX;
+    this.y = newY;
+    
+    // 更新边界框
+    this.bounds.left = newX - this.width / 2;
+    this.bounds.right = newX + this.width / 2;
+    this.bounds.top = newY - this.height / 2;
+    this.bounds.bottom = newY + this.height / 2;
+    
+    this.lastUpdateTime = Date.now();
+};
+
+/**
+ * 设置移动目标
+ * @param {number} targetX - 目标X坐标
+ * @param {number} targetY - 目标Y坐标
+ */
+DynamicObstacle.prototype.setTarget = function(targetX, targetY) {
+    this.targetPosition.x = targetX;
+    this.targetPosition.y = targetY;
+    this.isMoving = true;
+    
+    // 计算移动方向
+    const deltaX = targetX - this.x;
+    const deltaY = targetY - this.y;
+    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+    
+    if (distance > 0) {
+        this.velocity.x = deltaX / distance;
+        this.velocity.y = deltaY / distance;
+    }
+};
+
+/**
+ * 更新移动
+ * @param {number} deltaTime - 时间增量
+ * @param {number} moveSpeed - 移动速度
+ */
+DynamicObstacle.prototype.updateMovement = function(deltaTime, moveSpeed) {
+    if (!this.isMoving) return;
+    
+    const deltaX = this.targetPosition.x - this.x;
+    const deltaY = this.targetPosition.y - this.y;
+    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+    
+    if (distance < moveSpeed * deltaTime) {
+        // 到达目标位置
+        this.updatePosition(this.targetPosition.x, this.targetPosition.y);
+        this.isMoving = false;
+        this.velocity = { x: 0, y: 0 };
+    } else {
+        // 继续移动
+        const moveDistance = moveSpeed * deltaTime;
+        const newX = this.x + this.velocity.x * moveDistance;
+        const newY = this.y + this.velocity.y * moveDistance;
+        this.updatePosition(newX, newY);
+    }
+};
+
+/**
+ * 检查是否与另一个对象重叠
+ * @param {Object} other - 另一个对象
+ * @returns {boolean} 是否重叠
+ */
+DynamicObstacle.prototype.overlapsWith = function(other) {
+    if (!other || !other.bounds) return false;
+    
+    return !(this.bounds.right <= other.bounds.left || 
+             this.bounds.left >= other.bounds.right || 
+             this.bounds.bottom <= other.bounds.top || 
+             this.bounds.top >= other.bounds.bottom);
+};
+
+/**
+ * 动态障碍物管理器 - 结合四叉树管理动态障碍物
+ */
+function DynamicObstacleManager(mapWidth, mapHeight) {
+    // 初始化根四叉树（覆盖整个地图）
+    this.rootQuadTree = new QuadTreeNode(0, 0, mapWidth, mapHeight, 6, 0);
+    this.rootQuadTree.maxObjects = 8;
+    
+    this.obstacles = new Map(); // 存储所有动态障碍物（id -> 实例）
+    this.obstacleTypes = new Map(); // 按类型分组的障碍物
+    
+    // 性能统计
+    this.stats = {
+        totalObstacles: 0,
+        activeObstacles: 0,
+        lastUpdateTime: Date.now()
+    };
+}
+
+/**
+ * 添加动态障碍物
+ * @param {DynamicObstacle} obstacle - 障碍物实例
+ */
+DynamicObstacleManager.prototype.addObstacle = function(obstacle) {
+    if (!obstacle || !obstacle.id) {
+        console.warn('[DynamicObstacleManager] 无效的障碍物:', obstacle);
+        return false;
+    }
+    
+    this.obstacles.set(obstacle.id, obstacle);
+    this.rootQuadTree.insert(obstacle);
+    
+    // 按类型分组
+    if (!this.obstacleTypes.has(obstacle.type)) {
+        this.obstacleTypes.set(obstacle.type, []);
+    }
+    this.obstacleTypes.get(obstacle.type).push(obstacle);
+    
+    this.stats.totalObstacles++;
+    this.stats.activeObstacles++;
+    
+    console.log(`[DynamicObstacleManager] 添加障碍物: ${obstacle.type} (${obstacle.id})`);
+    return true;
+};
+
+/**
+ * 移除动态障碍物
+ * @param {string} id - 障碍物ID
+ */
+DynamicObstacleManager.prototype.removeObstacle = function(id) {
+    const obstacle = this.obstacles.get(id);
+    if (!obstacle) return false;
+    
+    // 从四叉树中移除
+    this.rootQuadTree.remove(obstacle);
+    
+    // 从类型分组中移除
+    const typeList = this.obstacleTypes.get(obstacle.type);
+    if (typeList) {
+        const index = typeList.indexOf(obstacle);
+        if (index > -1) {
+            typeList.splice(index, 1);
+        }
+    }
+    
+    // 从主映射中移除
+    this.obstacles.delete(id);
+    
+    this.stats.totalObstacles--;
+    if (obstacle.isActive) {
+        this.stats.activeObstacles--;
+    }
+    
+    console.log(`[DynamicObstacleManager] 移除障碍物: ${obstacle.type} (${id})`);
+    return true;
+};
+
+/**
+ * 更新障碍物位置（如车辆移动）
+ * @param {string} id - 障碍物ID
+ * @param {number} x - 新X坐标
+ * @param {number} y - 新Y坐标
+ */
+DynamicObstacleManager.prototype.updateObstaclePosition = function(id, x, y) {
+    const obstacle = this.obstacles.get(id);
+    if (!obstacle) return false;
+    
+    // 从四叉树中移除旧位置
+    this.rootQuadTree.remove(obstacle);
+    
+    // 更新位置
+    obstacle.updatePosition(x, y);
+    
+    // 重新插入四叉树
+    this.rootQuadTree.insert(obstacle);
+    
+    return true;
+};
+
+/**
+ * 批量更新障碍物位置（性能优化）
+ * @param {Array} updates - 更新数组 [{id, x, y}, ...]
+ */
+DynamicObstacleManager.prototype.batchUpdatePositions = function(updates) {
+    if (!updates || updates.length === 0) return;
+    
+    // 批量移除
+    updates.forEach(update => {
+        const obstacle = this.obstacles.get(update.id);
+        if (obstacle) {
+            this.rootQuadTree.remove(obstacle);
+        }
+    });
+    
+    // 批量更新位置
+    updates.forEach(update => {
+        const obstacle = this.obstacles.get(update.id);
+        if (obstacle) {
+            obstacle.updatePosition(update.x, update.y);
+        }
+    });
+    
+    // 批量重新插入
+    updates.forEach(update => {
+        const obstacle = this.obstacles.get(update.id);
+        if (obstacle) {
+            this.rootQuadTree.insert(obstacle);
+        }
+    });
+    
+    console.log(`[DynamicObstacleManager] 批量更新 ${updates.length} 个障碍物位置`);
+};
+
+/**
+ * 检查点是否被动态障碍物阻挡（动态合法性）
+ * @param {Object} point - {x, y}
+ * @param {number} objectWidth - 对象宽度（用于扩展检测）
+ * @param {number} objectHeight - 对象高度
+ * @returns {boolean} 是否被阻挡
+ */
+DynamicObstacleManager.prototype.isPointBlockedByDynamic = function(point, objectWidth, objectHeight) {
+    objectWidth = objectWidth || 1;
+    objectHeight = objectHeight || 1;
+    
+    // 创建一个包含该点的边界框
+    const queryBounds = {
+        left: point.x - objectWidth / 2,
+        right: point.x + objectWidth / 2,
+        top: point.y - objectHeight / 2,
+        bottom: point.y + objectHeight / 2
+    };
+    
+    // 从四叉树查询该区域内的所有障碍物
+    const candidates = this.rootQuadTree.query(queryBounds);
+    
+    // 检查点是否在任何障碍物的碰撞盒内
+    for (const obstacle of candidates) {
+        if (obstacle.isActive && obstacle.overlapsWith({ bounds: queryBounds })) {
+            return true; // 被动态障碍物阻挡
+        }
+    }
+    
+    return false;
+};
+
+/**
+ * 获取指定区域内的动态障碍物
+ * @param {Object} area - 查询区域 {left, right, top, bottom}
+ * @returns {Array} 障碍物数组
+ */
+DynamicObstacleManager.prototype.getObstaclesInArea = function(area) {
+    if (!area) return [];
+    
+    const candidates = this.rootQuadTree.query(area);
+    return candidates.filter(obstacle => obstacle.isActive);
+};
+
+/**
+ * 检查移动路径是否被动态障碍物阻挡
+ * @param {Object} from - 起点 {x, y}
+ * @param {Object} to - 终点 {x, y}
+ * @param {number} objectWidth - 对象宽度
+ * @param {number} objectHeight - 对象高度
+ * @returns {boolean} 路径是否被阻挡
+ */
+DynamicObstacleManager.prototype.isPathBlockedByDynamic = function(from, to, objectWidth, objectHeight) {
+    // 简化的路径检测：检查起点、终点和中间点
+    const points = this.generatePathPoints(from, to, objectWidth, objectHeight);
+    
+    for (const point of points) {
+        if (this.isPointBlockedByDynamic(point, objectWidth, objectHeight)) {
+            return true;
+        }
+    }
+    
+    return false;
+};
+
+/**
+ * 生成路径检测点
+ * @param {Object} from - 起点
+ * @param {Object} to - 终点
+ * @param {number} objectWidth - 对象宽度
+ * @param {number} objectHeight - 对象高度
+ * @returns {Array} 检测点数组
+ */
+DynamicObstacleManager.prototype.generatePathPoints = function(from, to, objectWidth, objectHeight) {
+    const points = [from];
+    const deltaX = to.x - from.x;
+    const deltaY = to.y - from.y;
+    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+    
+    if (distance === 0) return points;
+    
+    // 根据对象尺寸确定检测密度
+    const maxStep = Math.max(objectWidth, objectHeight) / 2;
+    const steps = Math.ceil(distance / maxStep);
+    
+    for (let i = 1; i < steps; i++) {
+        const t = i / steps;
+        points.push({
+            x: from.x + deltaX * t,
+            y: from.y + deltaY * t
+        });
+    }
+    
+    points.push(to);
+    return points;
+};
+
+/**
+ * 更新所有动态障碍物
+ * @param {number} deltaTime - 时间增量
+ */
+DynamicObstacleManager.prototype.updateAllObstacles = function(deltaTime) {
+    let updatedCount = 0;
+    
+    this.obstacles.forEach(obstacle => {
+        if (obstacle.isActive && obstacle.isMoving) {
+            obstacle.updateMovement(deltaTime, 100); // 默认移动速度100像素/秒
+            updatedCount++;
+        }
+    });
+    
+    if (updatedCount > 0) {
+        this.stats.lastUpdateTime = Date.now();
+    }
+    
+    return updatedCount;
+};
+
+/**
+ * 清理无效的障碍物
+ * @returns {number} 清理的数量
+ */
+DynamicObstacleManager.prototype.cleanupInvalidObstacles = function() {
+    const currentTime = Date.now();
+    const maxAge = 30000; // 30秒无更新则视为无效
+    let cleanedCount = 0;
+    
+    for (const [id, obstacle] of this.obstacles) {
+        if (currentTime - obstacle.lastUpdateTime > maxAge) {
+            this.removeObstacle(id);
+            cleanedCount++;
+        }
+    }
+    
+    if (cleanedCount > 0) {
+        console.log(`[DynamicObstacleManager] 清理了 ${cleanedCount} 个无效障碍物`);
+    }
+    
+    return cleanedCount;
+};
+
+/**
+ * 获取统计信息
+ * @returns {Object} 统计信息
+ */
+DynamicObstacleManager.prototype.getStats = function() {
+    return {
+        ...this.stats,
+        obstacleTypes: Array.from(this.obstacleTypes.keys()).map(type => ({
+            type: type,
+            count: this.obstacleTypes.get(type).length
+        }))
+    };
+};
+
 // 导出
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = CollisionSystem;
 } else if (typeof window !== 'undefined') {
     window.CollisionSystem = CollisionSystem;
+    window.DynamicObstacle = DynamicObstacle;
+    window.DynamicObstacleManager = DynamicObstacleManager;
 }
 
 

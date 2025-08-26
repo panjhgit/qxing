@@ -316,6 +316,10 @@ var GameEngine = function(canvas, ctx) {
     this.eventSystem = null;
     this.zombieManager = null;
     
+    // NavMesh + 四叉树系统
+    this.navigationSystem = null; // NavMesh导航系统
+    this.dynamicObstacleManager = null; // 动态障碍物管理器
+    
     // 计时系统
     this.timeSystem = {
         day: 1,              // 当前天数
@@ -371,6 +375,12 @@ GameEngine.prototype.setSystems = function(mapSystem, characterManager, menuSyst
     this.zombieManager = zombieManager;
     this.collisionSystem = collisionSystem;
     
+    // 初始化NavMesh导航系统（延迟初始化，确保地图系统完全就绪）
+    setTimeout(() => {
+        this.initNavigationSystem();
+        this.initDynamicObstacleManager();
+    }, 100);
+    
     // 初始化触摸摇杆（确保所有系统都已加载）
     if (!this.joystick) {
         this.joystick = new TouchJoystick(this.canvas, this.ctx);
@@ -389,6 +399,252 @@ GameEngine.prototype.setSystems = function(mapSystem, characterManager, menuSyst
             }
         }
     }
+};
+
+/**
+ * 初始化NavMesh导航系统
+ */
+GameEngine.prototype.initNavigationSystem = function() {
+    if (!this.mapSystem) {
+        console.warn('[GameEngine] 地图系统未初始化，无法构建NavMesh');
+        return;
+    }
+    
+    console.log('[GameEngine] 开始初始化NavMesh导航系统...');
+    
+    // 检查地图系统是否完全初始化
+    if (!this.mapSystem.mapGrid || this.mapSystem.mapGrid.length === 0) {
+        console.warn('[GameEngine] 地图网格未生成，等待地图系统完全初始化...');
+        // 延迟重试
+        setTimeout(() => this.initNavigationSystem(), 200);
+        return;
+    }
+    
+    // 创建导航系统实例
+    if (typeof NavigationSystem !== 'undefined') {
+        this.navigationSystem = new NavigationSystem();
+        
+        // 构建导航网格 - 使用地图系统的实际属性
+        const mapData = {
+            type: 'grid', // 当前地图系统只支持网格类型
+            mapWidth: this.mapSystem.mapWidth,
+            mapHeight: this.mapSystem.mapHeight,
+            blockSize: this.mapSystem.blockSize,
+            streetWidth: this.mapSystem.streetWidth,
+            gridSize: this.mapSystem.blockSize + this.mapSystem.streetWidth,
+            gridCols: this.mapSystem.mapGrid[0].length,
+            gridRows: this.mapSystem.mapGrid.length,
+            buildings: this.mapSystem.flattenMapGrid ? 
+                this.mapSystem.flattenMapGrid().filter(building => !building.isStreet) : []
+        };
+        
+        console.log('[GameEngine] 准备的地图数据:', mapData);
+        this.navigationSystem.buildNavigationMesh(mapData);
+        console.log('[GameEngine] NavMesh导航系统初始化完成');
+    } else {
+        console.warn('[GameEngine] NavigationSystem未定义，跳过NavMesh初始化');
+    }
+};
+
+/**
+ * 初始化动态障碍物管理器
+ */
+GameEngine.prototype.initDynamicObstacleManager = function() {
+    if (!this.mapSystem) {
+        console.warn('[GameEngine] 地图系统未初始化，无法初始化动态障碍物管理器');
+        return;
+    }
+    
+    // 检查地图系统是否完全初始化
+    if (!this.mapSystem.mapWidth || !this.mapSystem.mapHeight) {
+        console.warn('[GameEngine] 地图尺寸未设置，等待地图系统完全初始化...');
+        // 延迟重试
+        setTimeout(() => this.initDynamicObstacleManager(), 200);
+        return;
+    }
+    
+    console.log('[GameEngine] 开始初始化动态障碍物管理器...');
+    
+    // 创建动态障碍物管理器实例
+    if (typeof DynamicObstacleManager !== 'undefined') {
+        this.dynamicObstacleManager = new DynamicObstacleManager(
+            this.mapSystem.mapWidth,
+            this.mapSystem.mapHeight
+        );
+        
+        // 添加一些示例动态障碍物（如车辆、路障等）
+        this.addSampleDynamicObstacles();
+        
+        console.log('[GameEngine] 动态障碍物管理器初始化完成');
+    } else {
+        console.warn('[GameEngine] DynamicObstacleManager未定义，跳过动态障碍物管理器初始化');
+    }
+};
+
+/**
+ * 添加示例动态障碍物
+ */
+GameEngine.prototype.addSampleDynamicObstacles = function() {
+    if (!this.dynamicObstacleManager) return;
+    
+    // 添加一些车辆
+    const cars = [
+        { id: 'car_1', x: 2000, y: 2000, width: 80, height: 120, type: 'car' },
+        { id: 'car_2', x: 4000, y: 3000, width: 80, height: 120, type: 'car' },
+        { id: 'car_3', x: 6000, y: 5000, width: 80, height: 120, type: 'car' }
+    ];
+    
+    cars.forEach(carData => {
+        const car = new DynamicObstacle(carData.id, carData.x, carData.y, carData.width, carData.height, carData.type);
+        this.dynamicObstacleManager.addObstacle(car);
+    });
+    
+    // 添加一些路障
+    const barriers = [
+        { id: 'barrier_1', x: 1500, y: 1500, width: 40, height: 40, type: 'barrier' },
+        { id: 'barrier_2', x: 3500, y: 2500, width: 40, height: 40, type: 'barrier' }
+    ];
+    
+    barriers.forEach(barrierData => {
+        const barrier = new DynamicObstacle(barrierData.id, barrierData.x, barrierData.y, barrierData.width, barrierData.height, barrierData.type);
+        this.dynamicObstacleManager.addObstacle(barrier);
+    });
+    
+    console.log('[GameEngine] 添加了示例动态障碍物');
+};
+
+/**
+ * 检查点是否可通行（整合NavMesh和四叉树）
+ * @param {Object} point - {x, y}
+ * @param {number} objectWidth - 对象宽度
+ * @param {number} objectHeight - 对象高度
+ * @returns {Object} 可通行性检查结果
+ */
+GameEngine.prototype.isPointWalkable = function(point, objectWidth, objectHeight) {
+    objectWidth = objectWidth || 32;
+    objectHeight = objectHeight || 48;
+    
+    const result = {
+        isWalkable: false,
+        staticCheck: false,
+        dynamicCheck: false,
+        reasons: []
+    };
+    
+    // 步骤1：检查是否在NavMesh的静态可通行区域内
+    if (this.navigationSystem) {
+        result.staticCheck = this.navigationSystem.isPointInNavMesh(point);
+        if (!result.staticCheck) {
+            result.reasons.push('不在可通行区域内');
+        }
+    } else {
+        result.reasons.push('NavMesh系统未初始化');
+        result.staticCheck = true; // 假设可通行
+    }
+    
+    // 步骤2：检查是否被动态障碍物阻挡
+    if (this.dynamicObstacleManager) {
+        result.dynamicCheck = !this.dynamicObstacleManager.isPointBlockedByDynamic(point, objectWidth, objectHeight);
+        if (!result.dynamicCheck) {
+            result.reasons.push('被动态障碍物阻挡');
+        }
+    } else {
+        result.reasons.push('动态障碍物管理器未初始化');
+        result.dynamicCheck = true; // 假设可通行
+    }
+    
+    // 综合判断
+    result.isWalkable = result.staticCheck && result.dynamicCheck;
+    
+    return result;
+};
+
+/**
+ * 检查移动路径是否可通行
+ * @param {Object} from - 起点 {x, y}
+ * @param {Object} to - 终点 {x, y}
+ * @param {number} objectWidth - 对象宽度
+ * @param {number} objectHeight - 对象高度
+ * @returns {Object} 路径检查结果
+ */
+GameEngine.prototype.isPathWalkable = function(from, to, objectWidth, objectHeight) {
+    objectWidth = objectWidth || 32;
+    objectHeight = objectHeight || 48;
+    
+    const result = {
+        isWalkable: false,
+        staticPath: null,
+        dynamicBlocked: false,
+        reasons: []
+    };
+    
+    // 步骤1：使用NavMesh计算静态路径
+    if (this.navigationSystem) {
+        result.staticPath = this.navigationSystem.findPath(from, to);
+        if (!result.staticPath) {
+            result.reasons.push('NavMesh无法找到路径');
+            return result;
+        }
+    } else {
+        result.reasons.push('NavMesh系统未初始化');
+        result.staticPath = [from, to]; // 假设直线路径
+    }
+    
+    // 步骤2：检查路径是否被动态障碍物阻挡
+    if (this.dynamicObstacleManager) {
+        result.dynamicBlocked = this.dynamicObstacleManager.isPathBlockedByDynamic(from, to, objectWidth, objectHeight);
+        if (result.dynamicBlocked) {
+            result.reasons.push('路径被动态障碍物阻挡');
+        }
+    } else {
+        result.reasons.push('动态障碍物管理器未初始化');
+        result.dynamicBlocked = false; // 假设无阻挡
+    }
+    
+    // 综合判断
+    result.isWalkable = result.staticPath && !result.dynamicBlocked;
+    
+    return result;
+};
+
+/**
+ * 寻找安全的移动位置
+ * @param {Object} center - 中心点 {x, y}
+ * @param {number} searchRadius - 搜索半径
+ * @param {number} objectWidth - 对象宽度
+ * @param {number} objectHeight - 对象高度
+ * @returns {Object|null} 安全位置，如果没有则返回null
+ */
+GameEngine.prototype.findSafeMovePosition = function(center, searchRadius, objectWidth, objectHeight) {
+    objectWidth = objectWidth || 32;
+    objectHeight = objectHeight || 48;
+    searchRadius = searchRadius || 100;
+    
+    // 在搜索半径内寻找安全位置
+    const searchSteps = 16;
+    
+    for (let step = 0; step < searchSteps; step++) {
+        const angle = (step * Math.PI * 2) / searchSteps;
+        const distance = searchRadius * (0.5 + step * 0.5 / searchSteps); // 从半径一半开始搜索
+        
+        const testPoint = {
+            x: center.x + Math.cos(angle) * distance,
+            y: center.y + Math.sin(angle) * distance
+        };
+        
+        // 检查位置是否安全
+        const walkability = this.isPointWalkable(testPoint, objectWidth, objectHeight);
+        if (walkability.isWalkable) {
+            return {
+                x: testPoint.x,
+                y: testPoint.y,
+                distance: distance,
+                walkability: walkability
+            };
+        }
+    }
+    
+    return null;
 };
 
 // 更新触摸摇杆控制的角色移动
@@ -617,6 +873,19 @@ GameEngine.prototype.update = function() {
         }
     }
     
+    // 更新动态障碍物
+    if (this.dynamicObstacleManager) {
+        var currentTime = performance.now();
+        var deltaTime = (currentTime - this.lastUpdateTime) / 1000;
+        
+        this.dynamicObstacleManager.updateAllObstacles(deltaTime);
+        
+        // 每120帧（2秒）清理一次无效障碍物
+        if (this.frameCount % 120 === 0) {
+            this.dynamicObstacleManager.cleanupInvalidObstacles();
+        }
+    }
+    
     // 更新视觉系统
     if (this.viewSystem) {
         this.viewSystem.update();
@@ -649,6 +918,15 @@ GameEngine.prototype.logSystemStatus = function() {
         var zombies = this.zombieManager.getAllZombies();
         var activeZombies = zombies.filter(z => z.hp > 0);
         console.log('僵尸总数:', zombies.length, '活跃僵尸:', activeZombies.length);
+    }
+    
+    if (this.navigationSystem) {
+        console.log('NavMesh统计:', this.navigationSystem.stats);
+    }
+    
+    if (this.dynamicObstacleManager) {
+        var obstacleStats = this.dynamicObstacleManager.getStats();
+        console.log('动态障碍物统计:', obstacleStats);
     }
     
     console.log('==================');
