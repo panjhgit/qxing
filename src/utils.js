@@ -127,7 +127,7 @@ const AnimationUtils = {
 
 // 移动工具类
 const MovementUtils = {
-    // 计算移动向量
+    // 计算移动向量 - 匀速移动，固定速度
     calculateMoveVector: function(fromX, fromY, toX, toY, speed) {
         var deltaX = toX - fromX;
         var deltaY = toY - fromY;
@@ -137,6 +137,7 @@ const MovementUtils = {
             return { x: 0, y: 0, distance: 0 };
         }
         
+        // 匀速移动：每帧移动固定距离
         var moveX = (deltaX / distance) * speed;
         var moveY = (deltaY / distance) * speed;
         

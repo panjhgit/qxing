@@ -12,19 +12,19 @@
 const GAME_CONFIG = {
     // 移动系统配置
     MOVEMENT: {
-        DEFAULT_MOVE_SPEED: 120,        // 默认移动速度 (像素/秒)
-        CHARACTER_MOVE_SPEED: 120,      // 人物移动速度
-        ZOMBIE_MOVE_SPEED: 120,         // 僵尸移动速度
-        MIN_MOVE_DISTANCE: 0.001,       // 最小移动距离
+        DEFAULT_MOVE_SPEED: 5,          // 默认移动速度 (像素/帧)
+        CHARACTER_MOVE_SPEED: 5,        // 人物移动速度 (像素/帧)
+        ZOMBIE_MOVE_SPEED: 3,           // 僵尸移动速度 (像素/帧) - 比人物慢
+        MIN_MOVE_DISTANCE: 1,            // 最小移动距离
         PATHFINDING_STEPS: 10,          // 路径检测步数
         SMOOTH_MOVE_RATIOS: [0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1] // 平滑移动比例
     },
 
     // 动画系统配置
     ANIMATION: {
-        DEFAULT_FRAME_RATE: 0.1,        // 默认动画帧率
-        MAX_ANIMATION_FRAMES: 4,        // 最大动画帧数
-        ANIMATION_RESET_THRESHOLD: 4    // 动画重置阈值
+        DEFAULT_FRAME_RATE: 0.2,        // 默认动画帧率 (每帧更新0.2)
+        MAX_ANIMATION_FRAMES: 8,        // 最大动画帧数
+        ANIMATION_RESET_THRESHOLD: 8    // 动画重置阈值
     },
 
     // 碰撞检测配置

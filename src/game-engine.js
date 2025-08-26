@@ -21,6 +21,12 @@ var TouchJoystick = function(canvas, ctx) {
     this.outerRadius = 60;
     this.innerRadius = 25;
     
+    // 抖音小游戏环境下的触摸区域调试
+    console.log('触摸摇杆触摸区域:', '中心:', this.centerX, this.centerY, '半径:', this.outerRadius);
+    console.log('触摸区域范围:', 'X:', this.centerX - this.outerRadius, '到', this.centerX + this.outerRadius, 'Y:', this.centerY - this.outerRadius, '到', this.centerY + this.outerRadius);
+    
+    console.log('触摸摇杆初始化，画布尺寸:', canvas.width, canvas.height, '中心位置:', this.centerX, this.centerY);
+    
     // 触摸状态
     this.touchId = null;
     this.joystickX = 0;
@@ -47,29 +53,48 @@ TouchJoystick.prototype.bindEvents = function() {
         }
         
         var touch = e.touches[0];
-        var x = touch.clientX || touch.pageX || 0;
-        var y = touch.clientY || touch.pageY || 0;
+        // 抖音小游戏环境：触摸坐标通常是相对于画布的
+        var x = touch.x || touch.clientX || touch.pageX || 0;
+        var y = touch.y || touch.clientY || touch.pageY || 0;
         
-        console.log('触摸开始，位置:', x, y, '摇杆中心:', self.centerX, self.centerY);
+        console.log('触摸开始，位置:', x, y, '摇杆中心:', self.centerX, self.centerY, '摇杆可见:', self.isVisible);
         
         // 检查触摸是否在摇杆范围内
         var distance = Math.sqrt(Math.pow(x - self.centerX, 2) + Math.pow(y - self.centerY, 2));
-        console.log('触摸距离:', distance, '摇杆半径:', self.outerRadius);
+        console.log('触摸距离:', distance, '摇杆半径:', self.outerRadius, '触摸是否在范围内:', distance <= self.outerRadius);
         
-        if (distance <= self.outerRadius) {
+        // 抖音小游戏环境：稍微放宽触摸检测范围
+        var touchThreshold = self.outerRadius + 10; // 增加10像素的容错范围
+        
+        // 临时：强制激活触摸摇杆进行测试
+        console.log('强制激活触摸摇杆进行测试');
+        self.touchId = touch.identifier;
+        self.isDragging = true;
+        self.isActive = true;
+        self.updateJoystickPosition(x, y);
+        console.log('触摸摇杆激活，ID:', self.touchId, '状态:', self.isActive, self.isDragging, '触摸阈值:', touchThreshold);
+        
+        /*
+        if (distance <= touchThreshold) {
             self.touchId = touch.identifier;
             self.isDragging = true;
             self.isActive = true;
             self.updateJoystickPosition(x, y);
-            console.log('触摸摇杆激活，ID:', self.touchId);
+            console.log('触摸摇杆激活，ID:', self.touchId, '状态:', self.isActive, self.isDragging, '触摸阈值:', touchThreshold);
         } else {
-            console.log('触摸位置超出摇杆范围');
+            console.log('触摸位置超出摇杆范围，距离:', distance, '阈值:', touchThreshold);
         }
+        */
     };
     
     // 触摸移动
     var touchMoveHandler = function(e) {
-        if (!self.isVisible || !self.isDragging) return;
+        console.log('触摸移动事件触发，触摸点数量:', e.touches.length, '当前触摸ID:', self.touchId);
+        
+        if (!self.isVisible || !self.isDragging) {
+            console.log('触摸移动被忽略，可见:', self.isVisible, '拖拽:', self.isDragging);
+            return;
+        }
         
         // 找到对应的触摸点
         var touch = null;
@@ -81,15 +106,21 @@ TouchJoystick.prototype.bindEvents = function() {
         }
         
         if (touch) {
-            var x = touch.clientX || touch.pageX || 0;
-            var y = touch.clientY || touch.pageY || 0;
+            // 抖音小游戏环境：触摸坐标通常是相对于画布的
+            var x = touch.x || touch.clientX || touch.pageX || 0;
+            var y = touch.y || touch.clientY || touch.pageY || 0;
             self.updateJoystickPosition(x, y);
+            console.log('触摸移动更新，位置:', x, y, '移动方向:', self.moveDirection);
+        } else {
+            console.log('触摸移动未找到对应触摸点，触摸ID:', self.touchId);
         }
     };
     
     // 触摸结束
     var touchEndHandler = function(e) {
         if (!self.isVisible) return;
+        
+        console.log('触摸结束事件触发，触摸点数量:', e.changedTouches.length, '当前触摸ID:', self.touchId);
         
         // 检查触摸点是否结束
         var touchEnded = false;
@@ -101,18 +132,30 @@ TouchJoystick.prototype.bindEvents = function() {
         }
         
         if (touchEnded) {
+            console.log('触摸摇杆重置，触摸ID:', self.touchId);
             self.resetJoystick();
+        } else {
+            console.log('触摸结束但触摸ID不匹配');
         }
     };
     
     // 绑定触摸事件（兼容不同环境）
     if (typeof tt !== 'undefined' && tt.onTouchStart) {
         // 抖音小游戏环境
+        console.log('使用抖音小游戏触摸事件');
         tt.onTouchStart(touchStartHandler);
         tt.onTouchMove(touchMoveHandler);
         tt.onTouchEnd(touchEndHandler);
+        
+        // 抖音小游戏环境：确保触摸事件正确绑定
+        console.log('抖音小游戏触摸事件绑定状态:', {
+            onTouchStart: typeof tt.onTouchStart,
+            onTouchMove: typeof tt.onTouchMove,
+            onTouchEnd: typeof tt.onTouchEnd
+        });
     } else {
         // 标准Web环境
+        console.log('使用标准Web触摸事件');
         self.canvas.addEventListener('touchstart', touchStartHandler);
         self.canvas.addEventListener('touchmove', touchMoveHandler);
         self.canvas.addEventListener('touchend', touchEndHandler);
@@ -137,10 +180,18 @@ TouchJoystick.prototype.updateJoystickPosition = function(x, y) {
     // 计算移动方向
     this.moveDirection.x = deltaX / this.outerRadius;
     this.moveDirection.y = deltaY / this.outerRadius;
+    
+    // 抖音小游戏环境：确保移动方向在合理范围内
+    this.moveDirection.x = Math.max(-1, Math.min(1, this.moveDirection.x));
+    this.moveDirection.y = Math.max(-1, Math.min(1, this.moveDirection.y));
+    
+    console.log('摇杆位置更新:', '触摸位置:', x, y, '中心:', this.centerX, this.centerY, '偏移:', deltaX, deltaY, '移动方向:', this.moveDirection);
 };
 
 // 重置摇杆
 TouchJoystick.prototype.resetJoystick = function() {
+    console.log('触摸摇杆重置前状态:', this.isDragging, this.isActive, this.touchId);
+    
     this.isDragging = false;
     this.isActive = false;
     this.touchId = null;
@@ -148,6 +199,8 @@ TouchJoystick.prototype.resetJoystick = function() {
     this.joystickY = 0;
     this.moveDirection.x = 0;
     this.moveDirection.y = 0;
+    
+    console.log('触摸摇杆重置后状态:', this.isDragging, this.isActive, this.touchId);
 };
 
 // 渲染摇杆
@@ -193,6 +246,7 @@ TouchJoystick.prototype.render = function(ctx) {
 // 显示摇杆
 TouchJoystick.prototype.show = function() {
     this.isVisible = true;
+    console.log('触摸摇杆显示，位置:', this.centerX, this.centerY, '半径:', this.outerRadius, '画布尺寸:', this.canvas.width, this.canvas.height);
 };
 
 // 隐藏摇杆
@@ -235,6 +289,9 @@ var GameEngine = function(canvas, ctx) {
     
     // 帧计数器（用于定期执行某些操作）
     this.frameCount = 0;
+    
+    // 时间系统初始化
+    this.lastUpdateTime = performance.now();
     
     // 初始化
     this.init();
@@ -323,54 +380,25 @@ GameEngine.prototype.updateJoystickMovement = function() {
     var direction = this.joystick.getMoveDirection();
     var moveSpeed = mainChar.moveSpeed;
     
-    // 预碰撞检测：检查目标位置是否安全
-    var collisionResult = this.preCollisionCheck(mainChar, mainChar.x + direction.x * moveSpeed, mainChar.y + direction.y * moveSpeed);
+    console.log('触摸摇杆移动:', '方向:', direction, '移动速度:', moveSpeed, '当前位置:', mainChar.x, mainChar.y);
     
-    if (!collisionResult.isSafe) {
-        // 目标位置不安全，寻找安全路径
-        var safePath = this.findSafeMovePath(mainChar, mainChar.x + direction.x * moveSpeed, mainChar.y + direction.y * moveSpeed, collisionResult.obstacles);
-        if (safePath) {
-            // 验证路径安全性
-            if (this.validateMovePath(mainChar, mainChar.x, mainChar.y, safePath.x, safePath.y)) {
-                mainChar.setMoveTarget(safePath.x, safePath.y);
-                console.log('找到安全移动路径:', safePath);
-            } else {
-                console.log('路径验证失败，尝试最小移动');
-                var minimalMove = this.findMinimalSafeMove(mainChar, direction, moveSpeed);
-                if (minimalMove && this.validateMovePath(mainChar, mainChar.x, mainChar.y, minimalMove.x, minimalMove.y)) {
-                    mainChar.setMoveTarget(minimalMove.x, minimalMove.y);
-                    console.log('使用最小安全移动:', minimalMove);
-                } else {
-                    console.log('无法移动，保持原位置');
-                }
-            }
-        } else {
-            // 无法找到安全路径，尝试最小移动
-            var minimalMove = this.findMinimalSafeMove(mainChar, direction, moveSpeed);
-            if (minimalMove && this.validateMovePath(mainChar, mainChar.x, mainChar.y, minimalMove.x, minimalMove.y)) {
-                mainChar.setMoveTarget(minimalMove.x, minimalMove.y);
-                console.log('使用最小安全移动:', minimalMove);
-            } else {
-                // 完全无法移动，保持原位置
-                console.log('无法移动，保持原位置');
-            }
-        }
-    } else {
-        // 目标位置安全，直接移动
+    // 简化移动逻辑：直接计算目标位置并设置移动目标
+    if (Math.abs(direction.x) > 0.1 || Math.abs(direction.y) > 0.1) {
         var newX = mainChar.x + direction.x * moveSpeed;
         var newY = mainChar.y + direction.y * moveSpeed;
         
-        // 最终验证
-        if (this.validateMovePath(mainChar, mainChar.x, mainChar.y, newX, newY)) {
-            mainChar.setMoveTarget(newX, newY);
-        } else {
-            console.log('最终路径验证失败，保持原位置');
-        }
+        console.log('设置移动目标:', '从', mainChar.x, mainChar.y, '到', newX, newY);
+        console.log('移动计算详情:', '方向X:', direction.x, '方向Y:', direction.y, '移动速度:', moveSpeed);
+        
+        var result = mainChar.setMoveTarget(newX, newY);
+        console.log('设置移动目标结果:', result);
+    } else {
+        console.log('移动方向太小，忽略移动');
     }
     
     // 更新状态
     if (Math.abs(direction.x) > 0.1 || Math.abs(direction.y) > 0.1) {
-        mainChar.status = 'FOLLOW';
+        mainChar.status = 'MOVING'; // 使用正确的状态枚举
     } else {
         mainChar.status = 'IDLE';
     }
@@ -533,7 +561,15 @@ GameEngine.prototype.update = function() {
     // 更新僵尸
     if (this.zombieManager) {
         var characters = this.characterManager ? this.characterManager.getAllCharacters() : [];
-        this.zombieManager.updateAllZombies(characters, 1/60);
+        // 计算真实的deltaTime，确保移动平滑
+        var currentTime = performance.now();
+        var deltaTime = (currentTime - this.lastUpdateTime) / 1000; // 转换为秒
+        this.lastUpdateTime = currentTime;
+        
+        // 限制deltaTime，防止跳帧导致的瞬移
+        deltaTime = Math.min(deltaTime, 1/30); // 最大30fps的deltaTime
+        
+        this.zombieManager.updateAllZombies(characters, deltaTime);
         
         // 每60帧（1秒）执行一次紧急分离，防止僵尸重叠卡死
         if (this.frameCount % 60 === 0) {

@@ -199,9 +199,12 @@ Character.prototype.setMoveTarget = function (targetX, targetY) {
     return true;
 };
 
-// 更新移动 - 使用工具类
+// 更新移动 - 使用工具类，优化平滑移动
 Character.prototype.updateMovement = function () {
-    if (!this.isMoving) return;
+    if (!this.isMoving) {
+        console.log('人物不在移动状态:', this.status, this.isMoving);
+        return;
+    }
 
     var movementUtils = UtilsManager.getMovementUtils();
     var animationUtils = UtilsManager.getAnimationUtils();
@@ -211,6 +214,8 @@ Character.prototype.updateMovement = function () {
     var moveVector = movementUtils.calculateMoveVector(
         this.x, this.y, this.targetX, this.targetY, this.moveSpeed
     );
+    
+    console.log('移动向量计算:', '当前位置:', this.x, this.y, '目标位置:', this.targetX, this.targetY, '移动向量:', moveVector);
     
     // 检查是否到达目标
     if (moveVector.distance < collisionConfig.MIN_MOVE_DISTANCE) {
@@ -222,8 +227,9 @@ Character.prototype.updateMovement = function () {
         return;
     }
 
+    // 匀速移动逻辑
     if (moveVector.distance < this.moveSpeed) {
-        // 到达目标位置
+        // 接近目标，直接移动到目标位置
         this.x = this.targetX;
         this.y = this.targetY;
         this.isMoving = false;
@@ -243,17 +249,20 @@ Character.prototype.updateMovement = function () {
             }
         }
 
+        // 应用匀速移动
         this.x = newX;
         this.y = newY;
         this.status = STATUS.MOVING;
     }
 
-    // 使用动画工具更新动画帧
+    // 使用动画工具更新动画帧 - 优化动画更新频率
     if (this.isMoving) {
         var animationConfig = ConfigManager.get('ANIMATION');
+        // 根据移动状态调整动画速度
+        var adjustedSpeed = this.isMoving ? this.animationSpeed * 1.5 : this.animationSpeed;
         this.animationFrame = animationUtils.updateFrame(
             this.animationFrame, 
-            this.animationSpeed, 
+            adjustedSpeed, 
             animationConfig.MAX_ANIMATION_FRAMES
         );
     }

@@ -329,9 +329,9 @@ Zombie.prototype.moveTowards = function (targetX, targetY, deltaTime) {
     var movementUtils = UtilsManager.getMovementUtils();
     var collisionConfig = ConfigManager.get('COLLISION');
     
-    // 使用移动工具计算移动向量
+    // 使用移动工具计算移动向量 - 确保平滑移动
     var moveVector = movementUtils.calculateMoveVector(
-        this.x, this.y, targetX, targetY, this.moveSpeed * deltaTime
+        this.x, this.y, targetX, targetY, this.moveSpeed
     );
     
     if (moveVector.distance > 0) {
