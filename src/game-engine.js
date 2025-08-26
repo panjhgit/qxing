@@ -323,108 +323,50 @@ GameEngine.prototype.updateJoystickMovement = function() {
     var direction = this.joystick.getMoveDirection();
     var moveSpeed = mainChar.moveSpeed;
     
-    // 计算新位置
-    var newX = mainChar.x + direction.x * moveSpeed;
-    var newY = mainChar.y + direction.y * moveSpeed;
-    
     // 预碰撞检测：检查目标位置是否安全
-    var isTargetSafe = true;
-    if (this.collisionSystem) {
-        // 检查是否在建筑物内
-        if (this.collisionSystem.isObjectInBuilding && 
-            this.collisionSystem.isObjectInBuilding(newX, newY, mainChar.width, mainChar.height)) {
-            console.log('人物目标位置在建筑物内，需要调整');
-            isTargetSafe = false;
-        }
-        
-        // 检查是否与其他对象重叠
-        if (this.collisionSystem.isObjectOverlappingWithList) {
-            var avoidObjects = [];
-            
-            // 添加所有僵尸
-            if (this.zombieManager) {
-                var allZombies = this.zombieManager.getAllZombies().filter(z => z.hp > 0);
-                avoidObjects = avoidObjects.concat(allZombies);
-            }
-            
-            // 添加其他人物（除了自己）
-            if (this.characterManager) {
-                var allCharacters = this.characterManager.getAllCharacters();
-                for (var i = 0; i < allCharacters.length; i++) {
-                    if (allCharacters[i].id !== mainChar.id) {
-                        avoidObjects.push(allCharacters[i]);
-                    }
+    var collisionResult = this.preCollisionCheck(mainChar, mainChar.x + direction.x * moveSpeed, mainChar.y + direction.y * moveSpeed);
+    
+    if (!collisionResult.isSafe) {
+        // 目标位置不安全，寻找安全路径
+        var safePath = this.findSafeMovePath(mainChar, mainChar.x + direction.x * moveSpeed, mainChar.y + direction.y * moveSpeed, collisionResult.obstacles);
+        if (safePath) {
+            // 验证路径安全性
+            if (this.validateMovePath(mainChar, mainChar.x, mainChar.y, safePath.x, safePath.y)) {
+                mainChar.move(safePath.x, safePath.y);
+                console.log('找到安全移动路径:', safePath);
+            } else {
+                console.log('路径验证失败，尝试最小移动');
+                var minimalMove = this.findMinimalSafeMove(mainChar, direction, moveSpeed);
+                if (minimalMove && this.validateMovePath(mainChar, mainChar.x, mainChar.y, minimalMove.x, minimalMove.y)) {
+                    mainChar.move(minimalMove.x, minimalMove.y);
+                    console.log('使用最小安全移动:', minimalMove);
+                } else {
+                    console.log('无法移动，保持原位置');
                 }
             }
-            
-            if (this.collisionSystem.isObjectOverlappingWithList(newX, newY, mainChar.width, mainChar.height, avoidObjects)) {
-                console.log('人物目标位置与其他对象重叠，需要调整');
-                isTargetSafe = false;
+        } else {
+            // 无法找到安全路径，尝试最小移动
+            var minimalMove = this.findMinimalSafeMove(mainChar, direction, moveSpeed);
+            if (minimalMove && this.validateMovePath(mainChar, mainChar.x, mainChar.y, minimalMove.x, minimalMove.y)) {
+                mainChar.move(minimalMove.x, minimalMove.y);
+                console.log('使用最小安全移动:', minimalMove);
+            } else {
+                // 完全无法移动，保持原位置
+                console.log('无法移动，保持原位置');
             }
         }
-    }
-    
-    // 如果目标位置不安全，使用碰撞检测系统获取安全位置
-    if (!isTargetSafe && this.collisionSystem && this.collisionSystem.getNonOverlappingPosition) {
-        var avoidObjects = [];
+    } else {
+        // 目标位置安全，直接移动
+        var newX = mainChar.x + direction.x * moveSpeed;
+        var newY = mainChar.y + direction.y * moveSpeed;
         
-        // 添加所有僵尸
-        if (this.zombieManager) {
-            var allZombies = this.zombieManager.getAllZombies().filter(z => z.hp > 0);
-            avoidObjects = avoidObjects.concat(allZombies);
-        }
-        
-        // 添加其他人物（除了自己）
-        if (this.characterManager) {
-            var allCharacters = this.characterManager.getAllCharacters();
-            for (var i = 0; i < allCharacters.length; i++) {
-                if (allCharacters[i].id !== mainChar.id) {
-                    avoidObjects.push(allCharacters[i]);
-                }
-            }
-        }
-        
-        // 获取不重叠的移动位置
-        console.log('人物移动碰撞检测:', '从', mainChar.x, mainChar.y, '到', newX, newY);
-        console.log('避免对象数量:', avoidObjects.length);
-        
-        var validPosition = this.collisionSystem.getNonOverlappingPosition(
-            mainChar.x, mainChar.y, newX, newY, mainChar.width, mainChar.height,
-            avoidObjects, true // 启用建筑物碰撞检测
-        );
-        
-        // 如果位置有变化，说明发生了碰撞调整
-        if (validPosition.x !== newX || validPosition.y !== newY) {
-            console.log('人物碰撞检测调整移动位置:', 
-                '从', newX, newY, '到', validPosition.x, validPosition.y);
-            newX = validPosition.x;
-            newY = validPosition.y;
-        }
-    } else if (!isTargetSafe && this.collisionSystem && this.collisionSystem.getSmoothMovePosition) {
-        // 回退到只检查建筑物的碰撞检测
-        var validPosition = this.collisionSystem.getSmoothMovePosition(
-            mainChar.x, mainChar.y, newX, newY, mainChar.width, mainChar.height
-        );
-        
-        if (validPosition.x !== newX || validPosition.y !== newY) {
-            console.log('人物建筑物碰撞检测调整移动位置:', 
-                '从', newX, newY, '到', validPosition.x, validPosition.y);
-            newX = validPosition.x;
-            newY = validPosition.y;
+        // 最终验证
+        if (this.validateMovePath(mainChar, mainChar.x, mainChar.y, newX, newY)) {
+            mainChar.move(newX, newY);
+        } else {
+            console.log('最终路径验证失败，保持原位置');
         }
     }
-    
-    // 最终位置验证
-    if (this.collisionSystem && this.collisionSystem.isObjectInBuilding) {
-        if (this.collisionSystem.isObjectInBuilding(newX, newY, mainChar.width, mainChar.height)) {
-            console.warn('人物最终位置仍在建筑物内，保持原位置');
-            newX = mainChar.x;
-            newY = mainChar.y;
-        }
-    }
-    
-    // 移动主人物到最终位置
-    mainChar.move(newX, newY);
     
     // 更新状态
     if (Math.abs(direction.x) > 0.1 || Math.abs(direction.y) > 0.1) {
@@ -571,8 +513,13 @@ GameEngine.prototype.update = function() {
     // 更新计时系统
     this.updateTimeSystem();
     
-    // 重建动态四叉树（每帧更新，支持实时碰撞检测）
-    if (this.collisionSystem && this.collisionSystem.updateDynamicQuadTree) {
+    // 使用优化的四叉树更新策略
+    if (this.collisionSystem && this.collisionSystem.optimizedUpdateDynamicQuadTree) {
+        var characters = this.characterManager ? this.characterManager.getAllCharacters() : [];
+        var zombies = this.zombieManager ? this.zombieManager.getAllZombies().filter(z => z.hp > 0) : [];
+        this.collisionSystem.optimizedUpdateDynamicQuadTree(characters, zombies);
+    } else if (this.collisionSystem && this.collisionSystem.updateDynamicQuadTree) {
+        // 回退到原来的更新方法
         var characters = this.characterManager ? this.characterManager.getAllCharacters() : [];
         var zombies = this.zombieManager ? this.zombieManager.getAllZombies().filter(z => z.hp > 0) : [];
         this.collisionSystem.updateDynamicQuadTree(characters, zombies);
@@ -596,7 +543,38 @@ GameEngine.prototype.update = function() {
     if (this.viewSystem) {
         this.viewSystem.update();
     }
-};
+    
+    // 每300帧（5秒）输出一次系统状态
+    if (this.frameCount % 300 === 0) {
+        this.logSystemStatus();
+    }
+},
+
+// 记录系统状态
+GameEngine.prototype.logSystemStatus = function() {
+    console.log('=== 系统状态报告 ===');
+    console.log('帧数:', this.frameCount);
+    console.log('游戏状态:', this.gameState);
+    console.log('时间系统:', this.getTimeInfo());
+    
+    if (this.collisionSystem) {
+        var lifecycleStats = this.collisionSystem.getObjectLifecycleStats();
+        console.log('对象生命周期统计:', lifecycleStats);
+    }
+    
+    if (this.characterManager) {
+        var characters = this.characterManager.getAllCharacters();
+        console.log('角色数量:', characters.length);
+    }
+    
+    if (this.zombieManager) {
+        var zombies = this.zombieManager.getAllZombies();
+        var activeZombies = zombies.filter(z => z.hp > 0);
+        console.log('僵尸总数:', zombies.length, '活跃僵尸:', activeZombies.length);
+    }
+    
+    console.log('==================');
+},
 
 // 游戏循环渲染
 GameEngine.prototype.render = function() {
@@ -640,6 +618,190 @@ GameEngine.prototype.render = function() {
             this.menuSystem.renderMenu();
         }
     }
+};
+
+// 预碰撞检测：检查目标位置是否安全
+GameEngine.prototype.preCollisionCheck = function(character, targetX, targetY) {
+    var result = {
+        isSafe: true,
+        obstacles: [],
+        buildingCollision: false,
+        objectCollision: false
+    };
+
+    if (!this.collisionSystem) {
+        return result;
+    }
+
+    // 检查建筑物碰撞
+    if (this.collisionSystem.isObjectInBuilding && 
+        this.collisionSystem.isObjectInBuilding(targetX, targetY, character.width, character.height)) {
+        result.isSafe = false;
+        result.buildingCollision = true;
+        result.obstacles.push({ type: 'building', x: targetX, y: targetY });
+    }
+
+    // 检查对象碰撞
+    if (this.collisionSystem.isObjectOverlappingWithList) {
+        var avoidObjects = [];
+        
+        // 添加所有僵尸
+        if (this.zombieManager) {
+            var allZombies = this.zombieManager.getAllZombies().filter(z => z.hp > 0);
+            avoidObjects = avoidObjects.concat(allZombies);
+        }
+        
+        // 添加其他人物（除了自己）
+        if (this.characterManager) {
+            var allCharacters = this.characterManager.getAllCharacters();
+            for (var i = 0; i < allCharacters.length; i++) {
+                if (allCharacters[i].id !== character.id) {
+                    avoidObjects.push(allCharacters[i]);
+                }
+            }
+        }
+
+        if (this.collisionSystem.isObjectOverlappingWithList(targetX, targetY, character.width, character.height, avoidObjects)) {
+            result.isSafe = false;
+            result.objectCollision = true;
+            result.obstacles = result.obstacles.concat(avoidObjects);
+        }
+    }
+
+    return result;
+};
+
+// 寻找安全移动路径
+GameEngine.prototype.findSafeMovePath = function(character, targetX, targetY, obstacles) {
+    if (!this.collisionSystem || !this.collisionSystem.getNonOverlappingPosition) {
+        return null;
+    }
+
+    // 尝试使用碰撞检测系统获取安全位置
+    var avoidObjects = obstacles.filter(obj => obj.type !== 'building');
+    var validPosition = this.collisionSystem.getNonOverlappingPosition(
+        character.x, character.y, targetX, targetY, character.width, character.height,
+        avoidObjects, true // 启用建筑物碰撞检测
+    );
+
+    if (validPosition && validPosition.x !== targetX && validPosition.y !== targetY) {
+        return validPosition;
+    }
+
+    return null;
+};
+
+// 寻找最小安全移动
+GameEngine.prototype.findMinimalSafeMove = function(character, direction, moveSpeed) {
+    if (!this.collisionSystem) {
+        return null;
+    }
+
+    // 尝试多个距离的移动
+    var testDistances = [0.8, 0.6, 0.4, 0.2, 0.1];
+    
+    for (var i = 0; i < testDistances.length; i++) {
+        var testDistance = testDistances[i];
+        var testX = character.x + direction.x * moveSpeed * testDistance;
+        var testY = character.y + direction.y * moveSpeed * testDistance;
+        
+        var collisionResult = this.preCollisionCheck(character, testX, testY);
+        if (collisionResult.isSafe) {
+            return { x: testX, y: testY, distance: testDistance };
+        }
+    }
+
+    return null;
+};
+
+// 验证最终位置
+GameEngine.prototype.validateFinalPosition = function(character, finalX, finalY) {
+    var result = {
+        isValid: true,
+        issues: []
+    };
+
+    if (!this.collisionSystem) {
+        return result;
+    }
+
+    // 检查是否在建筑物内
+    if (this.collisionSystem.isObjectInBuilding && 
+        this.collisionSystem.isObjectInBuilding(finalX, finalY, character.width, character.height)) {
+        result.isValid = false;
+        result.issues.push('final_position_in_building');
+    }
+
+    // 检查是否与其他对象重叠
+    if (this.collisionSystem.isObjectOverlappingWithList) {
+        var avoidObjects = [];
+        
+        if (this.zombieManager) {
+            var allZombies = this.zombieManager.getAllZombies().filter(z => z.hp > 0);
+            avoidObjects = avoidObjects.concat(allZombies);
+        }
+        
+        if (this.characterManager) {
+            var allCharacters = this.characterManager.getAllCharacters();
+            for (var i = 0; i < allCharacters.length; i++) {
+                if (allCharacters[i].id !== character.id) {
+                    avoidObjects.push(allCharacters[i]);
+                }
+            }
+        }
+
+        if (this.collisionSystem.isObjectOverlappingWithList(finalX, finalY, character.width, character.height, avoidObjects)) {
+            result.isValid = false;
+            result.issues.push('final_position_overlapping');
+        }
+    }
+
+    return result;
+};
+
+// 验证移动路径
+GameEngine.prototype.validateMovePath = function(character, startX, startY, endX, endY) {
+    var result = {
+        isValid: true,
+        issues: []
+    };
+
+    if (!this.collisionSystem) {
+        return result;
+    }
+
+    // 检查建筑物碰撞
+    if (this.collisionSystem.isObjectInBuilding && 
+        this.collisionSystem.isObjectInBuilding(endX, endY, character.width, character.height)) {
+        result.isValid = false;
+        result.issues.push('move_path_in_building');
+    }
+
+    // 检查对象碰撞
+    if (this.collisionSystem.isObjectOverlappingWithList) {
+        var avoidObjects = [];
+        
+        if (this.zombieManager) {
+            var allZombies = this.zombieManager.getAllZombies().filter(z => z.hp > 0);
+            avoidObjects = avoidObjects.concat(allZombies);
+        }
+        
+        if (this.characterManager) {
+            var allCharacters = this.characterManager.getAllCharacters();
+            for (var i = 0; i < allCharacters.length; i++) {
+                if (allCharacters[i].id !== character.id) {
+                    avoidObjects.push(allCharacters[i]);
+                }
+            }
+        }
+
+        if (this.collisionSystem.isObjectOverlappingWithList(endX, endY, character.width, character.height, avoidObjects)) {
+            result.isValid = false;
+            result.issues.push('move_path_overlapping');
+        }
+    }
+
+    return result;
 };
 
 // 导出

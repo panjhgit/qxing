@@ -13,7 +13,7 @@ function QuadTreeNode(x, y, width, height, maxDepth, currentDepth) {
     this.height = height || 0;
     this.maxDepth = maxDepth || 0;
     this.currentDepth = currentDepth || 0;
-
+    
     this.objects = [];        // 存储的对象
     this.maxObjects = 8;      // 最大对象数量
     this.children = null;     // 子节点
@@ -36,44 +36,34 @@ QuadTreeNode.prototype.getBounds = function () {
 QuadTreeNode.prototype.containsObject = function (object) {
     var bounds = this.getBounds();
     var objBounds = this.getObjectBounds(object);
-
-    return !(objBounds.right < bounds.x ||
-        objBounds.left > bounds.right ||
-        objBounds.bottom < bounds.y ||
-        objBounds.top > bounds.bottom);
+    
+    return !(objBounds.right < bounds.x || 
+             objBounds.left > bounds.right || 
+             objBounds.bottom < bounds.y || 
+             objBounds.top > bounds.bottom);
 };
 
-// 获取对象边界
+// 获取对象边界（统一版本）
 QuadTreeNode.prototype.getObjectBounds = function (object) {
+    if (!object) {
+        return { left: 0, right: 0, top: 0, bottom: 0 };
+    }
+
     if (object.bounds) {
         return object.bounds;
     }
+    
+    // 统一使用中心点计算边界，正确处理0值
+    var x = (object.x !== undefined && object.x !== null) ? object.x : 0;
+    var y = (object.y !== undefined && object.y !== null) ? object.y : 0;
+    var width = (object.width !== undefined && object.width !== null) ? object.width : 32;
+    var height = (object.height !== undefined && object.height !== null) ? object.height : 48;
 
-    // 根据对象类型计算边界
-    if (object.width !== undefined && object.height !== undefined) {
-        // 人物、僵尸等对象
-        return {
-            left: (object.x || 0) - (object.width || 0) / 2,
-            right: (object.x || 0) + (object.width || 0) / 2,
-            top: (object.y || 0) - (object.height || 0) / 2,
-            bottom: (object.y || 0) + (object.height || 0) / 2
-        };
-    } else if (object.x !== undefined && object.y !== undefined) {
-        // 点对象
-        return {
-            left: object.x,
-            right: object.x,
-            top: object.y,
-            bottom: object.y
-        };
-    }
-
-    // 默认边界
     return {
-        left: object.x || 0,
-        right: (object.x || 0) + (object.width || 0),
-        top: object.y || 0,
-        bottom: (object.y || 0) + (object.height || 0)
+        left: x - width / 2,
+        right: x + width / 2,
+        top: y - height / 2,
+        bottom: y + height / 2
     };
 };
 
@@ -82,18 +72,18 @@ QuadTreeNode.prototype.subdivide = function () {
     if (this.isDivided || this.currentDepth >= this.maxDepth) {
         return;
     }
-
+    
     var halfWidth = this.width / 2;
     var halfHeight = this.height / 2;
     var nextDepth = this.currentDepth + 1;
-
+    
     this.children = [
         new QuadTreeNode(this.x, this.y, halfWidth, halfHeight, this.maxDepth, nextDepth),                    // 左上
         new QuadTreeNode(this.x + halfWidth, this.y, halfWidth, halfHeight, this.maxDepth, nextDepth),        // 右上
         new QuadTreeNode(this.x, this.y + halfHeight, halfWidth, halfHeight, this.maxDepth, nextDepth),       // 左下
         new QuadTreeNode(this.x + halfWidth, this.y + halfHeight, halfWidth, halfHeight, this.maxDepth, nextDepth) // 右下
     ];
-
+    
     this.isDivided = true;
 };
 
@@ -102,16 +92,16 @@ QuadTreeNode.prototype.insert = function (object) {
     if (!this.containsObject(object)) {
         return false;
     }
-
+    
     if (this.objects.length < this.maxObjects && !this.isDivided) {
         this.objects.push(object);
         return true;
     }
-
+    
     if (!this.isDivided) {
         this.subdivide();
     }
-
+    
     // 尝试插入到子节点
     for (var i = 0; i < this.children.length; i++) {
         var child = this.children[i];
@@ -119,7 +109,7 @@ QuadTreeNode.prototype.insert = function (object) {
             return true;
         }
     }
-
+    
     // 如果子节点都无法容纳，则放在当前节点
     this.objects.push(object);
     return true;
@@ -128,17 +118,17 @@ QuadTreeNode.prototype.insert = function (object) {
 // 查询范围内的对象
 QuadTreeNode.prototype.query = function (range, found) {
     if (!found) found = [];
-
+    
     // 添加边界检查
-    if (!range || range.left === undefined || range.top === undefined ||
+    if (!range || range.left === undefined || range.top === undefined || 
         range.right === undefined || range.bottom === undefined) {
         return found;
     }
-
+    
     if (!this.intersects(range)) {
         return found;
     }
-
+    
     // 检查当前节点的对象
     for (var i = 0; i < this.objects.length; i++) {
         var object = this.objects[i];
@@ -150,7 +140,7 @@ QuadTreeNode.prototype.query = function (range, found) {
             }
         }
     }
-
+    
     // 递归检查子节点
     if (this.isDivided) {
         for (var j = 0; j < this.children.length; j++) {
@@ -158,24 +148,25 @@ QuadTreeNode.prototype.query = function (range, found) {
             child.query(range, found);
         }
     }
-
+    
     return found;
 };
 
 // 检查两个矩形是否相交
 QuadTreeNode.prototype.rectsIntersect = function (rect1, rect2) {
-    return !(rect1.right <= rect2.left ||
-        rect1.left >= rect2.right ||
-        rect1.bottom <= rect2.top ||
-        rect1.top >= rect2.bottom);
+    return !(rect1.right <= rect2.left || 
+             rect1.left >= rect2.right || 
+             rect1.bottom <= rect2.top || 
+             rect1.top >= rect2.bottom);
 };
 
 // 检查查询范围是否与节点相交
 QuadTreeNode.prototype.intersects = function (range) {
-    return !(range.right <= this.x ||
-        range.left >= this.x + this.width ||
-        range.bottom <= this.y ||
-        range.top >= this.y + this.height);
+    // 修复边界计算逻辑
+    return !(range.right <= this.x || 
+             range.left >= this.x + this.width || 
+             range.bottom <= this.y || 
+             range.top >= this.y + this.height);
 };
 
 // 清空节点
@@ -192,7 +183,7 @@ QuadTreeNode.prototype.remove = function (object) {
         this.objects.splice(index, 1);
         return true;
     }
-
+    
     if (this.isDivided) {
         for (var i = 0; i < this.children.length; i++) {
             var child = this.children[i];
@@ -201,7 +192,7 @@ QuadTreeNode.prototype.remove = function (object) {
             }
         }
     }
-
+    
     return false;
 };
 
@@ -210,10 +201,10 @@ var CollisionSystem = {
     // 四叉树实例
     staticQuadTree: null,    // 静态四叉树（建筑物）
     dynamicQuadTree: null,   // 动态四叉树（人物、僵尸）
-
+    
     // 当前地图配置
     currentMap: null,
-
+    
     // 地图配置集合
     maps: {
         // 主地图：8x8网格，建筑物750x750，街道500像素
@@ -229,7 +220,7 @@ var CollisionSystem = {
             mapHeight: 10000,
             buildingTypes: ['民房', '别墅', '医院', '商店', '学校', '警察局']
         },
-
+        
         // 子地图配置保持不变...
         'submap1': {
             name: '子地图1',
@@ -247,7 +238,7 @@ var CollisionSystem = {
                 {x: 3000, y: 1200, width: 800, height: 600, type: '会议室'}
             ]
         },
-
+        
         'submap2': {
             name: '子地图2',
             type: 'irregular',
@@ -264,7 +255,7 @@ var CollisionSystem = {
                 {x: 1500, y: 1400, width: 500, height: 600, type: '游戏厅'}
             ]
         },
-
+        
         'submap3': {
             name: '子地图3',
             type: 'irregular',
@@ -281,7 +272,7 @@ var CollisionSystem = {
                 {x: 800, y: 1300, width: 600, height: 400, type: '观景台'}
             ]
         },
-
+        
         'submap4': {
             name: '子地图4',
             type: 'irregular',
@@ -299,33 +290,36 @@ var CollisionSystem = {
             ]
         }
     },
-
+    
     // 初始化碰撞检测系统
     init: function (mapId) {
         if (!mapId) {
             mapId = 'main';
         }
-
+        
         if (!this.maps[mapId]) {
             console.error('未知地图ID:', mapId);
             return false;
         }
-
+        
         this.currentMap = this.maps[mapId];
-
-        // 启用建筑物碰撞检测
+        
+        // 强制启用建筑物碰撞检测，禁用调试模式
         this.debugMode = false;
-        console.log('建筑物碰撞检测已启用');
-
+        this._collisionEnabled = true;
+        console.log('✅ 建筑物碰撞检测已强制启用，调试模式已禁用');
+        
         // 初始化静态四叉树（建筑物）
         this.initStaticQuadTree();
-
+        
         // 初始化动态四叉树（人物、僵尸）
         this.initDynamicQuadTree();
-
+        
         console.log('四叉树碰撞检测系统初始化完成');
         console.log('当前地图:', this.currentMap.name);
         console.log('地图类型:', this.currentMap.type);
+        console.log('调试模式状态:', this.debugMode);
+        console.log('碰撞检测状态:', this._collisionEnabled);
 
         // 添加详细的调试信息
         console.log('=== 碰撞系统详细状态 ===');
@@ -354,35 +348,35 @@ var CollisionSystem = {
         }
 
         console.log('=== 碰撞系统初始化完成 ===');
-
+        
         return true;
     },
-
+    
     // 初始化静态四叉树
     initStaticQuadTree: function () {
         var mapWidth = this.currentMap.mapWidth;
         var mapHeight = this.currentMap.mapHeight;
-
+        
         // 静态四叉树：最大深度4层，每节点最多5个对象
         this.staticQuadTree = new QuadTreeNode(0, 0, mapWidth, mapHeight, 4, 0);
         this.staticQuadTree.maxObjects = 5;
-
+        
         // 插入建筑物
         this.insertBuildingsToStaticTree();
-
+        
         console.log('静态四叉树初始化完成，地图尺寸:', mapWidth, 'x', mapHeight);
     },
-
+    
     // 初始化动态四叉树
     initDynamicQuadTree: function () {
         var mapWidth = this.currentMap.mapWidth;
         var mapHeight = this.currentMap.mapHeight;
-
+        
         // 动态四叉树：最大深度6层，每节点最多8个对象
         this.dynamicQuadTree = new QuadTreeNode(0, 0, mapWidth, mapHeight, 6, 0);
         this.dynamicQuadTree.maxObjects = 8;
     },
-
+    
     // 将建筑物插入静态四叉树
     insertBuildingsToStaticTree: function () {
         if (this.currentMap.type === 'grid') {
@@ -391,7 +385,7 @@ var CollisionSystem = {
             this.insertIrregularBuildings();
         }
     },
-
+    
     // 插入网格建筑物
     insertGridBuildings: function () {
         var blockSize = this.currentMap.blockSize;
@@ -399,7 +393,7 @@ var CollisionSystem = {
         var streetWidth = this.currentMap.streetWidth;
         var cols = this.currentMap.gridCols;
         var rows = this.currentMap.gridRows;
-
+        
         console.log('开始插入网格建筑物，配置:', {
             blockSize: blockSize,
             gridSize: gridSize,
@@ -407,13 +401,13 @@ var CollisionSystem = {
             cols: cols,
             rows: rows
         });
-
+        
         for (var col = 0; col < cols; col++) {
             for (var row = 0; row < rows; row++) {
                 // 建筑物位置：每个网格的中心放置建筑物
                 var buildingX = col * gridSize + gridSize / 2;
                 var buildingY = row * gridSize + gridSize / 2;
-
+                
                 var building = {
                     x: buildingX,
                     y: buildingY,
@@ -422,6 +416,7 @@ var CollisionSystem = {
                     type: this.currentMap.buildingTypes[Math.floor(Math.random() * this.currentMap.buildingTypes.length)],
                     gridCol: col,
                     gridRow: row,
+                    // 统一使用中心点坐标系统
                     bounds: {
                         left: buildingX - blockSize / 2,
                         right: buildingX + blockSize / 2,
@@ -429,49 +424,58 @@ var CollisionSystem = {
                         bottom: buildingY + blockSize / 2
                     }
                 };
-
+                
                 this.staticQuadTree.insert(building);
-
+                
                 // 调试信息：显示第一个建筑物的位置
                 if (col === 0 && row === 0) {
                     console.log('第一个建筑物:', building);
-                    console.log('街道中心位置 (应该不在建筑物内):',
+                    console.log('街道中心位置 (应该不在建筑物内):', 
                         gridSize / 2, gridSize / 2);
                 }
             }
         }
-
+        
         console.log('网格建筑物插入完成，建筑物尺寸:', blockSize, '街道宽度:', streetWidth, '网格大小:', gridSize);
     },
-
+    
     // 插入不规则建筑物
     insertIrregularBuildings: function () {
         if (!this.currentMap.buildings) return;
-
+        
         for (var i = 0; i < this.currentMap.buildings.length; i++) {
             var building = this.currentMap.buildings[i];
-            // 为每个建筑物添加边界信息
+            // 统一使用中心点坐标系统
+            var centerX = building.x + building.width / 2;
+            var centerY = building.y + building.height / 2;
+            
             building.bounds = {
-                left: building.x,
-                right: building.x + building.width,
-                top: building.y,
-                bottom: building.y + building.height
+                left: centerX - building.width / 2,
+                right: centerX + building.width / 2,
+                top: centerY - building.height / 2,
+                bottom: centerY + building.height / 2
             };
-
+            
             this.staticQuadTree.insert(building);
         }
     },
-
+    
 
     // 添加动态对象到四叉树
     addDynamicObject: function (object) {
-        if (!this.dynamicQuadTree || !object) {
-            console.warn('添加动态对象失败: 四叉树未初始化或对象无效');
+        // 添加错误处理
+        if (!this.dynamicQuadTree) {
+            console.error('动态四叉树未初始化');
+            return false;
+        }
+
+        if (!object) {
+            console.error('对象为空，无法添加到四叉树');
             return false;
         }
 
         if (object.x === undefined || object.y === undefined) {
-            console.warn('添加动态对象失败: 对象缺少位置信息', object);
+            console.error('对象缺少位置信息', object);
             return false;
         }
 
@@ -483,9 +487,14 @@ var CollisionSystem = {
 
         var result = this.dynamicQuadTree.insert(object);
         if (result) {
-            // 为对象添加四叉树标识
+            // 为对象添加四叉树标识和类型信息
             object._quadTreeId = 'obj_' + Date.now() + '_' + Math.random();
-            console.log('动态对象已添加到四叉树:', object._quadTreeId, object);
+            object._quadTreeType = this.getObjectType(object);
+            object._quadTreeAddedTime = Date.now();
+            console.log('动态对象已添加到四叉树:', object._quadTreeId, object._quadTreeType, object);
+            
+            // 注册到生命周期管理器
+            this.registerObject(object, object._quadTreeType);
         } else {
             console.warn('动态对象添加失败:', object);
         }
@@ -503,13 +512,304 @@ var CollisionSystem = {
         var result = this.dynamicQuadTree.remove(object);
         if (result) {
             // 清除四叉树标识
+            var quadTreeId = object._quadTreeId;
+            var objectId = object.id;
+            
             delete object._quadTreeId;
-            console.log('动态对象已从四叉树移除:', object);
+            delete object._quadTreeType;
+            delete object._quadTreeAddedTime;
+            
+            // 清理缓存 - 同时清理quadTreeId和objectId
+            if (quadTreeId) {
+                this.removeFromObjectIdCache(quadTreeId);
+            }
+            if (objectId) {
+                this.removeFromObjectIdCache(objectId);
+            }
+            
+            // 从生命周期管理器注销
+            this.unregisterObject(object);
+            
+            console.log('动态对象已从四叉树移除:', quadTreeId, objectId, object);
         } else {
             console.warn('动态对象移除失败:', object);
         }
 
         return result;
+    },
+
+    // 批量添加动态对象
+    addDynamicObjects: function(objects) {
+        if (!Array.isArray(objects)) {
+            console.warn('批量添加失败: 参数不是数组');
+            return false;
+        }
+
+        var successCount = 0;
+        var failCount = 0;
+
+        for (var i = 0; i < objects.length; i++) {
+            var object = objects[i];
+            if (this.addDynamicObject(object)) {
+                successCount++;
+            } else {
+                failCount++;
+            }
+        }
+
+        console.log('批量添加完成 - 成功:', successCount, '失败:', failCount);
+        return successCount > 0;
+    },
+
+    // 批量移除动态对象
+    removeDynamicObjects: function(objects) {
+        if (!Array.isArray(objects)) {
+            console.warn('批量移除失败: 参数不是数组');
+            return false;
+        }
+
+        var successCount = 0;
+        var failCount = 0;
+
+        for (var i = 0; i < objects.length; i++) {
+            var object = objects[i];
+            if (this.removeDynamicObject(object)) {
+                successCount++;
+            } else {
+                failCount++;
+            }
+        }
+
+        console.log('批量移除完成 - 成功:', successCount, '失败:', failCount);
+        return successCount > 0;
+    },
+
+    // 获取对象类型
+    getObjectType: function(object) {
+        if (!object) return 'unknown';
+        
+        // 优先检查明确的类型标识
+        if (object.type) {
+            if (typeof object.type === 'string') {
+                if (object.type.includes('zombie')) return 'zombie';
+                if (object.type.includes('character') || object.type.includes('player')) return 'character';
+                if (object.type.includes('item')) return 'item';
+                if (object.type.includes('building')) return 'building';
+            }
+        }
+        
+        // 检查角色属性
+        if (object.role !== undefined) {
+            if (object.role === 'player' || object.role === 'character') return 'character';
+            if (object.role === 'zombie') return 'zombie';
+        }
+        
+        // 检查ID模式
+        if (object.id) {
+            if (typeof object.id === 'string') {
+                if (object.id.includes('zombie')) return 'zombie';
+                if (object.id.includes('character') || object.id.includes('player')) return 'character';
+                if (object.id.includes('test')) return 'test';
+            }
+        }
+        
+        // 检查其他属性
+        if (object.hp !== undefined && object.maxHp !== undefined) {
+            // 有生命值系统的对象
+            if (object.isZombie === true) return 'zombie';
+            if (object.isPlayer === true || object.isCharacter === true) return 'character';
+        }
+        
+        return 'unknown';
+    },
+
+    // 清理无效对象（从四叉树中移除已销毁或无效的对象）
+    cleanupInvalidObjects: function() {
+        if (!this.dynamicQuadTree) return 0;
+
+        var removedCount = 0;
+        var allObjects = this.getAllDynamicObjects();
+
+        for (var i = 0; i < allObjects.length; i++) {
+            var object = allObjects[i];
+            
+            // 检查对象是否有效
+            if (!this.isObjectValid(object)) {
+                this.removeDynamicObject(object);
+                removedCount++;
+            }
+        }
+
+        if (removedCount > 0) {
+            console.log('清理无效对象完成，移除数量:', removedCount);
+        }
+
+        return removedCount;
+    },
+
+    // 检查对象是否有效
+    isObjectValid: function(object) {
+        if (!object) return false;
+        
+        // 检查基本属性
+        if (object.x === undefined || object.y === undefined) return false;
+        
+        // 检查生命值（如果有的话）
+        if (object.hp !== undefined && object.hp <= 0) return false;
+        
+        // 检查是否被标记为销毁
+        if (object._destroyed === true) return false;
+        
+        return true;
+    },
+
+    // 获取所有动态对象
+    getAllDynamicObjects: function() {
+        if (!this.dynamicQuadTree) return [];
+        
+        var allObjects = [];
+        this.collectObjectsFromNode(this.dynamicQuadTree, allObjects);
+        return allObjects;
+    },
+
+    // 从四叉树节点收集所有对象
+    collectObjectsFromNode: function(node, objects) {
+        if (!node) return;
+        
+        // 添加当前节点的对象
+        for (var i = 0; i < node.objects.length; i++) {
+            objects.push(node.objects[i]);
+        }
+        
+        // 递归收集子节点的对象
+        if (node.isDivided) {
+            for (var j = 0; j < node.children.length; j++) {
+                this.collectObjectsFromNode(node.children[j], objects);
+            }
+        }
+    },
+
+    // 统一的对象生命周期管理
+    objectLifecycleManager: {
+        // 注册的对象
+        registeredObjects: new Map(),
+        
+        // 对象类型统计
+        typeStats: {
+            character: 0,
+            zombie: 0,
+            other: 0
+        },
+        
+        // 注册对象
+        register: function(object, type) {
+            if (!object || !object._quadTreeId) {
+                console.warn('无法注册无效对象:', object);
+                return false;
+            }
+            
+            // 存储对象的引用信息而不是直接引用对象，避免内存泄漏
+            this.registeredObjects.set(object._quadTreeId, {
+                objectId: object.id || object._quadTreeId,
+                type: type,
+                registeredTime: Date.now(),
+                lastUpdateTime: Date.now(),
+                position: { x: object.x, y: object.y },
+                isValid: true
+            });
+            
+            // 更新统计
+            if (this.typeStats[type] !== undefined) {
+                this.typeStats[type]++;
+            } else {
+                this.typeStats.other++;
+            }
+            
+            console.log('对象已注册:', object._quadTreeId, '类型:', type);
+            return true;
+        },
+        
+        // 注销对象
+        unregister: function(object) {
+            if (!object || !object._quadTreeId) {
+                return false;
+            }
+            
+            var record = this.registeredObjects.get(object._quadTreeId);
+            if (record) {
+                // 更新统计
+                if (this.typeStats[record.type] !== undefined) {
+                    this.typeStats[record.type] = Math.max(0, this.typeStats[record.type] - 1);
+                } else {
+                    this.typeStats.other = Math.max(0, this.typeStats.other - 1);
+                }
+                
+                this.registeredObjects.delete(object._quadTreeId);
+                console.log('对象已注销:', object._quadTreeId, '类型:', record.type);
+                return true;
+            }
+            
+            return false;
+        },
+        
+        // 更新对象
+        update: function(object) {
+            if (!object || !object._quadTreeId) {
+                return false;
+            }
+            
+            var record = this.registeredObjects.get(object._quadTreeId);
+            if (record) {
+                record.lastUpdateTime = Date.now();
+                return true;
+            }
+            
+            return false;
+        },
+        
+        // 获取统计信息
+        getStats: function() {
+            return {
+                totalObjects: this.registeredObjects.size,
+                typeStats: { ...this.typeStats },
+                registeredObjects: Array.from(this.registeredObjects.keys())
+            };
+        },
+        
+        // 清理无效对象
+        cleanup: function() {
+            var removedCount = 0;
+            var currentTime = Date.now();
+            var maxAge = 30000; // 30秒无更新则视为无效
+            
+            for (var [id, record] of this.registeredObjects) {
+                if (currentTime - record.lastUpdateTime > maxAge) {
+                    this.registeredObjects.delete(id);
+                    removedCount++;
+                }
+            }
+            
+            if (removedCount > 0) {
+                console.log('清理了', removedCount, '个无效对象');
+            }
+            
+            return removedCount;
+        }
+    },
+
+    // 注册对象到生命周期管理器
+    registerObject: function(object, type) {
+        return this.objectLifecycleManager.register(object, type);
+    },
+
+    // 注销对象从生命周期管理器
+    unregisterObject: function(object) {
+        return this.objectLifecycleManager.unregister(object);
+    },
+
+    // 获取对象生命周期统计
+    getObjectLifecycleStats: function() {
+        return this.objectLifecycleManager.getStats();
     },
 
     // 更新动态对象位置（先移除旧位置，再插入新位置）
@@ -542,48 +842,54 @@ var CollisionSystem = {
 
         return result;
     },
-
+    
     // 检测点是否在建筑物内
     isPointInBuilding: function (x, y) {
-        if (this.debugMode) {
+        // 检查碰撞检测是否启用
+        if (!this._collisionEnabled) {
+            console.warn('碰撞检测未启用，请检查系统状态');
             return false;
         }
-
+        
         if (!this.staticQuadTree) {
             console.warn('静态四叉树未初始化');
             return false;
         }
-
+        
         // 边界检查：超出地图边界视为在建筑物内
         if (x < 0 || y < 0 || x >= this.currentMap.mapWidth || y >= this.currentMap.mapHeight) {
             return true;
         }
-
+        
         var point = {x: x, y: y};
         var range = {left: x, right: x, top: y, bottom: y};
-
+        
         // 查询附近的建筑物
         var nearbyBuildings = this.staticQuadTree.query(range);
-
-        // 检查点是否在任何建筑物内
+        
+        // 检查点是否在任何建筑物内（统一使用bounds）
         for (var i = 0; i < nearbyBuildings.length; i++) {
             var building = nearbyBuildings[i];
-            if (x >= building.x && x < building.x + building.width &&
-                y >= building.y && y < building.y + building.height) {
+            if (building && building.bounds) {
+                if (x >= building.bounds.left && x < building.bounds.right &&
+                    y >= building.bounds.top && y < building.bounds.bottom) {
                 return true;
+                }
             }
         }
-
+        
         return false;
     },
-
+    
 
     // 检测对象中心点是否在建筑物内
     isObjectInBuilding: function (centerX, centerY, objectWidth, objectHeight) {
-        if (this.debugMode) {
+        // 检查碰撞检测是否启用
+        if (!this._collisionEnabled) {
+            console.warn('碰撞检测未启用，请检查系统状态');
             return false;
         }
-
+        
         if (!this.staticQuadTree) {
             console.warn('静态四叉树未初始化');
             return false;
@@ -610,7 +916,7 @@ var CollisionSystem = {
         };
 
         var nearbyBuildings = this.staticQuadTree.query(range);
-
+        
         // 检查对象是否与任何建筑物重叠
         for (var i = 0; i < nearbyBuildings.length; i++) {
             var building = nearbyBuildings[i];
@@ -621,118 +927,118 @@ var CollisionSystem = {
                         building: building.bounds,
                         buildingType: building.type
                     });
-                    return true;
+                return true;
                 }
             }
         }
-
+        
         return false;
     },
-
+    
     // 检测两个矩形是否相交
     rectsIntersect: function (rect1, rect2) {
-        return !(rect1.right <= rect2.left ||
-            rect1.left >= rect2.right ||
-            rect1.bottom <= rect2.top ||
-            rect1.top >= rect2.bottom);
+        return !(rect1.right <= rect2.left || 
+                 rect1.left >= rect2.right || 
+                 rect1.bottom <= rect2.top || 
+                 rect1.top >= rect2.bottom);
     },
-
+    
     // 获取平滑的移动位置（智能碰撞响应）
     getSmoothMovePosition: function (fromX, fromY, toX, toY, objectWidth, objectHeight) {
         // 检查目标位置是否安全
         if (!this.isObjectInBuilding(toX, toY, objectWidth, objectHeight)) {
             return {x: toX, y: toY};
         }
-
+        
         // 计算移动向量
         var deltaX = toX - fromX;
         var deltaY = toY - fromY;
         var distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-
+        
         if (distance === 0) {
             return {x: fromX, y: fromY};
         }
-
+        
         // 尝试多个距离的移动，找到最远的可行位置
         var testDistances = [0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1];
-
+        
         for (var i = 0; i < testDistances.length; i++) {
             var testDistance = testDistances[i];
             var testX = fromX + deltaX * testDistance;
             var testY = fromY + deltaY * testDistance;
-
+            
             // 添加边界检查
-            if (testX >= 0 && testX < this.currentMap.mapWidth &&
+            if (testX >= 0 && testX < this.currentMap.mapWidth && 
                 testY >= 0 && testY < this.currentMap.mapHeight) {
-
+                
                 if (!this.isObjectInBuilding(testX, testY, objectWidth, objectHeight)) {
                     return {x: testX, y: testY};
                 }
             }
         }
-
+        
         // 如果都不能移动，尝试分别移动X和Y轴
         var result = this.getValidMovePosition(fromX, fromY, toX, toY, objectWidth, objectHeight);
-
+        
         // 如果还是不能移动，尝试寻找附近的可行位置
         if (result.x === fromX && result.y === fromY) {
             result = this.findNearestSafePosition(fromX, fromY, toX, toY, objectWidth, objectHeight);
         }
-
+        
         return result;
     },
-
+    
     // 获取有效的移动位置
     getValidMovePosition: function (fromX, fromY, toX, toY, objectWidth, objectHeight) {
         // 检查目标位置是否安全
         if (!this.isObjectInBuilding(toX, toY, objectWidth, objectHeight)) {
             return {x: toX, y: toY};
         }
-
+        
         var newX = fromX;
         var newY = fromY;
-
+        
         // 尝试只移动X轴
         var testX = toX;
         var testY = fromY;
         if (!this.isObjectInBuilding(testX, testY, objectWidth, objectHeight)) {
             newX = testX;
         }
-
+        
         // 尝试只移动Y轴
         var testX2 = fromX;
         var testY2 = toY;
         if (!this.isObjectInBuilding(testX2, testY2, objectWidth, objectHeight)) {
             newY = testY2;
         }
-
+        
         // 如果X和Y都不能移动，尝试对角线移动（距离减半）
         if (newX === fromX && newY === fromY) {
             var halfDistanceX = (toX - fromX) * 0.5;
             var halfDistanceY = (toY - fromY) * 0.5;
-
+            
             var testX3 = fromX + halfDistanceX;
             var testY3 = fromY + halfDistanceY;
-
+            
             if (!this.isObjectInBuilding(testX3, testY3, objectWidth, objectHeight)) {
                 newX = testX3;
                 newY = testY3;
             }
         }
-
+        
         return {x: newX, y: newY};
     },
-
+    
     // 寻找最近的可行位置
     findNearestSafePosition: function (fromX, fromY, toX, toY, objectWidth, objectHeight) {
         var deltaX = toX - fromX;
         var deltaY = toY - fromY;
         var distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-
+        
         if (distance === 0) {
             return {x: fromX, y: fromY};
         }
-
+        
         // 尝试8个方向的移动
         var directions = [
             {x: 1, y: 0},      // 右
@@ -744,33 +1050,33 @@ var CollisionSystem = {
             {x: 0.7, y: -0.7}, // 右上
             {x: -0.7, y: -0.7} // 左上
         ];
-
+        
         var moveDistance = Math.min(distance, 50);
-
+        
         for (var i = 0; i < directions.length; i++) {
             var dir = directions[i];
             var testX = fromX + dir.x * moveDistance;
             var testY = fromY + dir.y * moveDistance;
-
+            
             // 添加边界检查
-            if (testX >= 0 && testX < this.currentMap.mapWidth &&
+            if (testX >= 0 && testX < this.currentMap.mapWidth && 
                 testY >= 0 && testY < this.currentMap.mapHeight) {
-
+                
                 if (!this.isObjectInBuilding(testX, testY, objectWidth, objectHeight)) {
                     return {x: testX, y: testY};
                 }
             }
         }
-
+        
         return {x: fromX, y: fromY};
     },
-
+    
     // 检测对象与对象列表的碰撞（使用四叉树优化）
     isObjectOverlappingWithList: function (objX, objY, objWidth, objHeight, objectList) {
         if (!objectList || objectList.length === 0 || !this.dynamicQuadTree) {
             return false;
         }
-
+        
         // 计算查询范围
         var range = {
             left: objX - objWidth / 2,
@@ -778,112 +1084,112 @@ var CollisionSystem = {
             top: objY - objHeight / 2,
             bottom: objY + objHeight / 2
         };
-
+        
         // 查询附近的动态对象
         var nearbyObjects = this.dynamicQuadTree.query(range);
-
+        
         // 检查是否与任何对象重叠
         for (var i = 0; i < nearbyObjects.length; i++) {
             var otherObj = nearbyObjects[i];
             if (otherObj && otherObj.x !== undefined && otherObj.y !== undefined) {
                 var otherWidth = otherObj.width || 32;
                 var otherHeight = otherObj.height || 32;
-
+                
                 if (this.isObjectsOverlapping(objX, objY, objWidth, objHeight,
-                    otherObj.x, otherObj.y, otherWidth, otherHeight)) {
+                                            otherObj.x, otherObj.y, otherWidth, otherHeight)) {
                     return true;
                 }
             }
         }
-
+        
         return false;
     },
-
+    
     // 检测两个对象是否重叠
     isObjectsOverlapping: function (obj1X, obj1Y, obj1Width, obj1Height,
-                                    obj2X, obj2Y, obj2Width, obj2Height) {
+                                   obj2X, obj2Y, obj2Width, obj2Height) {
         var obj1Left = obj1X - obj1Width / 2;
         var obj1Right = obj1X + obj1Width / 2;
         var obj1Top = obj1Y - obj1Height / 2;
         var obj1Bottom = obj1Y + obj1Height / 2;
-
+        
         var obj2Left = obj2X - obj2Width / 2;
         var obj2Right = obj2X + obj2Width / 2;
         var obj2Top = obj2Y - obj2Height / 2;
         var obj2Bottom = obj2Y + obj2Height / 2;
-
-        return !(obj1Right < obj2Left || obj1Left > obj2Right ||
-            obj1Bottom < obj2Top || obj1Top > obj2Bottom);
+        
+        return !(obj1Right < obj2Left || obj1Left > obj2Right || 
+                 obj1Bottom < obj2Top || obj1Top > obj2Bottom);
     },
-
+    
     // 获取避免重叠的移动位置
     getNonOverlappingPosition: function (fromX, fromY, toX, toY, objectWidth, objectHeight,
-                                         avoidObjects, buildingCollision) {
+                                       avoidObjects, buildingCollision) {
         // 首先检查建筑物碰撞
         if (buildingCollision && this.isObjectInBuilding(toX, toY, objectWidth, objectHeight)) {
             var buildingSafePos = this.getSmoothMovePosition(fromX, fromY, toX, toY, objectWidth, objectHeight);
             toX = buildingSafePos.x;
             toY = buildingSafePos.y;
         }
-
+        
         // 检查是否与对象重叠
         if (!this.isObjectOverlappingWithList(toX, toY, objectWidth, objectHeight, avoidObjects)) {
             return {x: toX, y: toY};
         }
-
+        
         // 如果重叠，尝试寻找不重叠的位置
         var deltaX = toX - fromX;
         var deltaY = toY - fromY;
         var distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-
+        
         if (distance === 0) {
             return {x: fromX, y: fromY};
         }
-
+        
         // 尝试多个距离的移动
         var testDistances = [0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1];
-
+        
         for (var i = 0; i < testDistances.length; i++) {
             var testDistance = testDistances[i];
             var testX = fromX + deltaX * testDistance;
             var testY = fromY + deltaY * testDistance;
-
+            
             var buildingOk = !buildingCollision || !this.isObjectInBuilding(testX, testY, objectWidth, objectHeight);
             var overlapOk = !this.isObjectOverlappingWithList(testX, testY, objectWidth, objectHeight, avoidObjects);
-
+            
             if (buildingOk && overlapOk) {
                 return {x: testX, y: testY};
             }
         }
-
+        
         // 如果还是重叠，尝试8个方向寻找位置
         var directions = [
             {x: 1, y: 0}, {x: -1, y: 0}, {x: 0, y: 1}, {x: 0, y: -1},
             {x: 0.7, y: 0.7}, {x: -0.7, y: 0.7}, {x: 0.7, y: -0.7}, {x: -0.7, y: -0.7}
         ];
-
+        
         var moveDistance = Math.min(distance, 30);
-
+        
         for (var j = 0; j < directions.length; j++) {
             var dir = directions[j];
             var testX = fromX + dir.x * moveDistance;
             var testY = fromY + dir.y * moveDistance;
-
+            
             var buildingOk = !buildingCollision || !this.isObjectInBuilding(testX, testY, objectWidth, objectHeight);
             var overlapOk = !this.isObjectOverlappingWithList(testX, testY, objectWidth, objectHeight, avoidObjects);
-
+            
             if (buildingOk && overlapOk) {
                 return {x: testX, y: testY};
             }
         }
-
+        
         return {x: fromX, y: fromY};
     },
-
+    
     // 寻找安全的生成位置
     findSafePosition: function (centerX, centerY, minDistance, maxDistance, objectWidth, objectHeight) {
         console.log('寻找安全位置，中心:', centerX, centerY, '对象尺寸:', objectWidth, objectHeight);
-
+        
         // 首先尝试在街道上寻找位置
         if (this.currentMap.type === 'grid') {
             var safePos = this.findSafePositionInStreets(centerX, centerY, minDistance, maxDistance, objectWidth, objectHeight);
@@ -892,26 +1198,26 @@ var CollisionSystem = {
                 return safePos;
             }
         }
-
+        
         // 如果街道上没有找到，尝试随机位置
         for (var attempt = 0; attempt < 200; attempt++) {
             var angle = Math.random() * Math.PI * 2;
             var distance = minDistance + Math.random() * (maxDistance - minDistance);
-
+            
             var testX = centerX + Math.cos(angle) * distance;
             var testY = centerY + Math.sin(angle) * distance;
-
+            
             // 确保位置在地图范围内
-            if (testX >= 0 && testX < this.currentMap.mapWidth &&
+            if (testX >= 0 && testX < this.currentMap.mapWidth && 
                 testY >= 0 && testY < this.currentMap.mapHeight) {
-
+                
                 if (!this.isObjectInBuilding(testX, testY, objectWidth, objectHeight)) {
                     console.log('找到随机安全位置:', testX, testY, '尝试次数:', attempt + 1);
                     return {x: testX, y: testY};
                 }
             }
         }
-
+        
         // 如果还是找不到，尝试在地图边缘寻找
         var edgePositions = [
             {x: 100, y: 100},
@@ -919,7 +1225,7 @@ var CollisionSystem = {
             {x: 100, y: this.currentMap.mapHeight - 100},
             {x: this.currentMap.mapWidth - 100, y: this.currentMap.mapHeight - 100}
         ];
-
+        
         for (var i = 0; i < edgePositions.length; i++) {
             var edgePos = edgePositions[i];
             if (!this.isObjectInBuilding(edgePos.x, edgePos.y, objectWidth, objectHeight)) {
@@ -947,28 +1253,29 @@ var CollisionSystem = {
                 }
             }
         }
-
+        
         console.warn('无法找到安全位置，使用默认位置');
         return {x: 100, y: 100};
     },
-
+    
     // 在街道上寻找安全位置
     findSafePositionInStreets: function (centerX, centerY, minDistance, maxDistance, objectWidth, objectHeight) {
         if (this.currentMap.type !== 'grid') return null;
-
+        
         var gridSize = this.currentMap.gridSize;
         var streetWidth = this.currentMap.streetWidth;
         var cols = this.currentMap.gridCols;
         var rows = this.currentMap.gridRows;
-
+        
         // 尝试在街道交叉点附近寻找位置
         var streetPositions = [];
-
+        
         for (var col = 0; col <= cols; col++) {
             for (var row = 0; row <= rows; row++) {
+                // 街道位置：网格交叉点，应该是街道中心
                 var streetX = col * gridSize;
                 var streetY = row * gridSize;
-
+                
                 // 检查街道位置是否安全
                 if (!this.isObjectInBuilding(streetX, streetY, objectWidth, objectHeight)) {
                     var distance = Math.sqrt(Math.pow(streetX - centerX, 2) + Math.pow(streetY - centerY, 2));
@@ -982,24 +1289,24 @@ var CollisionSystem = {
                 }
             }
         }
-
+        
         // 按距离排序，返回最近的安全位置
         if (streetPositions.length > 0) {
             streetPositions.sort(function (a, b) {
                 return a.distance - b.distance;
             });
-
+            
             return {x: streetPositions[0].x, y: streetPositions[0].y};
         }
-
+        
         return null;
     },
-
-
+    
+    
     // 测试碰撞检测系统
     testCollisionSystem: function () {
         console.log('=== 测试四叉树碰撞检测系统 ===');
-
+        
         // 测试地图布局
         console.log('当前地图配置:', this.currentMap);
         if (this.staticQuadTree) {
@@ -1009,27 +1316,27 @@ var CollisionSystem = {
         } else {
             console.log('静态四叉树未初始化');
         }
-
+        
         // 测试街道位置（应该不在建筑物内）
         var streetTestX = 625; // 第一个网格中心，应该是街道
         var streetTestY = 625;
         var streetTest = this.isPointInBuilding(streetTestX, streetTestY);
         console.log('测试街道位置 (625, 625):', streetTest, '应该为false');
-
+        
         // 测试建筑物位置（应该在建筑物内）
         var buildingTestX = 1125; // 第一个建筑物中心
         var buildingTestY = 1125;
         var buildingTest = this.isPointInBuilding(buildingTestX, buildingTestY);
         console.log('测试建筑物位置 (1125, 1125):', buildingTest, '应该为true');
-
+        
         // 测试对象碰撞
         var testBuilding = this.isObjectInBuilding(1000, 1000, 32, 32);
         console.log('测试建筑物碰撞 (1000, 1000):', testBuilding);
-
+        
         // 测试对象重叠
         var testOverlap = this.isObjectsOverlapping(100, 100, 32, 32, 120, 120, 32, 32);
         console.log('测试对象重叠:', testOverlap);
-
+        
         // 测试移动路径验证
         if (this.isMovePathValid) {
             var pathTest1 = this.isMovePathValid(625, 625, 1875, 625, 32, 48); // 街道到街道
@@ -1037,16 +1344,16 @@ var CollisionSystem = {
             console.log('移动路径测试 - 街道到街道:', pathTest1, '应该为true');
             console.log('移动路径测试 - 街道到建筑物:', pathTest2, '应该为false');
         }
-
+        
         console.log('=== 四叉树碰撞检测系统测试完成 ===');
     },
-
+    
     // 性能统计
     getPerformanceStats: function () {
         if (!this.staticQuadTree || !this.dynamicQuadTree) {
             return {error: '四叉树未初始化'};
         }
-
+        
         return {
             staticTreeDepth: this.getTreeDepth(this.staticQuadTree),
             dynamicTreeDepth: this.getTreeDepth(this.dynamicQuadTree),
@@ -1054,12 +1361,12 @@ var CollisionSystem = {
             dynamicTreeNodes: this.countTreeNodes(this.dynamicQuadTree)
         };
     },
-
+    
     // 获取树的深度
     getTreeDepth: function (node) {
         if (!node) return 0;
         if (!node.isDivided) return 1;
-
+        
         var maxDepth = 1;
         for (var i = 0; i < node.children.length; i++) {
             var child = node.children[i];
@@ -1067,11 +1374,11 @@ var CollisionSystem = {
         }
         return maxDepth;
     },
-
+    
     // 计算树的节点数量
     countTreeNodes: function (node) {
         if (!node) return 0;
-
+        
         var count = 1;
         if (node.isDivided) {
             for (var i = 0; i < node.children.length; i++) {
@@ -1081,22 +1388,22 @@ var CollisionSystem = {
         }
         return count;
     },
-
+    
     // 僵尸紧急分离算法（防止僵尸重叠卡死）
     emergencySeparation: function (zombies, characters) {
         if (!zombies || zombies.length === 0) return;
-
+        
         var separationForce = 2.0; // 分离力强度
         var separationRadius = 40;  // 分离检测半径
-
+        
         for (var i = 0; i < zombies.length; i++) {
             var zombie = zombies[i];
             if (!zombie || zombie.hp <= 0) continue;
-
+            
             var separationX = 0;
             var separationY = 0;
             var neighborCount = 0;
-
+            
             // 检测附近的僵尸
             var range = {
                 left: zombie.x - separationRadius,
@@ -1104,40 +1411,40 @@ var CollisionSystem = {
                 top: zombie.y - separationRadius,
                 bottom: zombie.y + separationRadius
             };
-
+            
             if (this.dynamicQuadTree) {
                 var nearbyObjects = this.dynamicQuadTree.query(range);
-
+                
                 for (var j = 0; j < nearbyObjects.length; j++) {
                     var otherObj = nearbyObjects[j];
                     if (otherObj === zombie || !otherObj || otherObj.hp <= 0) continue;
-
+                    
                     var distance = Math.sqrt(
-                        Math.pow(zombie.x - otherObj.x, 2) +
+                        Math.pow(zombie.x - otherObj.x, 2) + 
                         Math.pow(zombie.y - otherObj.y, 2)
                     );
-
+                    
                     if (distance > 0 && distance < separationRadius) {
                         // 计算分离向量
                         var angle = Math.atan2(zombie.y - otherObj.y, zombie.x - otherObj.x);
                         var force = (separationRadius - distance) / separationRadius;
-
+                        
                         separationX += Math.cos(angle) * force * separationForce;
                         separationY += Math.sin(angle) * force * separationForce;
                         neighborCount++;
                     }
                 }
             }
-
+            
             // 应用分离力
             if (neighborCount > 0) {
                 separationX /= neighborCount;
                 separationY /= neighborCount;
-
+                
                 // 检查分离后的位置是否安全
                 var newX = zombie.x + separationX;
                 var newY = zombie.y + separationY;
-
+                
                 if (!this.isObjectInBuilding(newX, newY, zombie.width || 32, zombie.height || 32)) {
                     zombie.x = newX;
                     zombie.y = newY;
@@ -1145,16 +1452,16 @@ var CollisionSystem = {
             }
         }
     },
-
+    
     // 获取僵尸的有效移动位置（避免与建筑物、其他僵尸和人物重叠）
     getZombieValidMovePosition: function (zombie, toX, toY, allZombies, allCharacters) {
         var zombieWidth = zombie.width || 32;
         var zombieHeight = zombie.height || 32;
-
+        
         // 首先检查目标位置是否在建筑物内
         if (this.isObjectInBuilding(toX, toY, zombieWidth, zombieHeight)) {
             console.log('僵尸目标位置在建筑物内，寻找替代路径');
-
+            
             // 尝试寻找绕行路径
             var alternativePath = this.findZombieAlternativePath(zombie, toX, toY, zombieWidth, zombieHeight);
             if (alternativePath) {
@@ -1165,10 +1472,10 @@ var CollisionSystem = {
                 return {x: zombie.x, y: zombie.y};
             }
         }
-
+        
         // 创建需要避免的对象列表
         var avoidObjects = [];
-
+        
         // 添加其他僵尸
         if (allZombies) {
             for (var i = 0; i < allZombies.length; i++) {
@@ -1178,19 +1485,19 @@ var CollisionSystem = {
                 }
             }
         }
-
+        
         // 添加人物
         if (allCharacters) {
             avoidObjects = avoidObjects.concat(allCharacters);
         }
-
+        
         // 获取不重叠的移动位置
         return this.getNonOverlappingPosition(
-            zombie.x, zombie.y, toX, toY, zombieWidth, zombieHeight,
+            zombie.x, zombie.y, toX, toY, zombieWidth, zombieHeight, 
             avoidObjects, true // 启用建筑物碰撞检测
         );
     },
-
+    
     // 为僵尸寻找替代路径（绕行建筑物）
     findZombieAlternativePath: function (zombie, targetX, targetY, zombieWidth, zombieHeight) {
         var fromX = zombie.x;
@@ -1198,9 +1505,9 @@ var CollisionSystem = {
         var deltaX = targetX - fromX;
         var deltaY = targetY - fromY;
         var distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-
+        
         if (distance === 0) return null;
-
+        
         // 尝试多个方向的绕行
         var directions = [
             {x: 1, y: 0},      // 右
@@ -1212,27 +1519,32 @@ var CollisionSystem = {
             {x: 0.7, y: -0.7}, // 右上
             {x: -0.7, y: -0.7} // 左上
         ];
-
+        
         var moveDistance = Math.min(distance, 100); // 限制绕行距离
-
+        
         for (var i = 0; i < directions.length; i++) {
             var dir = directions[i];
             var testX = fromX + dir.x * moveDistance;
             var testY = fromY + dir.y * moveDistance;
-
-            // 检查这个位置是否安全
-            if (!this.isObjectInBuilding(testX, testY, zombieWidth, zombieHeight)) {
-                // 检查从当前位置到这个位置的路径是否安全
-                if (this.isMovePathValid(fromX, fromY, testX, testY, zombieWidth, zombieHeight)) {
-                    console.log('僵尸找到替代路径:', testX, testY, '方向:', dir);
-                    return {x: testX, y: testY};
+            
+            // 添加边界检查，确保绕行点在地图范围内
+            if (testX >= 0 && testX < window.collisionSystem.currentMap.mapWidth && 
+                testY >= 0 && testY < window.collisionSystem.currentMap.mapHeight) {
+                
+                // 检查这个位置是否安全
+                if (!this.isObjectInBuilding(testX, testY, zombieWidth, zombieHeight)) {
+                    // 检查从当前位置到这个位置的路径是否安全
+                    if (this.isMovePathValid(fromX, fromY, testX, testY, zombieWidth, zombieHeight)) {
+                        console.log('僵尸找到替代路径:', testX, testY, '方向:', dir);
+                        return {x: testX, y: testY};
+                    }
                 }
             }
         }
-
+        
         return null;
     },
-
+    
 
     // 检测移动路径是否有效（支持部分移动）
     isMovePathValid: function (fromX, fromY, toX, toY, objectWidth, objectHeight) {
@@ -1241,7 +1553,7 @@ var CollisionSystem = {
             console.log('起点在建筑物内:', fromX, fromY);
             return false;
         }
-
+        
         if (this.isObjectInBuilding(toX, toY, objectWidth, objectHeight)) {
             console.log('终点在建筑物内:', toX, toY);
             return false;
@@ -1260,16 +1572,31 @@ var CollisionSystem = {
             }
         }
 
-        return true;
+                    return true;
     },
 
 
 
     // 定期重建动态四叉树（每帧调用，确保数据一致性）
-    updateDynamicQuadTree: function (characters, zombies) {
+    updateDynamicQuadTree: function(characters, zombies) {
         if (!this.dynamicQuadTree) {
             console.warn('动态四叉树未初始化');
             return false;
+        }
+
+        // 清理无效对象
+        var cleanedCount = this.cleanupInvalidObjects();
+        if (cleanedCount > 0) {
+            console.log('清理了', cleanedCount, '个无效对象');
+        }
+
+        // 清理生命周期管理器中的无效对象
+        this.objectLifecycleManager.cleanup();
+
+        // 智能缓存清理：只在必要时清理
+        if (this._shouldClearCache(characters, zombies)) {
+            this.clearObjectIdCache();
+            console.log('缓存已清理');
         }
 
         // 清空动态四叉树
@@ -1277,21 +1604,26 @@ var CollisionSystem = {
 
         var addedCount = 0;
         var skippedCount = 0;
+        var invalidCount = 0;
 
         // 插入人物
         if (characters && characters.length > 0) {
             for (var i = 0; i < characters.length; i++) {
                 var character = characters[i];
-                if (character && character.x !== undefined && character.y !== undefined && character.hp > 0) {
+                if (this.isObjectValid(character)) {
                     if (this.dynamicQuadTree.insert(character)) {
                         addedCount++;
                         // 确保对象有四叉树标识
                         if (!character._quadTreeId) {
                             character._quadTreeId = 'char_' + Date.now() + '_' + Math.random();
+                            character._quadTreeType = 'character';
+                            character._quadTreeAddedTime = Date.now();
                         }
+                        // 注册到生命周期管理器
+                        this.registerObject(character, 'character');
                     }
                 } else {
-                    skippedCount++;
+                    invalidCount++;
                 }
             }
         }
@@ -1300,26 +1632,232 @@ var CollisionSystem = {
         if (zombies && zombies.length > 0) {
             for (var j = 0; j < zombies.length; j++) {
                 var zombie = zombies[j];
-                if (zombie && zombie.x !== undefined && zombie.y !== undefined && zombie.hp > 0) {
+                if (this.isObjectValid(zombie)) {
                     if (this.dynamicQuadTree.insert(zombie)) {
                         addedCount++;
                         // 确保对象有四叉树标识
                         if (!zombie._quadTreeId) {
                             zombie._quadTreeId = 'zombie_' + Date.now() + '_' + Math.random();
+                            zombie._quadTreeType = 'zombie';
+                            zombie._quadTreeAddedTime = Date.now();
                         }
+                        // 注册到生命周期管理器
+                        this.registerObject(zombie, 'zombie');
                     }
                 } else {
-                    skippedCount++;
+                    invalidCount++;
                 }
             }
         }
 
         // 记录更新统计
-        if (addedCount > 0 || skippedCount > 0) {
-            console.log('动态四叉树更新完成 - 添加:', addedCount, '跳过:', skippedCount);
+        if (addedCount > 0 || skippedCount > 0 || invalidCount > 0) {
+            console.log('动态四叉树更新完成 - 添加:', addedCount, '跳过:', skippedCount, '无效:', invalidCount);
         }
 
         return addedCount > 0;
+    },
+
+    // 智能更新动态四叉树（只更新变化的对象，提高性能）
+    smartUpdateDynamicQuadTree: function(characters, zombies) {
+        if (!this.dynamicQuadTree) {
+            return this.updateDynamicQuadTree(characters, zombies);
+        }
+
+        var updatedCount = 0;
+        var addedCount = 0;
+        var removedCount = 0;
+        var unchangedCount = 0;
+
+        // 获取当前四叉树中的所有对象
+        var currentObjects = this.getAllDynamicObjects();
+        var currentObjectMap = new Map();
+        
+        // 建立当前对象映射
+        for (var i = 0; i < currentObjects.length; i++) {
+            var obj = currentObjects[i];
+            if (obj._quadTreeId) {
+                currentObjectMap.set(obj._quadTreeId, obj);
+            }
+        }
+
+        // 处理所有对象
+        var allObjects = [];
+        if (characters) allObjects = allObjects.concat(characters);
+        if (zombies) allObjects = allObjects.concat(zombies);
+
+        var newObjectMap = new Map();
+        for (var j = 0; j < allObjects.length; j++) {
+            var obj = allObjects[j];
+            if (this.isObjectValid(obj)) {
+                var objId = obj._quadTreeId || obj.id;
+                newObjectMap.set(objId, obj);
+                
+                // 检查对象是否已在四叉树中
+                if (!obj._quadTreeId || !currentObjectMap.has(obj._quadTreeId)) {
+                    // 新对象，需要添加
+                    if (this.addDynamicObject(obj)) {
+                        addedCount++;
+                    }
+                } else {
+                    // 现有对象，检查位置是否变化
+                    var currentObj = currentObjectMap.get(obj._quadTreeId);
+                    if (currentObj.x !== obj.x || currentObj.y !== obj.y) {
+                        // 位置变化，需要更新
+                        this.updateDynamicObjectPosition(obj, currentObj.x, currentObj.y, obj.x, obj.y);
+                        updatedCount++;
+                        // 更新生命周期管理器
+                        this.objectLifecycleManager.update(obj);
+                    } else {
+                        unchangedCount++;
+                    }
+                }
+            }
+        }
+
+        // 移除不再存在的对象
+        for (var [id, obj] of currentObjectMap) {
+            if (!newObjectMap.has(id)) {
+                this.removeDynamicObject(obj);
+                this.unregisterObject(obj);
+                removedCount++;
+            }
+        }
+
+        if (addedCount > 0 || updatedCount > 0 || removedCount > 0) {
+            console.log('智能四叉树更新完成 - 添加:', addedCount, '更新:', updatedCount, '移除:', removedCount, '未变:', unchangedCount);
+        }
+
+        return addedCount > 0 || updatedCount > 0 || removedCount > 0;
+    },
+
+    // 性能优化的四叉树更新（根据变化程度选择更新策略）
+    optimizedUpdateDynamicQuadTree: function(characters, zombies) {
+        // 计算变化程度
+        var changeRatio = this.calculateChangeRatio(characters, zombies);
+        
+        if (changeRatio > 0.3) {
+            // 变化较大，使用完全重建
+            console.log('变化较大，使用完全重建策略');
+            return this.updateDynamicQuadTree(characters, zombies);
+        } else if (changeRatio > 0.1) {
+            // 变化中等，使用智能更新
+            console.log('变化中等，使用智能更新策略');
+            return this.smartUpdateDynamicQuadTree(characters, zombies);
+        } else {
+            // 变化很小，只更新必要的对象
+            console.log('变化很小，使用增量更新策略');
+            return this.incrementalUpdateDynamicQuadTree(characters, zombies);
+        }
+    },
+
+    // 计算变化比例
+    calculateChangeRatio: function(characters, zombies) {
+        var totalObjects = 0;
+        var changedObjects = 0;
+        
+        var allObjects = [];
+        if (characters) allObjects = allObjects.concat(characters);
+        if (zombies) allObjects = allObjects.concat(zombies);
+        
+        for (var i = 0; i < allObjects.length; i++) {
+            var obj = allObjects[i];
+            if (this.isObjectValid(obj)) {
+                totalObjects++;
+                if (obj._quadTreeId) {
+                    // 检查位置是否变化
+                    var currentObj = this.getObjectById(obj._quadTreeId);
+                    if (currentObj && (currentObj.x !== obj.x || currentObj.y !== obj.y)) {
+                        changedObjects++;
+                    }
+                } else {
+                    // 新对象
+                    changedObjects++;
+                }
+            }
+        }
+        
+        return totalObjects > 0 ? changedObjects / totalObjects : 0;
+    },
+
+    // 增量更新（只更新变化的对象）
+    incrementalUpdateDynamicQuadTree: function(characters, zombies) {
+        var updatedCount = 0;
+        
+        var allObjects = [];
+        if (characters) allObjects = allObjects.concat(characters);
+        if (zombies) allObjects = allObjects.concat(zombies);
+        
+        for (var i = 0; i < allObjects.length; i++) {
+            var obj = allObjects[i];
+            if (this.isObjectValid(obj)) {
+                if (obj._quadTreeId) {
+                    // 现有对象，检查是否需要更新
+                    var currentObj = this.getObjectById(obj._quadTreeId);
+                    if (currentObj && (currentObj.x !== obj.x || currentObj.y !== obj.y)) {
+                        this.updateDynamicObjectPosition(obj, currentObj.x, currentObj.y, obj.x, obj.y);
+                        updatedCount++;
+                    }
+                } else {
+                    // 新对象，添加到四叉树
+                    this.addDynamicObject(obj);
+                    updatedCount++;
+                }
+            }
+        }
+        
+        if (updatedCount > 0) {
+            console.log('增量更新完成，更新对象数量:', updatedCount);
+        }
+        
+        return updatedCount > 0;
+    },
+
+    // 根据ID获取对象（优化版本）
+    getObjectById: function(id) {
+        // 使用缓存提高性能
+        if (!this._objectIdCache) {
+            this._objectIdCache = new Map();
+        }
+
+        // 检查缓存
+        if (this._objectIdCache.has(id)) {
+            var cachedObj = this._objectIdCache.get(id);
+            // 验证缓存的对象是否仍然有效
+            if (cachedObj && cachedObj._quadTreeId === id) {
+                return cachedObj;
+            } else {
+                // 缓存失效，移除
+                this._objectIdCache.delete(id);
+            }
+        }
+
+        // 从四叉树中查找
+        var allObjects = this.getAllDynamicObjects();
+        for (var i = 0; i < allObjects.length; i++) {
+            var obj = allObjects[i];
+            if (obj._quadTreeId === id) {
+                // 更新缓存
+                this._objectIdCache.set(id, obj);
+                return obj;
+            }
+        }
+
+        return null;
+    },
+
+    // 清理对象ID缓存
+    clearObjectIdCache: function() {
+        if (this._objectIdCache) {
+            this._objectIdCache.clear();
+        }
+    },
+
+    // 从缓存中移除对象
+    removeFromObjectIdCache: function(id) {
+        if (this._objectIdCache && this._objectIdCache.has(id)) {
+            this._objectIdCache.delete(id);
+        }
     },
 
     // 获取碰撞检测统计信息
@@ -1354,6 +1892,458 @@ var CollisionSystem = {
             }
         }
         return count;
+    },
+
+    // 统一的位置生成验证机制
+    spawnPositionValidator: {
+        // 验证生成位置
+        validateSpawnPosition: function(x, y, objectType, objectConfig) {
+            var result = {
+                isValid: false,
+                position: { x: x, y: y },
+                issues: [],
+                suggestions: []
+            };
+
+            // 基本配置
+            var config = this.getObjectConfig(objectType, objectConfig);
+            
+            // 验证步骤1：边界检查
+            if (!this.validateBoundaries(x, y, config.width, config.height)) {
+                result.issues.push('out_of_bounds');
+                result.suggestions.push('调整到地图边界内');
+                return result;
+            }
+
+            // 验证步骤2：建筑物碰撞检查
+            if (this.checkBuildingCollision(x, y, config.width, config.height)) {
+                result.issues.push('building_collision');
+                result.suggestions.push('寻找建筑物外的位置');
+            }
+
+            // 验证步骤3：对象重叠检查
+            if (this.checkObjectOverlap(x, y, config.width, config.height, objectType)) {
+                result.issues.push('object_overlap');
+                result.suggestions.push('寻找不重叠的位置');
+            }
+
+            // 如果位置有效，返回成功
+            if (result.issues.length === 0) {
+                result.isValid = true;
+                return result;
+            }
+
+            // 尝试寻找安全位置
+            var safePosition = this.findSafeSpawnPosition(x, y, objectType, config);
+            if (safePosition) {
+                result.position = safePosition;
+                result.isValid = true;
+                result.issues = [];
+                result.suggestions = ['已找到安全位置'];
+            }
+
+            return result;
+        },
+
+        // 获取对象配置
+        getObjectConfig: function(objectType, customConfig) {
+            var defaultConfigs = {
+                character: { width: 32, height: 48, minDistance: 50, searchRadius: 200 },
+                zombie: { width: 32, height: 32, minDistance: 30, searchRadius: 150 },
+                item: { width: 16, height: 16, minDistance: 20, searchRadius: 100 },
+                building: { width: 64, height: 64, minDistance: 100, searchRadius: 300 }
+            };
+
+            var config = defaultConfigs[objectType] || defaultConfigs.item;
+            if (customConfig) {
+                for (var key in customConfig) {
+                    config[key] = customConfig[key];
+                }
+            }
+
+            return config;
+        },
+
+        // 验证边界
+        validateBoundaries: function(x, y, width, height) {
+            var margin = 10; // 边界安全边距
+            
+            // 使用中心点坐标系统，与碰撞系统保持一致
+            var halfWidth = width / 2;
+            var halfHeight = height / 2;
+            
+            return (x - halfWidth) >= margin && 
+                   (y - halfHeight) >= margin && 
+                   (x + halfWidth) <= window.collisionSystem.currentMap.mapWidth - margin && 
+                   (y + halfHeight) <= window.collisionSystem.currentMap.mapHeight - margin;
+        },
+
+        // 检查建筑物碰撞
+        checkBuildingCollision: function(x, y, width, height) {
+            if (!window.collisionSystem || !window.collisionSystem.isObjectInBuilding) {
+        return false;
+            }
+            return window.collisionSystem.isObjectInBuilding(x, y, width, height);
+        },
+
+        // 检查对象重叠
+        checkObjectOverlap: function(x, y, width, height, objectType) {
+            if (!window.collisionSystem || !window.collisionSystem.isObjectOverlappingWithList) {
+            return false;
+        }
+        
+            // 获取需要避免的对象
+            var avoidObjects = this.getAvoidObjects(objectType);
+            return window.collisionSystem.isObjectOverlappingWithList(x, y, width, height, avoidObjects);
+        },
+
+        // 获取需要避免的对象
+        getAvoidObjects: function(objectType) {
+            var avoidObjects = [];
+
+            // 添加所有僵尸
+            if (window.zombieManager) {
+                var allZombies = window.zombieManager.getAllZombies().filter(z => z.hp > 0);
+                avoidObjects = avoidObjects.concat(allZombies);
+            }
+
+            // 添加所有人物
+            if (window.characterManager) {
+                var allCharacters = window.characterManager.getAllCharacters();
+                avoidObjects = avoidObjects.concat(allCharacters);
+            }
+
+            // 根据对象类型过滤
+            if (objectType === 'zombie') {
+                // 僵尸不需要避免其他僵尸
+                avoidObjects = avoidObjects.filter(obj => !obj.type || !obj.type.includes('zombie'));
+            }
+
+            return avoidObjects;
+        },
+
+        // 寻找安全的生成位置
+        findSafeSpawnPosition: function(centerX, centerY, objectType, config) {
+            var searchRadius = config.searchRadius;
+            var minDistance = config.minDistance;
+            var maxAttempts = 100;
+
+            for (var attempt = 0; attempt < maxAttempts; attempt++) {
+                var angle = (attempt * Math.PI * 2) / maxAttempts;
+                var distance = minDistance + (attempt % 10) * (searchRadius - minDistance) / 10;
+
+                var testX = centerX + Math.cos(angle) * distance;
+                var testY = centerY + Math.sin(angle) * distance;
+
+                // 使用内部验证方法，避免递归调用
+                if (this.isPositionSafeInternal(testX, testY, config.width, config.height, objectType)) {
+                    return { x: testX, y: testY };
+                }
+            }
+
+            return null;
+        },
+
+        // 内部验证方法，避免递归调用
+        isPositionSafeInternal: function(x, y, width, height, objectType) {
+            // 边界检查
+            if (!this.validateBoundaries(x, y, width, height)) {
+            return false;
+        }
+        
+            // 建筑物碰撞检查
+            if (this.checkBuildingCollision(x, y, width, height)) {
+                return false;
+            }
+
+            // 对象重叠检查
+            if (this.checkObjectOverlap(x, y, width, height, objectType)) {
+                return false;
+            }
+
+            return true;
+        }
+    },
+
+    // 验证生成位置（统一接口）
+    validateSpawnPosition: function(x, y, objectType, objectConfig) {
+        return this.spawnPositionValidator.validateSpawnPosition(x, y, objectType, objectConfig);
+    },
+
+    // 寻找安全的生成位置（统一接口）
+    findSafeSpawnPosition: function(centerX, centerY, objectType, objectConfig) {
+        return this.spawnPositionValidator.findSafeSpawnPosition(centerX, centerY, objectType, objectConfig);
+    },
+
+    // 改进的路径查找算法
+    pathFinder: {
+        // 寻找绕行路径
+        findDetourPath: function(startX, startY, endX, endY, objectWidth, objectHeight, obstacles) {
+            var result = {
+                path: [],
+                isFound: false,
+                distance: 0,
+                complexity: 'simple'
+            };
+
+            // 尝试直接路径
+            if (this.isPathClear(startX, startY, endX, endY, objectWidth, objectHeight, obstacles)) {
+                result.path = [{ x: endX, y: endY }];
+                result.isFound = true;
+                result.distance = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2));
+                return result;
+            }
+
+            // 尝试简单绕行
+            var simpleDetour = this.findSimpleDetour(startX, startY, endX, endY, objectWidth, objectHeight, obstacles);
+            if (simpleDetour) {
+                result.path = simpleDetour.path;
+                result.isFound = true;
+                result.distance = simpleDetour.distance;
+                result.complexity = 'simple';
+                return result;
+            }
+
+            // 尝试复杂绕行
+            var complexDetour = this.findComplexDetour(startX, startY, endX, endY, objectWidth, objectHeight, obstacles);
+            if (complexDetour) {
+                result.path = complexDetour.path;
+                result.isFound = true;
+                result.distance = complexDetour.distance;
+                result.complexity = 'complex';
+                return result;
+            }
+
+            return result;
+        },
+
+        // 检查路径是否畅通
+        isPathClear: function(startX, startY, endX, endY, objectWidth, objectHeight, obstacles) {
+            // 检查路径上的多个点
+            var steps = 10;
+            for (var i = 0; i <= steps; i++) {
+            var t = i / steps;
+                var testX = startX + (endX - startX) * t;
+                var testY = startY + (endY - startY) * t;
+            
+                // 检查建筑物碰撞
+                if (window.collisionSystem && window.collisionSystem.isObjectInBuilding) {
+                    if (window.collisionSystem.isObjectInBuilding(testX, testY, objectWidth, objectHeight)) {
+                return false;
+                    }
+                }
+
+                // 检查对象碰撞
+                if (obstacles && obstacles.length > 0) {
+                    for (var j = 0; j < obstacles.length; j++) {
+                        var obstacle = obstacles[j];
+                        if (this.isObjectColliding(testX, testY, objectWidth, objectHeight, obstacle)) {
+                            return false;
+                        }
+                    }
+            }
+        }
+        
+        return true;
+    },
+    
+        // 寻找简单绕行路径
+        findSimpleDetour: function(startX, startY, endX, endY, objectWidth, objectHeight, obstacles) {
+            var directions = [
+                { dx: 1, dy: 0 },   // 右
+                { dx: -1, dy: 0 },  // 左
+                { dx: 0, dy: 1 },   // 下
+                { dx: 0, dy: -1 }   // 上
+            ];
+
+            for (var i = 0; i < directions.length; i++) {
+                var dir = directions[i];
+                var detourDistance = Math.max(objectWidth, objectHeight) + 20; // 安全距离
+
+                var detourX = startX + dir.dx * detourDistance;
+                var detourY = startY + dir.dy * detourDistance;
+
+                // 检查绕行点是否安全
+                if (this.isPositionSafe(detourX, detourY, objectWidth, objectHeight, obstacles)) {
+                    // 检查从绕行点到目标点的路径
+                    if (this.isPathClear(detourX, detourY, endX, endY, objectWidth, objectHeight, obstacles)) {
+                        return {
+                            path: [
+                                { x: detourX, y: detourY },
+                                { x: endX, y: endY }
+                            ],
+                            distance: Math.abs(detourDistance) + Math.sqrt(Math.pow(endX - detourX, 2) + Math.pow(endY - detourY, 2))
+                        };
+                    }
+                }
+            }
+
+            return null;
+        },
+
+        // 寻找复杂绕行路径
+        findComplexDetour: function(startX, startY, endX, endY, objectWidth, objectHeight, obstacles) {
+            var searchRadius = 200;
+            var maxAttempts = 50;
+
+            for (var attempt = 0; attempt < maxAttempts; attempt++) {
+                var angle = (attempt * Math.PI * 2) / maxAttempts;
+                var distance = searchRadius * (0.5 + attempt / maxAttempts);
+
+                var detourX = startX + Math.cos(angle) * distance;
+                var detourY = startY + Math.sin(angle) * distance;
+
+                // 检查绕行点是否安全
+                if (this.isPositionSafe(detourX, detourY, objectWidth, objectHeight, obstacles)) {
+                    // 检查从绕行点到目标点的路径
+                    if (this.isPathClear(detourX, detourY, endX, endY, objectWidth, objectHeight, obstacles)) {
+                        return {
+                            path: [
+                                { x: detourX, y: detourY },
+                                { x: endX, y: endY }
+                            ],
+                            distance: distance + Math.sqrt(Math.pow(endX - detourX, 2) + Math.pow(endY - detourY, 2))
+                        };
+                    }
+                }
+            }
+
+            return null;
+        },
+
+        // 检查位置是否安全
+        isPositionSafe: function(x, y, width, height, obstacles) {
+            // 检查建筑物碰撞（使用正确的引用）
+            var collisionSystem = window.collisionSystem;
+            if (!collisionSystem) {
+                console.warn('碰撞系统未找到，跳过建筑物碰撞检查');
+                return true; // 如果找不到碰撞系统，假设位置安全
+            }
+            
+            if (collisionSystem.isObjectInBuilding) {
+                if (collisionSystem.isObjectInBuilding(x, y, width, height)) {
+                    return false;
+                }
+            }
+
+            // 检查对象碰撞
+            if (obstacles && obstacles.length > 0) {
+                for (var i = 0; i < obstacles.length; i++) {
+                    if (this.isObjectColliding(x, y, width, height, obstacles[i])) {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        },
+
+        // 检查对象碰撞
+        isObjectColliding: function(x1, y1, width1, height1, obj2) {
+            if (!obj2 || obj2.x === undefined || obj2.y === undefined) {
+                return false;
+            }
+
+            var x2 = obj2.x;
+            var y2 = obj2.y;
+            var width2 = obj2.width || 32;
+            var height2 = obj2.height || 32;
+
+            // 计算边界
+            var left1 = x1 - width1 / 2;
+            var right1 = x1 + width1 / 2;
+            var top1 = y1 - height1 / 2;
+            var bottom1 = y1 + height1 / 2;
+
+            var left2 = x2 - width2 / 2;
+            var right2 = x2 + width2 / 2;
+            var top2 = y2 - height2 / 2;
+            var bottom2 = y2 + height2 / 2;
+
+            // 检查是否重叠
+            return !(right1 <= left2 || left1 >= right2 || bottom1 <= top2 || top1 >= bottom2);
+        }
+    },
+
+    // 寻找绕行路径（统一接口）
+    findDetourPath: function(startX, startY, endX, endY, objectWidth, objectHeight, obstacles) {
+        return this.pathFinder.findDetourPath(startX, startY, endX, endY, objectWidth, objectHeight, obstacles);
+    },
+
+    // 边界安全检查
+    isPositionNearBoundary: function(x, y, margin) {
+        if (!this.currentMap) return false;
+        
+        margin = margin || 50;
+        return x < margin || y < margin || 
+               x > this.currentMap.mapWidth - margin || 
+               y > this.currentMap.mapHeight - margin;
+    },
+
+    // 获取边界安全位置
+    getBoundarySafePosition: function(x, y, width, height, margin) {
+        margin = margin || 50;
+        
+        var safeX = Math.max(margin + width / 2, Math.min(this.currentMap.mapWidth - margin - width / 2, x));
+        var safeY = Math.max(margin + height / 2, Math.min(this.currentMap.mapHeight - margin - height / 2, y));
+        
+        return { x: safeX, y: safeY };
+    },
+
+    // 验证位置是否在地图范围内
+    isPositionInMapBounds: function(x, y, width, height) {
+        if (!this.currentMap) return false;
+        
+        // 防止除零错误
+        var safeWidth = Math.max(width, 1);
+        var safeHeight = Math.max(height, 1);
+        
+        var halfWidth = safeWidth / 2;
+        var halfHeight = safeHeight / 2;
+        
+        return x - halfWidth >= 0 && 
+               x + halfWidth < this.currentMap.mapWidth &&
+               y - halfHeight >= 0 && 
+               y + halfHeight < this.currentMap.mapHeight;
+    },
+
+    // 获取地图范围内的安全位置
+    getMapBoundsSafePosition: function(x, y, width, height) {
+        if (!this.currentMap) return { x: x, y: y };
+        
+        // 防止除零错误
+        var safeWidth = Math.max(width, 1);
+        var safeHeight = Math.max(height, 1);
+        
+        var halfWidth = safeWidth / 2;
+        var halfHeight = safeHeight / 2;
+        
+        var safeX = Math.max(halfWidth, Math.min(this.currentMap.mapWidth - halfWidth, x));
+        var safeY = Math.max(halfHeight, Math.min(this.currentMap.mapHeight - halfHeight, y));
+        
+        return { x: safeX, y: safeY };
+    },
+
+    // 智能缓存清理：只在必要时清理
+    _shouldClearCache: function(characters, zombies) {
+        // 如果对象数量变化很大，清理缓存
+        var currentObjectCount = this._objectIdCache ? this._objectIdCache.size : 0;
+        var newObjectCount = (characters ? characters.length : 0) + (zombies ? zombies.length : 0);
+        
+        // 对象数量变化超过50%时清理缓存
+        if (currentObjectCount > 0) {
+            var changeRatio = Math.abs(newObjectCount - currentObjectCount) / currentObjectCount;
+            if (changeRatio > 0.5) {
+                return true;
+            }
+        }
+        
+        // 缓存大小超过1000时清理
+        if (currentObjectCount > 1000) {
+            return true;
+        }
+        
+        return false;
     }
 };
 
