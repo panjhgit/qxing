@@ -832,7 +832,14 @@ GameEngine.prototype.update = function() {
     
     // 更新角色移动
     if (this.characterManager) {
-        this.characterManager.updateAllCharacters();
+        // 计算真实的deltaTime，确保移动平滑
+        var currentTime = performance.now();
+        var deltaTime = (currentTime - this.lastUpdateTime) / 1000; // 转换为秒
+        
+        // 限制deltaTime，防止跳帧导致的瞬移
+        deltaTime = Math.min(deltaTime, 1/30); // 最大30fps的deltaTime
+        
+        this.characterManager.updateAllCharacters(deltaTime);
     }
     
     // 更新计时系统

@@ -199,26 +199,26 @@ Character.prototype.setMoveTarget = function (targetX, targetY) {
     return true;
 };
 
-// 更新移动 - 使用工具类，优化平滑移动
-Character.prototype.updateMovement = function () {
-    if (!this.isMoving) {
-        console.log('人物不在移动状态:', this.status, this.isMoving);
-        return;
-    }
+    // 更新移动 - 使用工具类，优化平滑移动
+    Character.prototype.updateMovement = function (deltaTime = 1/60) {
+        if (!this.isMoving) {
+            console.log('人物不在移动状态:', this.status, this.isMoving);
+            return;
+        }
 
-    var movementUtils = UtilsManager.getMovementUtils();
-    var animationUtils = UtilsManager.getAnimationUtils();
-    var collisionConfig = ConfigManager.get('COLLISION');
+        var movementUtils = UtilsManager.getMovementUtils();
+        var animationUtils = UtilsManager.getAnimationUtils();
+        var collisionConfig = ConfigManager.get('COLLISION');
+        
+        // 使用移动工具计算移动向量 - 基于时间的匀速移动
+        var moveVector = movementUtils.calculateMoveVector(
+            this.x, this.y, this.targetX, this.targetY, this.moveSpeed, deltaTime
+        );
     
-    // 使用移动工具计算移动向量
-    var moveVector = movementUtils.calculateMoveVector(
-        this.x, this.y, this.targetX, this.targetY, this.moveSpeed
-    );
-    
-    console.log('移动向量计算:', '当前位置:', this.x, this.y, '目标位置:', this.targetX, this.targetY, '移动向量:', moveVector);
+    console.log('移动向量计算:', '当前位置:', this.x, this.y, '目标位置:', this.targetX, this.targetY, '移动向量:', moveVector, 'deltaTime:', deltaTime);
     
     // 检查是否到达目标
-    if (moveVector.distance < collisionConfig.MIN_MOVE_DISTANCE) {
+    if (moveVector.reached || moveVector.distance < collisionConfig.MIN_MOVE_DISTANCE) {
         // 到达目标位置，但也要检查碰撞
         if (window.collisionSystem && window.collisionSystem.getSafeMovePosition) {
             var finalMove = window.collisionSystem.getSafeMovePosition(
@@ -237,22 +237,9 @@ Character.prototype.updateMovement = function () {
         return;
     }
 
-    // 匀速移动逻辑 - 保持固定移动速度
-    var actualMoveDistance = this.moveSpeed; // 使用固定的移动速度
-    
-    if (actualMoveDistance < 1) {
-        // 移动距离太小，停止
-        this.isMoving = false;
-        this.status = STATUS.IDLE;
-        return;
-    }
-    
-    // 计算实际移动向量（保持固定速度）
-    var actualMoveX = (moveVector.x / moveVector.distance) * actualMoveDistance;
-    var actualMoveY = (moveVector.y / moveVector.distance) * actualMoveDistance;
-    
-    var newX = this.x + actualMoveX;
-    var newY = this.y + actualMoveY;
+    // 直接使用计算好的移动向量（已经是基于时间的匀速移动）
+    var newX = this.x + moveVector.x;
+    var newY = this.y + moveVector.y;
 
     // 使用新的简洁碰撞检测系统
     if (window.collisionSystem && window.collisionSystem.getSafeMovePosition) {
@@ -408,7 +395,7 @@ var CharacterManager = {
     },
 
     // 更新所有角色
-    updateAllCharacters: function () {
+    updateAllCharacters: function (deltaTime = 1/60) {
         var validCharacters = this.getAllCharacters();
         var performanceUtils = UtilsManager.getPerformanceUtils();
 
@@ -418,7 +405,7 @@ var CharacterManager = {
         validCharacters.forEach(char => {
             try {
                 if (char && typeof char.updateMovement === 'function') {
-                    char.updateMovement();
+                    char.updateMovement(deltaTime);
                 } else {
                     console.warn('角色缺少updateMovement方法:', char);
                 }

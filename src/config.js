@@ -12,9 +12,9 @@
 const GAME_CONFIG = {
     // 移动系统配置
     MOVEMENT: {
-        DEFAULT_MOVE_SPEED: 5,          // 默认移动速度 (像素/帧)
-        CHARACTER_MOVE_SPEED: 5,        // 人物移动速度 (像素/帧)
-        ZOMBIE_MOVE_SPEED: 3,           // 僵尸移动速度 (像素/帧) - 比人物慢
+        DEFAULT_MOVE_SPEED: 300,        // 默认移动速度 (像素/秒)
+        CHARACTER_MOVE_SPEED: 300,      // 人物移动速度 (像素/秒)
+        ZOMBIE_MOVE_SPEED: 180,         // 僵尸移动速度 (像素/秒) - 比人物慢
         MIN_MOVE_DISTANCE: 1,            // 最小移动距离
         PATHFINDING_STEPS: 10,          // 路径检测步数
         SMOOTH_MOVE_RATIOS: [0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1] // 平滑移动比例

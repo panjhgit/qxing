@@ -329,29 +329,18 @@ Zombie.prototype.moveTowards = function (targetX, targetY, deltaTime) {
     var movementUtils = UtilsManager.getMovementUtils();
     var collisionConfig = ConfigManager.get('COLLISION');
     
-    // 使用移动工具计算移动向量 - 确保平滑移动
-    var moveVector = movementUtils.calculateMoveVector(
-        this.x, this.y, targetX, targetY, this.moveSpeed
-    );
+            // 使用移动工具计算移动向量 - 确保平滑移动
+        var moveVector = movementUtils.calculateMoveVector(
+            this.x, this.y, targetX, targetY, this.moveSpeed, deltaTime
+        );
     
-    if (moveVector.distance > 0) {
+    if (moveVector.distance > 0 || moveVector.reached) {
         // 计算移动方向
         this.direction = mathUtils.angle(this.x, this.y, targetX, targetY);
 
-        // 保持固定移动速度
-        var actualMoveDistance = this.moveSpeed; // 使用固定的移动速度
-        
-        if (actualMoveDistance < 1) {
-            // 移动距离太小，停止
-            return;
-        }
-        
-        // 计算实际移动向量（保持固定速度）
-        var actualMoveX = (moveVector.x / moveVector.distance) * actualMoveDistance;
-        var actualMoveY = (moveVector.y / moveVector.distance) * actualMoveDistance;
-        
+        // 直接使用计算好的移动向量（已经是基于时间的匀速移动）
         console.log('僵尸', this.type, '移动计算:', '从', this.x, this.y, '到', 
-                   this.x + actualMoveX, this.y + actualMoveY, '实际移动距离:', actualMoveDistance);
+                   this.x + moveVector.x, this.y + moveVector.y, '移动向量:', moveVector);
 
         // 使用碰撞检测获取有效移动位置，实现平滑绕开障碍物
         if (window.collisionSystem && window.collisionSystem.getZombieValidMovePosition) {
@@ -372,7 +361,7 @@ Zombie.prototype.moveTowards = function (targetX, targetY, deltaTime) {
             // 使用新的简洁碰撞检测系统
             if (window.collisionSystem && window.collisionSystem.getSafeMovePosition) {
                 var safeMove = window.collisionSystem.getSafeMovePosition(
-                    this.x, this.y, this.x + actualMoveX, this.y + actualMoveY, this.width, this.height, this
+                    this.x, this.y, this.x + moveVector.x, this.y + moveVector.y, this.width, this.height, this
                 );
 
                 if (safeMove.safe) {
@@ -394,34 +383,50 @@ Zombie.prototype.moveTowards = function (targetX, targetY, deltaTime) {
                     // 移动被阻挡，尝试简单的绕行
                     console.log('僵尸移动被阻挡，尝试简单绕行');
                     
-                    // 尝试8个方向的简单绕行
+                    // 尝试8个方向的简单绕行，使用相同的移动速度，减少抽搐
                     var directions = [
                         {x: 1, y: 0}, {x: -1, y: 0}, {x: 0, y: 1}, {x: 0, y: -1},  // 上下左右
                         {x: 0.7, y: 0.7}, {x: -0.7, y: 0.7}, {x: 0.7, y: -0.7}, {x: -0.7, y: -0.7}  // 对角线
                     ];
                     
-                    var searchRadius = 16; // 较小的搜索半径，避免大幅弹开
+                    // 使用与正常移动相同的距离，确保速度一致
+                    var slideDistance = Math.min(moveVector.distance, this.moveSpeed * deltaTime);
                     var foundPath = false;
+                    
+                    // 添加位置平滑，减少抽搐
+                    var bestSlideX = this.x;
+                    var bestSlideY = this.y;
+                    var bestSlideDistance = 0;
                     
                     for (var attempt = 0; attempt < directions.length; attempt++) {
                         var dir = directions[attempt];
-                        var testX = this.x + dir.x * searchRadius;
-                        var testY = this.y + dir.y * searchRadius;
+                        var testX = this.x + dir.x * slideDistance;
+                        var testY = this.y + dir.y * slideDistance;
                         
                         if (!window.collisionSystem.isObjectCollidingWithBuildings(testX, testY, this.width, this.height)) {
-                            var oldX = this.x, oldY = this.y;
-                            this.x = testX;
-                            this.y = testY;
-                            
-                            // 更新四叉树中的位置
-                            if (window.collisionSystem.updateDynamicObjectPosition) {
-                                window.collisionSystem.updateDynamicObjectPosition(this, oldX, oldY, this.x, this.y);
+                            // 找到可滑动的位置，记录最佳选择
+                            var testDistance = Math.sqrt(Math.pow(testX - this.x, 2) + Math.pow(testY - this.y, 2));
+                            if (testDistance > bestSlideDistance) {
+                                bestSlideX = testX;
+                                bestSlideY = testY;
+                                bestSlideDistance = testDistance;
                             }
-                            
-                            console.log('僵尸简单绕行到:', testX, testY);
-                            foundPath = true;
-                            break;
                         }
+                    }
+                    
+                    // 如果找到了可滑动的位置，平滑移动
+                    if (bestSlideDistance > 0) {
+                        var oldX = this.x, oldY = this.y;
+                        this.x = bestSlideX;
+                        this.y = bestSlideY;
+                        
+                        // 更新四叉树中的位置
+                        if (window.collisionSystem.updateDynamicObjectPosition) {
+                            window.collisionSystem.updateDynamicObjectPosition(this, oldX, oldY, this.x, this.y);
+                        }
+                        
+                        console.log('僵尸墙体滑动到:', bestSlideX.toFixed(2), bestSlideY.toFixed(2), '距离:', bestSlideDistance.toFixed(2));
+                        foundPath = true;
                     }
                     
                     if (!foundPath) {

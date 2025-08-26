@@ -1162,7 +1162,7 @@ var CollisionSystem = {
         return this.getWallSlidePosition(fromX, fromY, toX, toY, width, height, excludeObject);
     },
     
-    // 墙体滑动：让角色贴着建筑物边缘平滑移动
+    // 墙体滑动：让角色贴着建筑物边缘平滑移动 - 优化版本，减少抽搐
     getWallSlidePosition: function (fromX, fromY, toX, toY, width, height, excludeObject) {
         // 计算移动向量
         var deltaX = toX - fromX;
@@ -1176,20 +1176,44 @@ var CollisionSystem = {
         // 尝试X轴滑动（水平移动）
         var slideX = this.tryAxisSlide(fromX, fromY, toX, toY, width, height, true, excludeObject);
         if (slideX.safe && slideX.distance > 0) {
-            return slideX;
+            // 添加位置平滑，减少抽搐
+            var smoothedX = this.smoothPosition(fromX, slideX.x, 0.8); // 80%的平滑度
+            return {
+                x: smoothedX,
+                y: slideX.y,
+                safe: true,
+                source: 'wall_slide_smoothed',
+                axis: 'x',
+                distance: slideX.distance
+            };
         }
         
         // 尝试Y轴滑动（垂直移动）
         var slideY = this.tryAxisSlide(fromX, fromY, toX, toY, width, height, false, excludeObject);
         if (slideY.safe && slideY.distance > 0) {
-            return slideY;
+            // 添加位置平滑，减少抽搐
+            var smoothedY = this.smoothPosition(fromY, slideY.y, 0.8); // 80%的平滑度
+            return {
+                x: slideY.x,
+                y: smoothedY,
+                safe: true,
+                source: 'wall_slide_smoothed',
+                axis: 'y',
+                distance: slideY.distance
+            };
         }
         
         // 如果都无法滑动，返回原位置
         return {x: fromX, y: fromY, safe: false, source: 'wall_slide_failed'};
     },
     
-    // 尝试沿特定轴滑动
+    // 位置平滑函数，减少抽搐
+    smoothPosition: function (currentPos, targetPos, smoothFactor) {
+        // smoothFactor: 0-1，0表示完全平滑，1表示无平滑
+        return currentPos + (targetPos - currentPos) * smoothFactor;
+    },
+    
+    // 尝试沿特定轴滑动 - 优化版本，减少抽搐
     tryAxisSlide: function (fromX, fromY, toX, toY, width, height, isXAxis, excludeObject) {
         var deltaX = toX - fromX;
         var deltaY = toY - fromY;
@@ -1203,11 +1227,12 @@ var CollisionSystem = {
         var axisDistance = isXAxis ? Math.abs(deltaX) : Math.abs(deltaY);
         var axisDirection = isXAxis ? (deltaX > 0 ? 1 : -1) : (deltaY > 0 ? 1 : -1);
         
-        // 逐步检测这个轴上的移动
-        var stepSize = 4; // 4像素的精度
+        // 使用更大的步长，减少检测频率，避免抽搐
+        var stepSize = 8; // 增加到8像素，减少检测频率
         var currentDistance = 0;
         var lastSafeX = fromX;
         var lastSafeY = fromY;
+        var consecutiveSafeSteps = 0; // 连续安全步数
         
         while (currentDistance <= axisDistance) {
             var testX = isXAxis ? fromX + axisDirection * currentDistance : fromX;
@@ -1220,6 +1245,12 @@ var CollisionSystem = {
                 lastSafeX = testX;
                 lastSafeY = testY;
                 currentDistance += stepSize;
+                consecutiveSafeSteps++;
+                
+                // 如果连续多步都安全，可以提前停止，避免过度检测
+                if (consecutiveSafeSteps >= 3) {
+                    break;
+                }
             } else {
                 // 找到碰撞点，停止
                 break;

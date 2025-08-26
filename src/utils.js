@@ -127,21 +127,33 @@ const AnimationUtils = {
 
 // 移动工具类
 const MovementUtils = {
-    // 计算移动向量 - 匀速移动，固定速度
-    calculateMoveVector: function(fromX, fromY, toX, toY, speed) {
+    // 计算移动向量 - 真正的固定速度移动，基于时间
+    calculateMoveVector: function(fromX, fromY, toX, toY, speed, deltaTime = 1/60) {
         var deltaX = toX - fromX;
         var deltaY = toY - fromY;
         var distance = MathUtils.distance(fromX, fromY, toX, toY);
         
         if (distance < 0.001) {
-            return { x: 0, y: 0, distance: 0 };
+            return { x: 0, y: 0, distance: 0, reached: true };
         }
         
-        // 匀速移动：每帧移动固定距离
-        var moveX = (deltaX / distance) * speed;
-        var moveY = (deltaY / distance) * speed;
+        // 固定速度移动：每帧移动固定的像素距离，基于时间
+        var moveDistance = speed * deltaTime;
         
-        return { x: moveX, y: moveY, distance: distance };
+        // 计算移动方向（归一化）
+        var directionX = deltaX / distance;
+        var directionY = deltaY / distance;
+        
+        // 始终移动固定距离，除非目标就在移动距离内
+        if (distance <= moveDistance) {
+            // 目标很近，直接移动到目标
+            return { x: deltaX, y: deltaY, distance: distance, reached: true };
+        } else {
+            // 目标较远，按固定速度移动
+            var moveX = directionX * moveDistance;
+            var moveY = directionY * moveDistance;
+            return { x: moveX, y: moveY, distance: moveDistance, reached: false };
+        }
     },
     
     // 检查移动路径是否有效
