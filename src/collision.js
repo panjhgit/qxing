@@ -2040,38 +2040,6 @@ var CollisionSystem = {
     },
 
 
-
-
-    // 检测移动路径是否有效（支持部分移动）
-    isMovePathValid: function (fromX, fromY, toX, toY, objectWidth, objectHeight) {
-        // 检查起点和终点
-        if (this.isRectCollidingWithBuildings(fromX, fromY, objectWidth, objectHeight)) {
-            console.log('起点在建筑物内:', fromX, fromY);
-            return false;
-        }
-
-        if (this.isRectCollidingWithBuildings(toX, toY, objectWidth, objectHeight)) {
-            console.log('终点在建筑物内:', toX, toY);
-            return false;
-        }
-
-        // 检查路径中间点（更密集的检查，确保不会穿越建筑物）
-        var steps = Math.max(5, Math.floor(Math.sqrt(Math.pow(toX - fromX, 2) + Math.pow(toY - fromY, 2)) / 10));
-        for (var i = 1; i < steps; i++) {
-            var t = i / steps;
-            var testX = fromX + (toX - fromX) * t;
-            var testY = fromY + (toY - fromY) * t;
-
-            if (this.isRectCollidingWithBuildings(testX, testY, objectWidth, objectHeight)) {
-                console.log('路径中间点在建筑物内:', testX, testY, '步骤:', i, '总步骤:', steps);
-                return false;
-            }
-        }
-
-        return true;
-    },
-
-
     // 定期重建动态四叉树（每帧调用，确保数据一致性）
     updateDynamicQuadTree: function (characters, zombies) {
         if (!this.dynamicQuadTree) {
@@ -2542,26 +2510,6 @@ DynamicObstacle.prototype.updatePosition = function(newX, newY) {
     this.lastUpdateTime = Date.now();
 };
 
-/**
- * 设置移动目标
- * @param {number} targetX - 目标X坐标
- * @param {number} targetY - 目标Y坐标
- */
-DynamicObstacle.prototype.setTarget = function(targetX, targetY) {
-    this.targetPosition.x = targetX;
-    this.targetPosition.y = targetY;
-    this.isMoving = true;
-    
-    // 计算移动方向
-    const deltaX = targetX - this.x;
-    const deltaY = targetY - this.y;
-    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-    
-    if (distance > 0) {
-        this.velocity.x = deltaX / distance;
-        this.velocity.y = deltaY / distance;
-    }
-};
 
 /**
  * 更新移动
@@ -2589,19 +2537,7 @@ DynamicObstacle.prototype.updateMovement = function(deltaTime, moveSpeed) {
     }
 };
 
-/**
- * 检查是否与另一个对象重叠
- * @param {Object} other - 另一个对象
- * @returns {boolean} 是否重叠
- */
-DynamicObstacle.prototype.overlapsWith = function(other) {
-    if (!other || !other.bounds) return false;
-    
-    return !(this.bounds.right <= other.bounds.left || 
-             this.bounds.left >= other.bounds.right || 
-             this.bounds.bottom <= other.bounds.top || 
-             this.bounds.top >= other.bounds.bottom);
-};
+
 
 /**
  * 动态障碍物管理器 - 结合四叉树管理动态障碍物
@@ -2680,158 +2616,9 @@ DynamicObstacleManager.prototype.removeObstacle = function(id) {
     return true;
 };
 
-/**
- * 更新障碍物位置（如车辆移动）
- * @param {string} id - 障碍物ID
- * @param {number} x - 新X坐标
- * @param {number} y - 新Y坐标
- */
-DynamicObstacleManager.prototype.updateObstaclePosition = function(id, x, y) {
-    const obstacle = this.obstacles.get(id);
-    if (!obstacle) return false;
-    
-    // 从四叉树中移除旧位置
-    this.rootQuadTree.remove(obstacle);
-    
-    // 更新位置
-    obstacle.updatePosition(x, y);
-    
-    // 重新插入四叉树
-    this.rootQuadTree.insert(obstacle);
-    
-    return true;
-};
 
-/**
- * 批量更新障碍物位置（性能优化）
- * @param {Array} updates - 更新数组 [{id, x, y}, ...]
- */
-DynamicObstacleManager.prototype.batchUpdatePositions = function(updates) {
-    if (!updates || updates.length === 0) return;
-    
-    // 批量移除
-    updates.forEach(update => {
-        const obstacle = this.obstacles.get(update.id);
-        if (obstacle) {
-            this.rootQuadTree.remove(obstacle);
-        }
-    });
-    
-    // 批量更新位置
-    updates.forEach(update => {
-        const obstacle = this.obstacles.get(update.id);
-        if (obstacle) {
-            obstacle.updatePosition(update.x, update.y);
-        }
-    });
-    
-    // 批量重新插入
-    updates.forEach(update => {
-        const obstacle = this.obstacles.get(update.id);
-        if (obstacle) {
-            this.rootQuadTree.insert(obstacle);
-        }
-    });
-    
-    console.log(`[DynamicObstacleManager] 批量更新 ${updates.length} 个障碍物位置`);
-};
 
-/**
- * 检查点是否被动态障碍物阻挡（动态合法性）
- * @param {Object} point - {x, y}
- * @param {number} objectWidth - 对象宽度（用于扩展检测）
- * @param {number} objectHeight - 对象高度
- * @returns {boolean} 是否被阻挡
- */
-DynamicObstacleManager.prototype.isPointBlockedByDynamic = function(point, objectWidth, objectHeight) {
-    objectWidth = objectWidth || 1;
-    objectHeight = objectHeight || 1;
-    
-    // 创建一个包含该点的边界框
-    const queryBounds = {
-        left: point.x - objectWidth / 2,
-        right: point.x + objectWidth / 2,
-        top: point.y - objectHeight / 2,
-        bottom: point.y + objectHeight / 2
-    };
-    
-    // 从四叉树查询该区域内的所有障碍物
-    const candidates = this.rootQuadTree.query(queryBounds);
-    
-    // 检查点是否在任何障碍物的碰撞盒内
-    for (const obstacle of candidates) {
-        if (obstacle.isActive && obstacle.overlapsWith({ bounds: queryBounds })) {
-            return true; // 被动态障碍物阻挡
-        }
-    }
-    
-    return false;
-};
 
-/**
- * 获取指定区域内的动态障碍物
- * @param {Object} area - 查询区域 {left, right, top, bottom}
- * @returns {Array} 障碍物数组
- */
-DynamicObstacleManager.prototype.getObstaclesInArea = function(area) {
-    if (!area) return [];
-    
-    const candidates = this.rootQuadTree.query(area);
-    return candidates.filter(obstacle => obstacle.isActive);
-};
-
-/**
- * 检查移动路径是否被动态障碍物阻挡
- * @param {Object} from - 起点 {x, y}
- * @param {Object} to - 终点 {x, y}
- * @param {number} objectWidth - 对象宽度
- * @param {number} objectHeight - 对象高度
- * @returns {boolean} 路径是否被阻挡
- */
-DynamicObstacleManager.prototype.isPathBlockedByDynamic = function(from, to, objectWidth, objectHeight) {
-    // 简化的路径检测：检查起点、终点和中间点
-    const points = this.generatePathPoints(from, to, objectWidth, objectHeight);
-    
-    for (const point of points) {
-        if (this.isPointBlockedByDynamic(point, objectWidth, objectHeight)) {
-            return true;
-        }
-    }
-    
-    return false;
-};
-
-/**
- * 生成路径检测点
- * @param {Object} from - 起点
- * @param {Object} to - 终点
- * @param {number} objectWidth - 对象宽度
- * @param {number} objectHeight - 对象高度
- * @returns {Array} 检测点数组
- */
-DynamicObstacleManager.prototype.generatePathPoints = function(from, to, objectWidth, objectHeight) {
-    const points = [from];
-    const deltaX = to.x - from.x;
-    const deltaY = to.y - from.y;
-    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-    
-    if (distance === 0) return points;
-    
-    // 根据对象尺寸确定检测密度
-    const maxStep = Math.max(objectWidth, objectHeight) / 2;
-    const steps = Math.ceil(distance / maxStep);
-    
-    for (let i = 1; i < steps; i++) {
-        const t = i / steps;
-        points.push({
-            x: from.x + deltaX * t,
-            y: from.y + deltaY * t
-        });
-    }
-    
-    points.push(to);
-    return points;
-};
 
 /**
  * 更新所有动态障碍物

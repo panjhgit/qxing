@@ -380,8 +380,54 @@ Zombie.prototype.moveTowards = function (targetX, targetY, deltaTime) {
                         console.log('僵尸移动:', safeMove.source, '距离:', safeMove.distance ? safeMove.distance.toFixed(2) : 'N/A');
                     }
                 } else {
-                    // 移动被阻挡，停止移动，不进行弹开
-                    console.log('僵尸移动被阻挡，停止移动');
+                    // 移动被阻挡，尝试简单的墙体绕行（不弹开，只是贴着墙移动）
+                    console.log('僵尸移动被阻挡，尝试墙体绕行');
+                    
+                    // 尝试4个主要方向的墙体绕行
+                    var directions = [
+                        {x: 1, y: 0},   // 右
+                        {x: -1, y: 0},  // 左
+                        {x: 0, y: 1},   // 下
+                        {x: 0, y: -1}   // 上
+                    ];
+                    
+                    // 使用较小的绕行距离，避免大幅弹开
+                    var wallSlideDistance = Math.min(moveVector.distance * 0.5, this.moveSpeed * deltaTime * 0.3);
+                    var foundWallPath = false;
+                    
+                    for (var attempt = 0; attempt < directions.length; attempt++) {
+                        var dir = directions[attempt];
+                        var testX = this.x + dir.x * wallSlideDistance;
+                        var testY = this.y + dir.y * wallSlideDistance;
+                        
+                        // 检查这个位置是否安全（不在建筑物内）
+                        if (!window.collisionSystem.isObjectCollidingWithBuildings(testX, testY, this.width, this.height)) {
+                            // 检查是否与其他对象重叠
+                            var avoidObjects = [];
+                            if (allZombies) avoidObjects = avoidObjects.concat(allZombies);
+                            if (allCharacters) avoidObjects = avoidObjects.concat(allCharacters);
+                            
+                            if (!window.collisionSystem.isObjectOverlappingWithList(testX, testY, this.width, this.height, avoidObjects)) {
+                                // 找到安全的墙体绕行位置
+                                var oldX = this.x, oldY = this.y;
+                                this.x = testX;
+                                this.y = testY;
+                                
+                                // 更新四叉树中的位置
+                                if (window.collisionSystem.updateDynamicObjectPosition) {
+                                    window.collisionSystem.updateDynamicObjectPosition(this, oldX, oldY, this.x, this.y);
+                                }
+                                
+                                console.log('僵尸墙体绕行到:', testX.toFixed(2), testY.toFixed(2), '距离:', wallSlideDistance.toFixed(2));
+                                foundWallPath = true;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (!foundWallPath) {
+                        console.log('僵尸无法找到墙体绕行路径，停止移动');
+                    }
                 }
             } else {
                 // 使用碰撞检测，但不进行弹开调整
@@ -400,8 +446,54 @@ Zombie.prototype.moveTowards = function (targetX, targetY, deltaTime) {
                         window.collisionSystem.updateDynamicObjectPosition(this, oldX, oldY, this.x, this.y);
                     }
                 } else {
-                    // 位置不安全，保持原位置，不进行弹开
-                    console.log('僵尸移动被阻挡，保持原位置');
+                    // 位置不安全，尝试简单的墙体绕行（不弹开，只是贴着墙移动）
+                    console.log('僵尸移动被阻挡，尝试墙体绕行');
+                    
+                    // 尝试4个主要方向的墙体绕行
+                    var directions = [
+                        {x: 1, y: 0},   // 右
+                        {x: -1, y: 0},  // 左
+                        {x: 0, y: 1},   // 下
+                        {x: 0, y: -1}   // 上
+                    ];
+                    
+                    // 使用较小的绕行距离，避免大幅弹开
+                    var wallSlideDistance = Math.min(moveVector.distance * 0.5, this.moveSpeed * deltaTime * 0.3);
+                    var foundWallPath = false;
+                    
+                    for (var attempt = 0; attempt < directions.length; attempt++) {
+                        var dir = directions[attempt];
+                        var testX = this.x + dir.x * wallSlideDistance;
+                        var testY = this.y + dir.y * wallSlideDistance;
+                        
+                        // 检查这个位置是否安全（不在建筑物内）
+                        if (!window.collisionSystem.isObjectCollidingWithBuildings(testX, testY, this.width, this.height)) {
+                            // 检查是否与其他对象重叠
+                            var avoidObjects = [];
+                            if (allZombies) avoidObjects = avoidObjects.concat(allZombies);
+                            if (allCharacters) avoidObjects = avoidObjects.concat(allCharacters);
+                            
+                            if (!window.collisionSystem.isObjectOverlappingWithList(testX, testY, this.width, this.height, avoidObjects)) {
+                                // 找到安全的墙体绕行位置
+                                var oldX = this.x, oldY = this.y;
+                                this.x = testX;
+                                this.y = testY;
+                                
+                                // 更新四叉树中的位置
+                                if (window.collisionSystem.updateDynamicObjectPosition) {
+                                    window.collisionSystem.updateDynamicObjectPosition(this, oldX, oldY, this.x, this.y);
+                                }
+                                
+                                console.log('僵尸墙体绕行到:', testX.toFixed(2), testY.toFixed(2), '距离:', wallSlideDistance.toFixed(2));
+                                foundWallPath = true;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (!foundWallPath) {
+                        console.log('僵尸无法找到墙体绕行路径，停止移动');
+                    }
                 }
             }
         } else {
