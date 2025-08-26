@@ -380,79 +380,28 @@ Zombie.prototype.moveTowards = function (targetX, targetY, deltaTime) {
                         console.log('僵尸移动:', safeMove.source, '距离:', safeMove.distance ? safeMove.distance.toFixed(2) : 'N/A');
                     }
                 } else {
-                    // 移动被阻挡，尝试简单的绕行
-                    console.log('僵尸移动被阻挡，尝试简单绕行');
-                    
-                    // 尝试8个方向的简单绕行，使用相同的移动速度，减少抽搐
-                    var directions = [
-                        {x: 1, y: 0}, {x: -1, y: 0}, {x: 0, y: 1}, {x: 0, y: -1},  // 上下左右
-                        {x: 0.7, y: 0.7}, {x: -0.7, y: 0.7}, {x: 0.7, y: -0.7}, {x: -0.7, y: -0.7}  // 对角线
-                    ];
-                    
-                    // 使用与正常移动相同的距离，确保速度一致
-                    var slideDistance = Math.min(moveVector.distance, this.moveSpeed * deltaTime);
-                    var foundPath = false;
-                    
-                    // 添加位置平滑，减少抽搐
-                    var bestSlideX = this.x;
-                    var bestSlideY = this.y;
-                    var bestSlideDistance = 0;
-                    
-                    for (var attempt = 0; attempt < directions.length; attempt++) {
-                        var dir = directions[attempt];
-                        var testX = this.x + dir.x * slideDistance;
-                        var testY = this.y + dir.y * slideDistance;
-                        
-                        if (!window.collisionSystem.isObjectCollidingWithBuildings(testX, testY, this.width, this.height)) {
-                            // 找到可滑动的位置，记录最佳选择
-                            var testDistance = Math.sqrt(Math.pow(testX - this.x, 2) + Math.pow(testY - this.y, 2));
-                            if (testDistance > bestSlideDistance) {
-                                bestSlideX = testX;
-                                bestSlideY = testY;
-                                bestSlideDistance = testDistance;
-                            }
-                        }
-                    }
-                    
-                    // 如果找到了可滑动的位置，平滑移动
-                    if (bestSlideDistance > 0) {
-                        var oldX = this.x, oldY = this.y;
-                        this.x = bestSlideX;
-                        this.y = bestSlideY;
-                        
-                        // 更新四叉树中的位置
-                        if (window.collisionSystem.updateDynamicObjectPosition) {
-                            window.collisionSystem.updateDynamicObjectPosition(this, oldX, oldY, this.x, this.y);
-                        }
-                        
-                        console.log('僵尸墙体滑动到:', bestSlideX.toFixed(2), bestSlideY.toFixed(2), '距离:', bestSlideDistance.toFixed(2));
-                        foundPath = true;
-                    }
-                    
-                    if (!foundPath) {
-                        console.log('僵尸无法找到绕行路径，停止移动');
-                    }
+                    // 移动被阻挡，停止移动，不进行弹开
+                    console.log('僵尸移动被阻挡，停止移动');
                 }
             } else {
-                // 兼容旧的碰撞检测
+                // 使用碰撞检测，但不进行弹开调整
                 var validPosition = window.collisionSystem.getZombieValidMovePosition(this, 
                     this.x + moveVector.x, this.y + moveVector.y, allZombies, allCharacters);
 
-                // 如果位置有调整，说明发生了碰撞，使用调整后的位置
-                if (validPosition.x !== this.x + moveVector.x || validPosition.y !== this.y + moveVector.y) {
-                    console.log('僵尸碰撞检测调整:', this.type, '从', this.x + moveVector.x, this.y + moveVector.y, 
-                               '到', validPosition.x, validPosition.y);
-                    // 使用调整后的位置继续移动
-                }
+                // 如果位置安全，直接移动；如果不安全，保持原位置
+                if (validPosition.x === this.x + moveVector.x && validPosition.y === this.y + moveVector.y) {
+                    // 位置安全，可以移动
+                    var oldX = this.x, oldY = this.y;
+                    this.x = validPosition.x;
+                    this.y = validPosition.y;
 
-                // 移动到有效位置，并更新四叉树
-                var oldX = this.x, oldY = this.y;
-                this.x = validPosition.x;
-                this.y = validPosition.y;
-
-                // 更新四叉树中的位置
-                if (window.collisionSystem.updateDynamicObjectPosition) {
-                    window.collisionSystem.updateDynamicObjectPosition(this, oldX, oldY, this.x, this.y);
+                    // 更新四叉树中的位置
+                    if (window.collisionSystem.updateDynamicObjectPosition) {
+                        window.collisionSystem.updateDynamicObjectPosition(this, oldX, oldY, this.x, this.y);
+                    }
+                } else {
+                    // 位置不安全，保持原位置，不进行弹开
+                    console.log('僵尸移动被阻挡，保持原位置');
                 }
             }
         } else {

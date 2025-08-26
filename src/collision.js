@@ -2004,30 +2004,19 @@ var CollisionSystem = {
 
 
 
-    // 获取僵尸的有效移动位置（避免与建筑物、其他僵尸和人物重叠）
+    // 获取僵尸的有效移动位置（简化版本，不进行弹开调整）
     getZombieValidMovePosition: function (zombie, toX, toY, allZombies, allCharacters) {
         var zombieWidth = zombie.width || 32;
         var zombieHeight = zombie.height || 32;
 
-        // 首先检查目标位置是否在建筑物内
+        // 检查目标位置是否在建筑物内
         if (this.isRectCollidingWithBuildings(toX, toY, zombieWidth, zombieHeight)) {
-            console.log('僵尸目标位置在建筑物内，寻找替代路径');
-
-            // 尝试寻找绕行路径
-            var alternativePath = this.findZombieAlternativePath(zombie, toX, toY, zombieWidth, zombieHeight);
-            if (alternativePath) {
-                toX = alternativePath.x;
-                toY = alternativePath.y;
-            } else {
-                // 如果找不到替代路径，返回原位置
-                return {x: zombie.x, y: zombie.y};
-            }
+            console.log('僵尸目标位置在建筑物内，返回原位置');
+            return {x: zombie.x, y: zombie.y};
         }
 
-        // 创建需要避免的对象列表
+        // 检查是否与其他对象重叠
         var avoidObjects = [];
-
-        // 添加其他僵尸
         if (allZombies) {
             for (var i = 0; i < allZombies.length; i++) {
                 var otherZombie = allZombies[i];
@@ -2036,61 +2025,21 @@ var CollisionSystem = {
                 }
             }
         }
-
-        // 添加人物
         if (allCharacters) {
             avoidObjects = avoidObjects.concat(allCharacters);
         }
 
-        // 获取不重叠的移动位置
-        return this.getNonOverlappingPosition(zombie.x, zombie.y, toX, toY, zombieWidth, zombieHeight, avoidObjects, true // 启用建筑物碰撞检测
-        );
-    },
-
-    // 为僵尸寻找替代路径（绕行建筑物）
-    findZombieAlternativePath: function (zombie, targetX, targetY, zombieWidth, zombieHeight) {
-        var fromX = zombie.x;
-        var fromY = zombie.y;
-        var deltaX = targetX - fromX;
-        var deltaY = targetY - fromY;
-        var distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-
-        if (distance === 0) return null;
-
-        // 尝试多个方向的绕行
-        var directions = [{x: 1, y: 0},      // 右
-            {x: -1, y: 0},     // 左
-            {x: 0, y: 1},      // 下
-            {x: 0, y: -1},     // 上
-            {x: 0.7, y: 0.7},  // 右下
-            {x: -0.7, y: 0.7}, // 左下
-            {x: 0.7, y: -0.7}, // 右上
-            {x: -0.7, y: -0.7} // 左上
-        ];
-
-        var moveDistance = Math.min(distance, 100); // 限制绕行距离
-
-        for (var i = 0; i < directions.length; i++) {
-            var dir = directions[i];
-            var testX = fromX + dir.x * moveDistance;
-            var testY = fromY + dir.y * moveDistance;
-
-            // 添加边界检查，确保绕行点在地图范围内
-            if (testX >= 0 && testX < window.collisionSystem.currentMap.mapWidth && testY >= 0 && testY < window.collisionSystem.currentMap.mapHeight) {
-
-                // 检查这个位置是否安全
-                if (!this.isRectCollidingWithBuildings(testX, testY, zombieWidth, zombieHeight)) {
-                    // 检查从当前位置到这个位置的路径是否安全
-                    if (this.isMovePathValid(fromX, fromY, testX, testY, zombieWidth, zombieHeight)) {
-                        console.log('僵尸找到替代路径:', testX, testY, '方向:', dir);
-                        return {x: testX, y: testY};
-                    }
-                }
-            }
+        // 如果重叠，返回原位置，不进行弹开调整
+        if (this.isObjectOverlappingWithList(toX, toY, zombieWidth, zombieHeight, avoidObjects)) {
+            console.log('僵尸目标位置与其他对象重叠，返回原位置');
+            return {x: zombie.x, y: zombie.y};
         }
 
-        return null;
+        // 位置安全，直接返回目标位置
+        return {x: toX, y: toY};
     },
+
+
 
 
     // 检测移动路径是否有效（支持部分移动）
