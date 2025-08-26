@@ -1,7 +1,15 @@
 /**
- * 人物模块
- * @type {{CHEF: number, MAIN: number, CIVILIAN: number, DOCTOR: number, POLICE: number, NURSE: number}}
+ * 人物模块 - 重构版本
+ * 
+ * 重构内容：
+ * - 使用ConfigManager统一管理配置
+ * - 使用UtilsManager提供工具函数
+ * - 消除硬编码的重复值
+ * - 提高代码复用性和维护性
  */
+
+import ConfigManager from './config.js';
+import UtilsManager from './utils.js';
 
 // 角色枚举
 const ROLE = {
@@ -31,30 +39,60 @@ const STATUS = {
 
 // 人物类
 var Character = function (role, x, y) {
+    // 获取工具类
+    var validationUtils = UtilsManager.getValidationUtils();
+    var mathUtils = UtilsManager.getMathUtils();
+    
+    // 验证参数
+    if (!validationUtils.validatePosition(x, y)) {
+        console.error('无效的人物位置:', x, y);
+        x = 100; y = 100; // 使用默认位置
+    }
+    
+    if (!validationUtils.validateRange(role, 1, 6, '角色类型')) {
+        console.error('无效的角色类型:', role);
+        role = ROLE.CIVILIAN; // 使用默认角色
+    }
+    
     // 基础属性
     this.role = role;        // 角色
     this.x = x;              // X坐标
     this.y = y;              // Y坐标
     this.status = STATUS.IDLE; // 状态：跟随/静止
 
-    // 2D模型属性
-    this.width = 32;         // 模型宽度
-    this.height = 48;        // 模型高度
-    this.animationFrame = 0; // 动画帧
-    this.animationSpeed = 0.1; // 动画速度
-    this.isMoving = false;   // 是否在移动
-    this.moveSpeed = 2;      // 移动速度
-    this.targetX = x;        // 目标X坐标
-    this.targetY = y;        // 目标Y坐标
+    // 从配置获取对象尺寸
+    var objectSizes = ConfigManager.get('OBJECT_SIZES.CHARACTER');
+    this.width = objectSizes.WIDTH;         // 模型宽度
+    this.height = objectSizes.HEIGHT;       // 模型高度
+    
+    // 从配置获取动画属性
+    var animationConfig = ConfigManager.get('ANIMATION');
+    this.animationFrame = 0;                // 动画帧
+    this.animationSpeed = animationConfig.DEFAULT_FRAME_RATE; // 动画速度
+    
+    // 从配置获取移动属性
+    var movementConfig = ConfigManager.get('MOVEMENT');
+    this.isMoving = false;                  // 是否在移动
+    this.moveSpeed = movementConfig.CHARACTER_MOVE_SPEED;    // 移动速度
+    this.targetX = x;                       // 目标X坐标
+    this.targetY = y;                       // 目标Y坐标
 
     // 根据角色设置属性
-    switch (role) {
+    this.setupRoleProperties();
+};
+
+// 设置角色属性
+Character.prototype.setupRoleProperties = function() {
+    var combatConfig = ConfigManager.get('COMBAT');
+    var difficultyConfig = ConfigManager.getDifficultyConfig();
+    
+    switch (this.role) {
         case ROLE.MAIN: // 主人物
-            this.hp = 100;           // 血量
-            this.attack = 10;        // 攻击力
-            this.weapon = WEAPON.NONE; // 武器
-            this.attackRange = 150;  // 攻击距离
-            this.icon = '👤';        // 图标
+            this.hp = Math.round(100 * difficultyConfig.PLAYER_HP_BONUS);
+            this.attack = 10;
+            this.weapon = WEAPON.NONE;
+            this.attackRange = combatConfig.MAX_ATTACK_RANGE;
+            this.icon = '👤';
             break;
 
         case ROLE.POLICE: // 警察
@@ -69,7 +107,7 @@ var Character = function (role, x, y) {
             this.hp = 50;
             this.attack = 5;
             this.weapon = WEAPON.NONE;
-            this.attackRange = 50;
+            this.attackRange = combatConfig.MIN_ATTACK_RANGE;
             this.icon = '👨';
             break;
 
@@ -122,46 +160,60 @@ Character.prototype.getInfo = function () {
 
 // 受到攻击
 Character.prototype.takeDamage = function (damage) {
+    var validationUtils = UtilsManager.getValidationUtils();
+    
+    if (!validationUtils.validateRange(damage, 0, 1000, '伤害值')) {
+        console.warn('无效的伤害值:', damage);
+        return this.hp;
+    }
+    
     this.hp -= damage;
     if (this.hp < 0) this.hp = 0;
     return this.hp;
 };
 
-
-// 设置移动目标 - 修复后的安全设置
+// 设置移动目标 - 使用工具类
 Character.prototype.setMoveTarget = function (targetX, targetY) {
-    // 检查目标位置是否有效
-    if (typeof targetX !== 'number' || typeof targetY !== 'number' || isNaN(targetX) || isNaN(targetY) || !isFinite(targetX) || !isFinite(targetY)) {
+    var validationUtils = UtilsManager.getValidationUtils();
+    var mathUtils = UtilsManager.getMathUtils();
+    
+    // 使用验证工具检查目标位置
+    if (!validationUtils.validatePosition(targetX, targetY)) {
         console.warn('无效的目标位置:', targetX, targetY);
         return false;
     }
 
     this.targetX = targetX;
-    this.targetY = this.y; // 先设置X轴目标
+    this.targetY = targetY;
     this.isMoving = true;
     this.status = STATUS.MOVING;
 
-    // 计算朝向角度（修复除零错误）
+    // 使用数学工具计算朝向角度
     var deltaX = targetX - this.x;
     var deltaY = targetY - this.y;
-
+    
     if (Math.abs(deltaX) > 0.001 || Math.abs(deltaY) > 0.001) {
-        this.rotationY = Math.atan2(deltaY, deltaX);
+        this.rotationY = mathUtils.angle(this.x, this.y, targetX, targetY);
     }
 
     return true;
 };
 
-// 更新移动 - 修复后的安全移动更新
+// 更新移动 - 使用工具类
 Character.prototype.updateMovement = function () {
     if (!this.isMoving) return;
 
-    var deltaX = this.targetX - this.x;
-    var deltaY = this.targetY - this.y;
-    var distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-
-    // 防止除零错误
-    if (distance < 0.001) {
+    var movementUtils = UtilsManager.getMovementUtils();
+    var animationUtils = UtilsManager.getAnimationUtils();
+    var collisionConfig = ConfigManager.get('COLLISION');
+    
+    // 使用移动工具计算移动向量
+    var moveVector = movementUtils.calculateMoveVector(
+        this.x, this.y, this.targetX, this.targetY, this.moveSpeed
+    );
+    
+    // 检查是否到达目标
+    if (moveVector.distance < collisionConfig.MIN_MOVE_DISTANCE) {
         // 到达目标位置
         this.x = this.targetX;
         this.y = this.targetY;
@@ -170,21 +222,18 @@ Character.prototype.updateMovement = function () {
         return;
     }
 
-    if (distance < this.moveSpeed) {
+    if (moveVector.distance < this.moveSpeed) {
         // 到达目标位置
         this.x = this.targetX;
         this.y = this.targetY;
         this.isMoving = false;
         this.status = STATUS.IDLE;
     } else {
-        // 继续移动 - 修复除零错误
-        var moveX = (deltaX / distance) * this.moveSpeed;
-        var moveY = (deltaY / distance) * this.moveSpeed;
+        // 继续移动 - 使用移动工具的安全移动检查
+        var newX = this.x + moveVector.x;
+        var newY = this.y + moveVector.y;
 
         // 检查移动后的位置是否安全
-        var newX = this.x + moveX;
-        var newY = this.y + moveY;
-
         if (window.collisionSystem && window.collisionSystem.isRectCollidingWithBuildings) {
             if (window.collisionSystem.isRectCollidingWithBuildings(newX, newY, this.width, this.height)) {
                 // 位置不安全，停止移动
@@ -199,15 +248,16 @@ Character.prototype.updateMovement = function () {
         this.status = STATUS.MOVING;
     }
 
-    // 更新动画帧
+    // 使用动画工具更新动画帧
     if (this.isMoving) {
-        this.animationFrame += this.animationSpeed;
-        if (this.animationFrame >= 4) {
-            this.animationFrame = 0;
-        }
+        var animationConfig = ConfigManager.get('ANIMATION');
+        this.animationFrame = animationUtils.updateFrame(
+            this.animationFrame, 
+            this.animationSpeed, 
+            animationConfig.MAX_ANIMATION_FRAMES
+        );
     }
 };
-
 
 // 获取身体颜色
 Character.prototype.getBodyColor = function () {
@@ -236,9 +286,18 @@ Character.prototype.getHeadColor = function () {
 
 // 改变状态
 Character.prototype.changeStatus = function (newStatus) {
+    var validationUtils = UtilsManager.getValidationUtils();
+    
+    // 验证状态值
+    var validStatuses = Object.values(STATUS);
+    if (!validStatuses.includes(newStatus)) {
+        console.warn('无效的状态值:', newStatus);
+        return false;
+    }
+    
     this.status = newStatus;
+    return true;
 };
-
 
 // 角色管理器
 var CharacterManager = {
@@ -246,29 +305,39 @@ var CharacterManager = {
 
     // 创建主人物
     createMainCharacter: function (x, y) {
-        // 参数验证
-        if (typeof x !== 'number' || typeof y !== 'number' || isNaN(x) || isNaN(y) || !isFinite(x) || !isFinite(y)) {
-            console.error('无效的主人物位置:', x, y);
-            return null;
-        }
+        var validationUtils = UtilsManager.getValidationUtils();
+        var performanceUtils = UtilsManager.getPerformanceUtils();
+        
+        // 使用性能工具测量创建时间
+        return performanceUtils.measureFunction('createMainCharacter', function() {
+            // 使用验证工具检查参数
+            if (!validationUtils.validatePosition(x, y)) {
+                console.error('无效的主人物位置:', x, y);
+                return null;
+            }
 
-        var mainChar = new Character(ROLE.MAIN, x, y);
+            var mainChar = new Character(ROLE.MAIN, x, y);
 
-        // 验证角色创建是否成功
-        if (!mainChar || typeof mainChar !== 'object') {
-            console.error('主人物创建失败');
-            return null;
-        }
+            // 验证角色创建是否成功
+            if (!validationUtils.validateObject(mainChar, ['role', 'x', 'y', 'hp'])) {
+                console.error('主人物创建失败');
+                return null;
+            }
 
-        this.characters.push(mainChar);
-        console.log('主人物创建成功:', mainChar.role, '位置:', x, y);
-        return mainChar;
+            this.characters.push(mainChar);
+            console.log('主人物创建成功:', mainChar.role, '位置:', x, y);
+            return mainChar;
+        }.bind(this));
     },
-
 
     // 获取主人物
     getMainCharacter: function () {
-        var mainChar = this.characters.find(char => char && char.role === ROLE.MAIN);
+        var validationUtils = UtilsManager.getValidationUtils();
+        
+        var mainChar = this.characters.find(char => 
+            validationUtils.validateObject(char, ['role']) && char.role === ROLE.MAIN
+        );
+        
         if (!mainChar) {
             console.warn('未找到主人物');
         }
@@ -277,8 +346,12 @@ var CharacterManager = {
 
     // 获取所有角色
     getAllCharacters: function () {
+        var validationUtils = UtilsManager.getValidationUtils();
+        
         // 过滤掉无效的角色
-        var validCharacters = this.characters.filter(char => char && typeof char === 'object');
+        var validCharacters = this.characters.filter(char => 
+            validationUtils.validateObject(char, ['x', 'y', 'hp'])
+        );
 
         if (validCharacters.length !== this.characters.length) {
             console.warn('发现无效角色，已清理');
@@ -291,7 +364,11 @@ var CharacterManager = {
     // 更新所有角色
     updateAllCharacters: function () {
         var validCharacters = this.getAllCharacters();
+        var performanceUtils = UtilsManager.getPerformanceUtils();
 
+        // 使用性能工具测量更新时间
+        performanceUtils.startTimer('updateAllCharacters');
+        
         validCharacters.forEach(char => {
             try {
                 if (char && typeof char.updateMovement === 'function') {
@@ -303,7 +380,45 @@ var CharacterManager = {
                 console.error('更新角色时发生错误:', error, char);
             }
         });
+        
+        var updateTime = performanceUtils.endTimer('updateAllCharacters');
+        if (updateTime > 16) { // 超过16ms（60fps）
+            console.warn('角色更新耗时过长:', updateTime.toFixed(2), 'ms');
+        }
     },
+
+    // 获取角色统计信息
+    getCharacterStats: function() {
+        var validCharacters = this.getAllCharacters();
+        var stats = {
+            total: validCharacters.length,
+            byRole: {},
+            byStatus: {},
+            performance: {
+                averageHP: 0,
+                totalHP: 0
+            }
+        };
+        
+        if (validCharacters.length > 0) {
+            validCharacters.forEach(char => {
+                // 按角色类型统计
+                var roleKey = 'role_' + char.role;
+                stats.byRole[roleKey] = (stats.byRole[roleKey] || 0) + 1;
+                
+                // 按状态统计
+                var statusKey = 'status_' + (char.status || 'unknown');
+                stats.byStatus[statusKey] = (stats.byStatus[statusKey] || 0) + 1;
+                
+                // 血量统计
+                stats.performance.totalHP += char.hp || 0;
+            });
+            
+            stats.performance.averageHP = stats.performance.totalHP / validCharacters.length;
+        }
+        
+        return stats;
+    }
 };
 
 // 导出枚举
@@ -311,3 +426,4 @@ export {ROLE, WEAPON, STATUS};
 
 // 导出角色管理器和角色类
 export {CharacterManager};
+export default Character;
