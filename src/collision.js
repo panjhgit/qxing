@@ -186,112 +186,75 @@ var CollisionSystem = {
     // 四叉树实例
     staticQuadTree: null,    // 静态四叉树（建筑物）
     dynamicQuadTree: null,   // 动态四叉树（人物、僵尸）
-
+    
     // 当前地图配置
     currentMap: null,
-
-    // 地图配置集合
-    maps: {
-        // 主地图：8x8网格，建筑物750x750，街道500像素
-        'main': {
-            name: '主地图', type: 'grid', blockSize: 750, streetWidth: 500, gridSize: 1250,      // 750 + 500
-            gridCols: 8, gridRows: 8, mapWidth: 10000,     // 8 * 1250
-            mapHeight: 10000, buildingTypes: ['民房', '别墅', '医院', '商店', '学校', '警察局']
-        },
-
-        // 子地图配置保持不变...
-        'submap1': {
-            name: '子地图1',
-            type: 'irregular',
-            mapWidth: 6000,
-            mapHeight: 6000,
-            buildings: [{x: 500, y: 300, width: 800, height: 600, type: '工厂'}, {
-                x: 1500, y: 200, width: 600, height: 500, type: '仓库'
-            }, {x: 2500, y: 800, width: 700, height: 400, type: '宿舍'}, {
-                x: 800, y: 1200, width: 500, height: 300, type: '食堂'
-            }, {x: 2000, y: 1500, width: 900, height: 700, type: '办公楼'}, {
-                x: 3500, y: 400, width: 400, height: 400, type: '小卖部'
-            }, {x: 400, y: 1800, width: 600, height: 500, type: '健身房'}, {
-                x: 3000, y: 1200, width: 800, height: 600, type: '会议室'
-            }]
-        },
-
-        'submap2': {
-            name: '子地图2',
-            type: 'irregular',
-            mapWidth: 4000,
-            mapHeight: 4000,
-            buildings: [{x: 200, y: 150, width: 600, height: 500, type: '商场'}, {
-                x: 1000, y: 100, width: 800, height: 600, type: '电影院'
-            }, {x: 2000, y: 300, width: 500, height: 400, type: '餐厅'}, {
-                x: 300, y: 800, width: 700, height: 500, type: '银行'
-            }, {x: 1200, y: 800, width: 600, height: 400, type: '咖啡厅'}, {
-                x: 2000, y: 900, width: 900, height: 700, type: '购物中心'
-            }, {x: 500, y: 1500, width: 400, height: 300, type: '书店'}, {
-                x: 1500, y: 1400, width: 500, height: 600, type: '游戏厅'
-            }]
-        },
-
-        'submap3': {
-            name: '子地图3',
-            type: 'irregular',
-            mapWidth: 2400,
-            mapHeight: 2400,
-            buildings: [{x: 100, y: 100, width: 500, height: 400, type: '公园'}, {
-                x: 700, y: 50, width: 600, height: 500, type: '游乐场'
-            }, {x: 1400, y: 200, width: 400, height: 300, type: '图书馆'}, {
-                x: 200, y: 600, width: 700, height: 500, type: '博物馆'
-            }, {x: 1000, y: 700, width: 500, height: 400, type: '艺术馆'}, {
-                x: 1600, y: 700, width: 600, height: 500, type: '科技馆'
-            }, {x: 300, y: 1200, width: 400, height: 300, type: '休息区'}, {
-                x: 800, y: 1300, width: 600, height: 400, type: '观景台'
-            }]
-        },
-
-        'submap4': {
-            name: '子地图4',
-            type: 'irregular',
-            mapWidth: 1500,
-            mapHeight: 1500,
-            buildings: [{x: 50, y: 50, width: 300, height: 250, type: '加油站'}, {
-                x: 400, y: 100, width: 400, height: 300, type: '修理厂'
-            }, {x: 900, y: 80, width: 350, height: 280, type: '停车场'}, {
-                x: 150, y: 400, width: 500, height: 400, type: '服务站'
-            }, {x: 700, y: 450, width: 300, height: 250, type: '洗车店'}, {
-                x: 1100, y: 400, width: 250, height: 200, type: '便利店'
-            }, {x: 200, y: 900, width: 400, height: 300, type: '休息室'}, {
-                x: 700, y: 800, width: 350, height: 280, type: '工具间'
-            }]
-        }
-    },
-
+    
+    // 地图管理器引用
+    mapManager: null,
+    
     // 初始化碰撞检测系统
     init: function (mapId) {
         if (!mapId) {
-            mapId = 'main';
+            mapId = 'city'; // 默认使用城市地图
         }
-
-        if (!this.maps[mapId]) {
-            console.error('未知地图ID:', mapId);
-            return false;
+        
+        console.log('🗺️ 初始化碰撞检测系统，地图ID:', mapId);
+        
+        // 尝试获取地图管理器
+        if (typeof window !== 'undefined' && window.MapManager) {
+            this.mapManager = window.MapManager;
+            console.log('✅ 找到地图管理器');
+        } else {
+            console.warn('⚠️ 未找到地图管理器，尝试动态导入');
+            // 这里可以尝试动态导入，但为了简化，我们先使用默认配置
         }
-
-        this.currentMap = this.maps[mapId];
-
+        
+        // 如果地图管理器可用，使用它来获取地图数据
+        if (this.mapManager && this.mapManager.getMapConfig) {
+            try {
+                const mapConfig = this.mapManager.getMapConfig(mapId);
+                if (mapConfig) {
+                    this.currentMap = {
+                        name: mapConfig.name,
+                        type: 'matrix', // 新的矩阵地图类型
+                        mapWidth: mapConfig.width,
+                        mapHeight: mapConfig.height,
+                        cellSize: mapConfig.cellSize,
+                        gridCols: mapConfig.gridCols,
+                        gridRows: mapConfig.gridRows
+                    };
+                    console.log('✅ 从地图管理器获取地图配置:', this.currentMap);
+                } else {
+                    console.warn('⚠️ 地图管理器未返回配置，使用默认配置');
+                    this.useDefaultMapConfig(mapId);
+                }
+            } catch (error) {
+                console.error('❌ 从地图管理器获取配置失败:', error);
+                this.useDefaultMapConfig(mapId);
+            }
+        } else {
+            console.warn('⚠️ 地图管理器不可用，使用默认配置');
+            this.useDefaultMapConfig(mapId);
+        }
+        
         // 强制启用建筑物碰撞检测，禁用调试模式
         this.debugMode = false;
         this._collisionEnabled = true;
         console.log('✅ 建筑物碰撞检测已强制启用，调试模式已禁用');
-
+        
         // 初始化静态四叉树（建筑物）
         this.initStaticQuadTree();
-
+        
         // 初始化动态四叉树（人物、僵尸）
         this.initDynamicQuadTree();
-
+        
         console.log('四叉树碰撞检测系统初始化完成');
         console.log('当前地图:', this.currentMap.name);
         console.log('地图类型:', this.currentMap.type);
+        console.log('地图尺寸:', this.currentMap.mapWidth, 'x', this.currentMap.mapHeight);
+        console.log('网格尺寸:', this.currentMap.gridCols, 'x', this.currentMap.gridRows);
+        console.log('单元格尺寸:', this.currentMap.cellSize);
         console.log('调试模式状态:', this.debugMode);
         console.log('碰撞检测状态:', this._collisionEnabled);
 
@@ -322,8 +285,50 @@ var CollisionSystem = {
         }
 
         console.log('=== 碰撞系统初始化完成 ===');
-
+        
         return true;
+    },
+    
+    // 使用默认地图配置（兼容性）
+    useDefaultMapConfig: function(mapId) {
+        console.log('使用默认地图配置:', mapId);
+        
+        // 保留原有的地图配置作为后备
+        const defaultMaps = {
+            'city': {
+                name: '城市地图',
+                type: 'matrix',
+                mapWidth: 10000,
+                mapHeight: 10000,
+                cellSize: 100,
+                gridCols: 100,
+                gridRows: 100
+            },
+            'small-town': {
+                name: '小镇地图',
+                type: 'matrix',
+                mapWidth: 4000,
+                mapHeight: 4000,
+                cellSize: 100,
+                gridCols: 40,
+                gridRows: 40
+            },
+            'main': {
+                name: '主地图',
+                type: 'grid',
+                blockSize: 750,
+                streetWidth: 500,
+                gridSize: 1250,
+                gridCols: 8,
+                gridRows: 8,
+                mapWidth: 10000,
+                mapHeight: 10000,
+                buildingTypes: ['民房', '别墅', '医院', '商店', '学校', '警察局']
+            }
+        };
+        
+        this.currentMap = defaultMaps[mapId] || defaultMaps['city'];
+        console.log('使用默认配置:', this.currentMap);
     },
 
     // 初始化静态四叉树
@@ -353,11 +358,145 @@ var CollisionSystem = {
 
     // 将建筑物插入静态四叉树
     insertBuildingsToStaticTree: function () {
-        if (this.currentMap.type === 'grid') {
+        if (this.currentMap.type === 'matrix') {
+            this.insertMatrixBuildings();
+        } else if (this.currentMap.type === 'grid') {
             this.insertGridBuildings();
         } else if (this.currentMap.type === 'irregular') {
             this.insertIrregularBuildings();
         }
+    },
+    
+    // 插入矩阵地图建筑物（新方法）
+    insertMatrixBuildings: function () {
+        console.log('🗺️ 开始插入矩阵地图建筑物');
+        
+        // 尝试从地图管理器获取建筑物数据
+        if (this.mapManager && this.mapManager.getCurrentMap) {
+            try {
+                const currentMap = this.mapManager.getCurrentMap();
+                if (currentMap && currentMap.buildings) {
+                    console.log('✅ 从地图管理器获取建筑物数据，数量:', currentMap.buildings.length);
+                    this.insertBuildingsFromMapManager(currentMap.buildings);
+                    return;
+                }
+            } catch (error) {
+                console.error('❌ 从地图管理器获取建筑物数据失败:', error);
+            }
+        }
+        
+        // 如果无法从地图管理器获取，尝试从全局变量获取
+        if (window.mapSystem && window.mapSystem.buildings) {
+            console.log('✅ 从全局mapSystem获取建筑物数据，数量:', window.mapSystem.buildings.length);
+            this.insertBuildingsFromMapSystem(window.mapSystem.buildings);
+            return;
+        }
+        
+        // 如果都没有，生成默认建筑物
+        console.log('⚠️ 无法获取建筑物数据，生成默认建筑物');
+        this.generateDefaultMatrixBuildings();
+    },
+    
+    // 从地图管理器插入建筑物
+    insertBuildingsFromMapManager: function(buildings) {
+        if (!buildings || buildings.length === 0) {
+            console.warn('建筑物数据为空');
+            return;
+        }
+        
+        let insertedCount = 0;
+        for (let i = 0; i < buildings.length; i++) {
+            const building = buildings[i];
+            
+            // 确保建筑物有正确的边界信息
+            if (!building.bounds) {
+                building.bounds = {
+                    left: building.x - building.width / 2,
+                    right: building.x + building.width / 2,
+                    top: building.y - building.height / 2,
+                    bottom: building.y + building.height / 2
+                };
+            }
+            
+            if (this.staticQuadTree.insert(building)) {
+                insertedCount++;
+            }
+        }
+        
+        console.log('✅ 从地图管理器插入建筑物完成，成功插入:', insertedCount, '个');
+    },
+    
+    // 从mapSystem插入建筑物
+    insertBuildingsFromMapSystem: function(buildings) {
+        if (!buildings || buildings.length === 0) {
+            console.warn('mapSystem建筑物数据为空');
+            return;
+        }
+        
+        let insertedCount = 0;
+        for (let i = 0; i < buildings.length; i++) {
+            const building = buildings[i];
+            
+            // 确保建筑物有正确的边界信息
+            if (!building.bounds) {
+                building.bounds = {
+                    left: building.x - building.width / 2,
+                    right: building.x + building.width / 2,
+                    top: building.y - building.height / 2,
+                    bottom: building.y + building.height / 2
+                };
+            }
+            
+            if (this.staticQuadTree.insert(building)) {
+                insertedCount++;
+            }
+        }
+        
+        console.log('✅ 从mapSystem插入建筑物完成，成功插入:', insertedCount, '个');
+    },
+    
+    // 生成默认矩阵建筑物（基于当前地图配置）
+    generateDefaultMatrixBuildings: function() {
+        console.log('生成默认矩阵建筑物，地图配置:', this.currentMap);
+        
+        const cellSize = this.currentMap.cellSize;
+        const gridCols = this.currentMap.gridCols;
+        const gridRows = this.currentMap.gridRows;
+        
+        // 生成一些示例建筑物（4x4单元格组成一个建筑物）
+        let buildingCount = 0;
+        
+        for (let col = 0; col < gridCols - 3; col += 4) {
+            for (let row = 0; row < gridRows - 3; row += 4) {
+                // 每4x4个单元格组成一个建筑物
+                const buildingX = (col + 2) * cellSize + cellSize / 2; // 建筑物中心X
+                const buildingY = (row + 2) * cellSize + cellSize / 2; // 建筑物中心Y
+                const buildingWidth = 4 * cellSize; // 4个单元格的宽度
+                const buildingHeight = 4 * cellSize; // 4个单元格的高度
+                
+                const building = {
+                    x: buildingX,
+                    y: buildingY,
+                    width: buildingWidth,
+                    height: buildingHeight,
+                    type: '默认建筑',
+                    gridCol: col,
+                    gridRow: row,
+                    bounds: {
+                        left: buildingX - buildingWidth / 2,
+                        right: buildingX + buildingWidth / 2,
+                        top: buildingY - buildingHeight / 2,
+                        bottom: buildingY + buildingHeight / 2
+                    }
+                };
+                
+                if (this.staticQuadTree.insert(building)) {
+                    buildingCount++;
+                }
+            }
+        }
+        
+        console.log('✅ 生成默认建筑物完成，数量:', buildingCount);
     },
 
     // 插入网格建筑物
@@ -2005,6 +2144,90 @@ var CollisionSystem = {
         // 使用递增计数器确保ID唯一性
         this._objectIdCounter = (this._objectIdCounter || 0) + 1;
         return this._objectIdCounter;
+    },
+    
+    // 动态更新地图数据（用于地图切换）
+    updateMapData: function(mapId) {
+        console.log('🔄 更新碰撞检测系统地图数据:', mapId);
+        
+        if (!mapId) {
+            console.warn('地图ID为空，无法更新');
+            return false;
+        }
+        
+        // 清理现有的静态四叉树
+        if (this.staticQuadTree) {
+            this.staticQuadTree.clear();
+            console.log('已清理现有静态四叉树');
+        }
+        
+        // 重新初始化地图配置
+        this.init(mapId);
+        
+        return true;
+    },
+    
+    // 获取当前地图信息
+    getCurrentMapInfo: function() {
+        if (!this.currentMap) {
+            return null;
+        }
+        
+        return {
+            name: this.currentMap.name,
+            type: this.currentMap.type,
+            dimensions: {
+                width: this.currentMap.mapWidth,
+                height: this.currentMap.mapHeight,
+                cellSize: this.currentMap.cellSize,
+                gridCols: this.currentMap.gridCols,
+                gridRows: this.currentMap.gridRows
+            },
+            quadTreeInfo: {
+                staticTreeExists: !!this.staticQuadTree,
+                dynamicTreeExists: !!this.dynamicQuadTree,
+                staticObjectCount: this.staticQuadTree ? this.countTreeObjects(this.staticQuadTree) : 0,
+                dynamicObjectCount: this.dynamicQuadTree ? this.countTreeObjects(this.dynamicQuadTree) : 0
+            }
+        };
+    },
+    
+    // 验证碰撞检测系统状态
+    validateSystem: function() {
+        const validation = {
+            isValid: true,
+            errors: [],
+            warnings: []
+        };
+        
+        // 检查地图配置
+        if (!this.currentMap) {
+            validation.isValid = false;
+            validation.errors.push('地图配置未初始化');
+        }
+        
+        // 检查四叉树
+        if (!this.staticQuadTree) {
+            validation.isValid = false;
+            validation.errors.push('静态四叉树未初始化');
+        }
+        
+        if (!this.dynamicQuadTree) {
+            validation.isValid = false;
+            validation.errors.push('动态四叉树未初始化');
+        }
+        
+        // 检查碰撞检测状态
+        if (!this._collisionEnabled) {
+            validation.warnings.push('碰撞检测未启用');
+        }
+        
+        // 检查地图管理器
+        if (!this.mapManager) {
+            validation.warnings.push('地图管理器未连接');
+        }
+        
+        return validation;
     }
 };
 
@@ -2410,6 +2633,33 @@ if (typeof module !== 'undefined' && module.exports) {
     window.CollisionSystem = CollisionSystem;
     window.DynamicObstacle = DynamicObstacle;
     window.DynamicObstacleManager = DynamicObstacleManager;
+    
+    // 添加全局访问方法
+    window.collisionSystem = CollisionSystem;
+    
+    // 提供便捷的全局方法
+    window.initCollisionSystem = function(mapId) {
+        return CollisionSystem.init(mapId);
+    };
+    
+    window.updateCollisionMap = function(mapId) {
+        return CollisionSystem.updateMapData(mapId);
+    };
+    
+    window.getCollisionMapInfo = function() {
+        return CollisionSystem.getCurrentMapInfo();
+    };
+    
+    window.validateCollisionSystem = function() {
+        return CollisionSystem.validateSystem();
+    };
+    
+    console.log('✅ 碰撞检测系统已全局注册，可用方法:');
+    console.log('  - window.initCollisionSystem(mapId)');
+    console.log('  - window.updateCollisionMap(mapId)');
+    console.log('  - window.getCollisionMapInfo()');
+    console.log('  - window.validateCollisionSystem()');
+    console.log('  - window.collisionSystem (完整系统对象)');
 }
 
 

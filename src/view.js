@@ -157,8 +157,8 @@ ViewSystem.prototype.update = function() {
 };
 
 // 渲染地图（带摄像机变换）
-ViewSystem.prototype.renderMap = function(mapSystem) {
-    if (!mapSystem) return;
+ViewSystem.prototype.renderMap = function(mapRenderer) {
+    if (!mapRenderer) return;
     
     // 保存当前上下文状态
     this.ctx.save();
@@ -171,17 +171,16 @@ ViewSystem.prototype.renderMap = function(mapSystem) {
     this.ctx.scale(this.camera.zoom, this.camera.zoom);
     this.ctx.translate(-this.camera.x, -this.camera.y);
     
-    // 渲染地图背景
-    this.renderMapBackground(mapSystem);
-    
-    // 渲染街道
-    this.renderStreets(mapSystem);
-    
-    // 渲染建筑物
-    this.renderBuildings(mapSystem);
-    
-    // 渲染地图边界
-    this.renderMapBoundaries(mapSystem);
+    // 使用新的地图渲染器
+    if (mapRenderer.render) {
+        mapRenderer.render();
+    } else {
+        // 兼容旧的mapSystem
+        this.renderMapBackground(mapRenderer);
+        this.renderStreets(mapRenderer);
+        this.renderBuildings(mapRenderer);
+        this.renderMapBoundaries(mapRenderer);
+    }
     
     // 恢复上下文状态
     this.ctx.restore();
@@ -205,100 +204,70 @@ ViewSystem.prototype.renderMapBackground = function(mapSystem) {
     this.ctx.fillRect(0, 0, mapSystem.mapWidth, mapSystem.mapHeight);
 };
 
-// 渲染街道
+// 渲染街道（可通行区域）
 ViewSystem.prototype.renderStreets = function(mapSystem) {
-    if (!mapSystem) return;
+    if (!mapSystem || !mapSystem.walkableAreas) return;
     
-    this.ctx.fillStyle = '#808080';  // 灰色街道
+    console.log('渲染可通行区域，数量:', mapSystem.walkableAreas.length);
     
-    // 计算网格尺寸
-    var gridSize = mapSystem.blockSize + mapSystem.streetWidth;
+    // 使用白色代表可通行区域
+    this.ctx.fillStyle = '#FFFFFF';
     
-    // 绘制水平街道
-    for (var row = 1; row < 8; row++) {
-        var y = row * gridSize - mapSystem.streetWidth;
-        this.ctx.fillRect(0, y, mapSystem.mapWidth, mapSystem.streetWidth);
+    for (var i = 0; i < mapSystem.walkableAreas.length; i++) {
+        var area = mapSystem.walkableAreas[i];
+        if (!area) continue;
+        
+        // 绘制可通行区域（白色马路）
+        this.ctx.fillRect(area.bounds.left, area.bounds.top, area.bounds.right - area.bounds.left, area.bounds.bottom - area.bounds.top);
+        
+        // 绘制马路边框（浅灰色）
+        this.ctx.strokeStyle = '#E0E0E0';
+        this.ctx.lineWidth = 1;
+        this.ctx.strokeRect(area.bounds.left, area.bounds.top, area.bounds.right - area.bounds.left, area.bounds.bottom - area.bounds.top);
     }
-    
-    // 绘制垂直街道
-    for (var col = 1; col < 8; col++) {
-        var x = col * gridSize - mapSystem.streetWidth;
-        this.ctx.fillRect(x, 0, mapSystem.streetWidth, mapSystem.mapHeight);
-    }
-    
-    // 绘制街道中心线（虚线）
-    this.ctx.strokeStyle = '#FFFFFF';
-    this.ctx.lineWidth = 2;
-    this.ctx.setLineDash([8, 8]);
-    
-    // 水平中心线
-    for (var row = 1; row < 8; row++) {
-        var y = row * gridSize - mapSystem.streetWidth + mapSystem.streetWidth / 2;
-        this.ctx.beginPath();
-        this.ctx.moveTo(0, y);
-        this.ctx.lineTo(mapSystem.mapWidth, y);
-        this.ctx.stroke();
-    }
-    
-    // 垂直中心线
-    for (var col = 1; col < 8; col++) {
-        var x = col * gridSize - mapSystem.streetWidth + mapSystem.streetWidth / 2;
-        this.ctx.beginPath();
-        this.ctx.moveTo(x, 0);
-        this.ctx.lineTo(x, mapSystem.mapHeight);
-        this.ctx.stroke();
-    }
-    
-    this.ctx.setLineDash([]); // 重置虚线样式
 };
 
 // 渲染建筑物
 ViewSystem.prototype.renderBuildings = function(mapSystem) {
-    if (!mapSystem || !mapSystem.mapGrid) return;
+    if (!mapSystem || !mapSystem.buildings) return;
     
-    for (var row = 0; row < mapSystem.mapGrid.length; row++) {
-        for (var col = 0; col < mapSystem.mapGrid[row].length; col++) {
-            var building = mapSystem.mapGrid[row][col];
-            if (building) {
-                this.renderBuilding(building);
-            }
+    console.log('渲染建筑物，数量:', mapSystem.buildings.length);
+    
+    // 遍历建筑物数组，绘制建筑物
+    for (var i = 0; i < mapSystem.buildings.length; i++) {
+        var building = mapSystem.buildings[i];
+        if (building) {
+            this.renderBuilding(building);
         }
     }
 };
 
 // 渲染单个建筑物
 ViewSystem.prototype.renderBuilding = function(building) {
-    if (!building || !building.type) return;
+    if (!building) return;
     
-    var x = building.x;
-    var y = building.y;
+    // 使用中心点坐标系统
+    var x = building.x - building.width / 2;
+    var y = building.y - building.height / 2;
     
-    // 绘制建筑物主体
-    this.ctx.fillStyle = building.type.color;
+    // 绘制建筑物主体（使用建筑类型对应的颜色）
+    this.ctx.fillStyle = building.color || '#CD853F';
     this.ctx.fillRect(x, y, building.width, building.height);
     
     // 绘制建筑物边框
-    this.ctx.strokeStyle = '#000000';
+    this.ctx.strokeStyle = '#8B4513';
     this.ctx.lineWidth = 2;
     this.ctx.strokeRect(x, y, building.width, building.height);
     
-    // 绘制门
-    this.ctx.fillStyle = building.type.doorColor;
-    this.ctx.fillRect(building.doorX, building.doorY, building.doorWidth, building.doorHeight);
-    
-    // 绘制门边框
-    this.ctx.strokeStyle = '#000000';
-    this.ctx.lineWidth = 1;
-    this.ctx.strokeRect(building.doorX, building.doorY, building.doorWidth, building.doorHeight);
-    
     // 绘制建筑物图标
     this.ctx.fillStyle = '#FFFFFF';
-    this.ctx.font = 'bold 24px Arial';
+    this.ctx.font = 'bold 20px Arial';
     this.ctx.textAlign = 'center';
+    this.ctx.textBaseline = 'middle';
     this.ctx.fillText(
-        building.type.icon,
-        x + building.width / 2,
-        y + building.height / 2 + 8
+        building.icon || '🏠',
+        building.x,
+        building.y
     );
     
     // 绘制建筑物名称
@@ -306,10 +275,21 @@ ViewSystem.prototype.renderBuilding = function(building) {
     this.ctx.font = 'bold 12px Arial';
     this.ctx.textAlign = 'center';
     this.ctx.fillText(
-        building.type.name,
-        x + building.width / 2,
-        y + 16
+        building.type || '建筑',
+        building.x,
+        y + 20
     );
+    
+    // 绘制网格坐标（调试用）
+    if (building.gridCol !== undefined && building.gridRow !== undefined) {
+        this.ctx.fillStyle = '#FF0000';
+        this.ctx.font = '10px Arial';
+        this.ctx.fillText(
+            `${building.gridCol},${building.gridRow}`,
+            building.x,
+            y + building.height - 10
+        );
+    }
 };
 
 // 渲染地图边界

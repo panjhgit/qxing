@@ -413,8 +413,8 @@ GameEngine.prototype.initNavigationSystem = function() {
     console.log('[GameEngine] 开始初始化NavMesh导航系统...');
     
     // 检查地图系统是否完全初始化
-    if (!this.mapSystem.mapGrid || this.mapSystem.mapGrid.length === 0) {
-        console.warn('[GameEngine] 地图网格未生成，等待地图系统完全初始化...');
+    if (!this.mapSystem.buildings || this.mapSystem.buildings.length === 0) {
+        console.warn('[GameEngine] 建筑物数据未生成，等待地图系统完全初始化...');
         // 延迟重试
         setTimeout(() => this.initNavigationSystem(), 200);
         return;
@@ -424,18 +424,17 @@ GameEngine.prototype.initNavigationSystem = function() {
     if (typeof NavigationSystem !== 'undefined') {
         this.navigationSystem = new NavigationSystem();
         
-        // 构建导航网格 - 使用地图系统的实际属性
+        // 构建导航网格 - 使用新的数字矩阵系统
         const mapData = {
-            type: 'grid', // 当前地图系统只支持网格类型
+            type: 'matrix', // 新的矩阵类型
             mapWidth: this.mapSystem.mapWidth,
             mapHeight: this.mapSystem.mapHeight,
-            blockSize: this.mapSystem.blockSize,
-            streetWidth: this.mapSystem.streetWidth,
-            gridSize: this.mapSystem.blockSize + this.mapSystem.streetWidth,
-            gridCols: this.mapSystem.mapGrid[0].length,
-            gridRows: this.mapSystem.mapGrid.length,
-            buildings: this.mapSystem.flattenMapGrid ? 
-                this.mapSystem.flattenMapGrid().filter(building => !building.isStreet) : []
+            cellSize: this.mapSystem.cellSize,
+            gridCols: this.mapSystem.gridCols,
+            gridRows: this.mapSystem.gridRows,
+            buildings: this.mapSystem.buildings, // 从矩阵生成的建筑数据
+            walkableAreas: this.mapSystem.walkableAreas, // 可通行区域
+            mapMatrix: this.mapSystem.mapMatrix // 原始矩阵数据
         };
         
         console.log('[GameEngine] 准备的地图数据:', mapData);

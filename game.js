@@ -1,6 +1,7 @@
 // 导入模块
 import eventPrototype from './src/event.js';
-import mapPrototype from './src/map.js';
+import { MapRenderer } from './src/maps/map-renderer.js';
+import MapManager from './src/maps/map-manager.js';
 import menuPrototype from './src/menu.js';
 import {CharacterManager} from './src/character.js';
 import {ZombieManager} from './src/zombie.js';
@@ -86,7 +87,36 @@ window.onGameStateChange = function (newState) {
 
 // 初始化地图系统
 function initMapSystem() {
-    mapSystem = mapPrototype.createMapSystem(canvas, ctx);
+    // 首先初始化地图管理器
+    try {
+        // 初始化地图管理器
+        MapManager.init('city');
+        console.log('✅ 地图管理器初始化成功');
+        
+        // 将MapManager设置为全局变量，供其他模块使用
+        if (typeof window !== 'undefined') {
+            window.MapManager = MapManager;
+            console.log('✅ 地图管理器已设置为全局变量');
+        }
+        
+        // 创建地图渲染器
+        mapSystem = new MapRenderer(canvas, ctx);
+        console.log('✅ 新地图渲染器初始化成功');
+        
+    } catch (error) {
+        console.warn('⚠️ 新地图系统初始化失败，使用最小化系统:', error);
+        // 创建最小化的地图系统
+        mapSystem = {
+            mapWidth: 4000,
+            mapHeight: 4000,
+            buildings: [],
+            walkableAreas: [],
+            render: function() {
+                console.log('最小化地图系统渲染');
+            }
+        };
+        console.log('✅ 最小化地图系统初始化成功');
+    }
 
     // 初始化角色管理器
     characterManager = Object.create(CharacterManager);
