@@ -346,11 +346,17 @@ GameEngine.prototype.setSystems = function(mapSystem, characterManager, menuSyst
     this.zombieManager = zombieManager;
     this.collisionSystem = collisionSystem;
     
-    // 初始化NavMesh导航系统（延迟初始化，确保地图系统完全就绪）
-    setTimeout(() => {
-        this.initNavigationSystem();
-        this.initDynamicObstacleManager();
-    }, 100);
+    // 同步初始化NavMesh导航系统
+    var navResult = this.initNavigationSystem();
+    var obstacleResult = this.initDynamicObstacleManager();
+    
+    // 记录初始化结果
+    if (navResult) {
+        console.log('[GameEngine] NavMesh导航系统初始化成功');
+    }
+    if (obstacleResult) {
+        console.log('[GameEngine] 动态障碍物管理器初始化成功');
+    }
     
     // 初始化触摸摇杆（确保所有系统都已加载）
     if (!this.joystick) {
@@ -378,17 +384,15 @@ GameEngine.prototype.setSystems = function(mapSystem, characterManager, menuSyst
 GameEngine.prototype.initNavigationSystem = function() {
     if (!this.mapSystem) {
         console.warn('[GameEngine] 地图系统未初始化，无法构建NavMesh');
-        return;
+        return false;
     }
     
     console.log('[GameEngine] 开始初始化NavMesh导航系统...');
     
-    // 检查地图系统是否完全初始化
+    // 同步检查地图系统是否完全初始化
     if (!this.mapSystem.buildings || this.mapSystem.buildings.length === 0) {
-        console.warn('[GameEngine] 建筑物数据未生成，等待地图系统完全初始化...');
-        // 延迟重试
-        setTimeout(() => this.initNavigationSystem(), 200);
-        return;
+        console.warn('[GameEngine] 建筑物数据未生成，地图系统未完全初始化');
+        return false;
     }
     
     // 创建导航系统实例
@@ -411,8 +415,10 @@ GameEngine.prototype.initNavigationSystem = function() {
         console.log('[GameEngine] 准备的地图数据:', mapData);
         this.navigationSystem.buildNavigationMesh(mapData);
         console.log('[GameEngine] NavMesh导航系统初始化完成');
+        return true;
     } else {
         console.warn('[GameEngine] NavigationSystem未定义，跳过NavMesh初始化');
+        return false;
     }
 };
 
@@ -422,15 +428,13 @@ GameEngine.prototype.initNavigationSystem = function() {
 GameEngine.prototype.initDynamicObstacleManager = function() {
     if (!this.mapSystem) {
         console.warn('[GameEngine] 地图系统未初始化，无法初始化动态障碍物管理器');
-        return;
+        return false;
     }
     
-    // 检查地图系统是否完全初始化
+    // 同步检查地图系统是否完全初始化
     if (!this.mapSystem.mapWidth || !this.mapSystem.mapHeight) {
-        console.warn('[GameEngine] 地图尺寸未设置，等待地图系统完全初始化...');
-        // 延迟重试
-        setTimeout(() => this.initDynamicObstacleManager(), 200);
-        return;
+        console.warn('[GameEngine] 地图尺寸未设置，地图系统未完全初始化');
+        return false;
     }
     
     console.log('[GameEngine] 开始初始化动态障碍物管理器...');
@@ -446,8 +450,10 @@ GameEngine.prototype.initDynamicObstacleManager = function() {
         this.addSampleDynamicObstacles();
         
         console.log('[GameEngine] 动态障碍物管理器初始化完成');
+        return true;
     } else {
         console.warn('[GameEngine] DynamicObstacleManager未定义，跳过动态障碍物管理器初始化');
+        return false;
     }
 };
 

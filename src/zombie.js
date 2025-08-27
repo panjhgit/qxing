@@ -752,16 +752,13 @@ Zombie.prototype.takeDamage = function (damage) {
         this.state = ZOMBIE_STATE.IDLE;
         console.log('僵尸受伤停止移动:', this.type, this.id, '状态:', oldState, '->', this.state);
         
-        // 使用setTimeout恢复移动，但添加更多验证
-        setTimeout(() => {
-            // 再次检查僵尸状态，确保仍然有效
-            if (this && this.hp > 0 && this.state !== ZOMBIE_STATE.DEAD) {
-                this.state = ZOMBIE_STATE.CHASING;
-                console.log('僵尸恢复移动:', this.type, this.id, '状态:', this.state);
-            } else {
-                console.log('僵尸无法恢复移动:', this.type, this.id, 'hp:', this.hp, 'state:', this.state);
-            }
-        }, 500);
+        // 同步恢复移动状态
+        if (this && this.hp > 0 && this.state !== ZOMBIE_STATE.DEAD) {
+            this.state = ZOMBIE_STATE.CHASING;
+            console.log('僵尸恢复移动:', this.type, this.id, '状态:', this.state);
+        } else {
+            console.log('僵尸无法恢复移动:', this.type, this.id, 'hp:', this.hp, 'state:', this.state);
+        }
     }
 
     return this.hp;

@@ -159,34 +159,40 @@ function initMapSystem() {
 
 
 function gameLoop() {
-    // 添加调试信息
+    // 同步检查游戏引擎状态
     if (!gameEngine) {
         console.warn('游戏引擎未初始化');
-        requestAnimationFrame(gameLoop);
+        // 使用同步方式重试，而不是递归调用
+        setTimeout(() => gameLoop(), 16); // 16ms = 60fps
         return;
     }
 
-    // 暂时使用原来的渲染逻辑，确保游戏能正常运行
-    if (gameEngine.gameState === 'home') {
-        // 调用src/menu.js中的renderHomePage方法
-        if (menuSystem && menuSystem.renderHomePage) {
-            menuSystem.renderHomePage();
-        } else {
-            console.warn('menuSystem或renderHomePage方法不存在');
+    // 同步执行游戏逻辑
+    try {
+        if (gameEngine.gameState === 'home') {
+            // 调用src/menu.js中的renderHomePage方法
+            if (menuSystem && menuSystem.renderHomePage) {
+                menuSystem.renderHomePage();
+            } else {
+                console.warn('menuSystem或renderHomePage方法不存在');
+            }
+        } else if (gameEngine.gameState === 'playing') {
+            // 使用游戏引擎的更新和渲染方法
+            gameEngine.update();
+            gameEngine.render();
+        } else if (gameEngine.gameState === 'menu') {
+            // 调用src/menu.js中的renderMenu方法
+            if (menuSystem && menuSystem.renderMenu) {
+                menuSystem.renderMenu();
+            } else {
+                console.warn('menuSystem或renderMenu方法不存在');
+            }
         }
-    } else if (gameEngine.gameState === 'playing') {
-        // 使用游戏引擎的更新和渲染方法
-        gameEngine.update();
-        gameEngine.render();
-    } else if (gameEngine.gameState === 'menu') {
-        // 调用src/menu.js中的renderMenu方法
-        if (menuSystem && menuSystem.renderMenu) {
-            menuSystem.renderMenu();
-        } else {
-            console.warn('menuSystem或renderMenu方法不存在');
-        }
+    } catch (error) {
+        console.error('游戏循环执行错误:', error);
     }
 
+    // 继续下一帧
     requestAnimationFrame(gameLoop);
 }
 
