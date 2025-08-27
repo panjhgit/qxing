@@ -2707,11 +2707,7 @@ if (typeof module !== 'undefined' && module.exports) {
     };
     
     console.log('✅ 碰撞检测系统已全局注册，可用方法:');
-    console.log('  - window.initCollisionSystem(mapId)');
-    console.log('  - window.updateCollisionMap(mapId)');
-    console.log('  - window.getCollisionMapInfo()');
-    console.log('  - window.validateCollisionSystem()');
-    console.log('  - window.collisionSystem (完整系统对象)');
+
 }
 
 

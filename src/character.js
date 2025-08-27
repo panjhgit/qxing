@@ -144,19 +144,7 @@ Character.prototype.setupRoleProperties = function() {
     }
 };
 
-// 获取人物信息
-Character.prototype.getInfo = function () {
-    return {
-        role: this.role,
-        hp: this.hp,
-        attack: this.attack,
-        weapon: this.weapon,
-        attackRange: this.attackRange,
-        icon: this.icon,
-        position: {x: this.x, y: this.y},
-        status: this.status
-    };
-};
+
 
 // 受到攻击
 Character.prototype.takeDamage = function (damage) {
@@ -317,20 +305,6 @@ Character.prototype.getHeadColor = function () {
     return '#fdbcb4'; // 肤色
 };
 
-// 改变状态
-Character.prototype.changeStatus = function (newStatus) {
-    var validationUtils = UtilsManager.getValidationUtils();
-    
-    // 验证状态值
-    var validStatuses = Object.values(STATUS);
-    if (!validStatuses.includes(newStatus)) {
-        console.warn('无效的状态值:', newStatus);
-        return false;
-    }
-    
-    this.status = newStatus;
-    return true;
-};
 
 // 角色管理器
 var CharacterManager = {
@@ -418,39 +392,6 @@ var CharacterManager = {
         if (updateTime > 16) { // 超过16ms（60fps）
             console.warn('角色更新耗时过长:', updateTime.toFixed(2), 'ms');
         }
-    },
-
-    // 获取角色统计信息
-    getCharacterStats: function() {
-        var validCharacters = this.getAllCharacters();
-        var stats = {
-            total: validCharacters.length,
-            byRole: {},
-            byStatus: {},
-            performance: {
-                averageHP: 0,
-                totalHP: 0
-            }
-        };
-        
-        if (validCharacters.length > 0) {
-            validCharacters.forEach(char => {
-                // 按角色类型统计
-                var roleKey = 'role_' + char.role;
-                stats.byRole[roleKey] = (stats.byRole[roleKey] || 0) + 1;
-                
-                // 按状态统计
-                var statusKey = 'status_' + (char.status || 'unknown');
-                stats.byStatus[statusKey] = (stats.byStatus[statusKey] || 0) + 1;
-                
-                // 血量统计
-                stats.performance.totalHP += char.hp || 0;
-            });
-            
-            stats.performance.averageHP = stats.performance.totalHP / validCharacters.length;
-        }
-        
-        return stats;
     }
 };
 

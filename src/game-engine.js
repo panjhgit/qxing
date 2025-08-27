@@ -21,19 +21,6 @@ var TouchJoystick = function(canvas, ctx) {
     this.outerRadius = 60;
     this.innerRadius = 25;
     
-    // 抖音小游戏环境下的触摸区域调试
-    console.log('触摸摇杆触摸区域:', '中心:', this.centerX, this.centerY, '半径:', this.outerRadius);
-    console.log('触摸区域范围:', 'X:', this.centerX - this.outerRadius, '到', this.centerX + this.outerRadius, 'Y:', this.centerY - this.outerRadius, '到', this.centerY + this.outerRadius);
-    
-    // 触摸摇杆位置验证
-    console.log('触摸摇杆位置验证:');
-    console.log('- 画布尺寸:', canvas.width, 'x', canvas.height);
-    console.log('- 摇杆中心:', this.centerX, this.centerY);
-    console.log('- 摇杆半径:', this.outerRadius);
-    console.log('- 触摸区域:', '左:', this.centerX - this.outerRadius, '右:', this.centerX + this.outerRadius, '上:', this.centerY - this.outerRadius, '下:', this.centerY + this.outerRadius);
-    
-    console.log('触摸摇杆初始化，画布尺寸:', canvas.width, canvas.height, '中心位置:', this.centerX, this.centerY);
-    
     // 触摸状态
     this.touchId = null;
     this.joystickX = 0;
@@ -64,32 +51,25 @@ TouchJoystick.prototype.bindEvents = function() {
         var x = touch.x || touch.clientX || touch.pageX || 0;
         var y = touch.y || touch.clientY || touch.pageY || 0;
         
-        console.log('触摸开始，原始触摸坐标:', touch.x, touch.y, 'clientX/Y:', touch.clientX, touch.clientY, 'pageX/Y:', touch.pageX, touch.pageY);
-        console.log('触摸开始，处理后位置:', x, y, '摇杆中心:', self.centerX, self.centerY, '摇杆可见:', self.isVisible);
-        
+
         // 检查触摸是否在摇杆范围内
         var distance = Math.sqrt(Math.pow(x - self.centerX, 2) + Math.pow(y - self.centerY, 2));
-        console.log('触摸距离:', distance, '摇杆半径:', self.outerRadius, '触摸是否在范围内:', distance <= self.outerRadius);
-        
+
         // 抖音小游戏环境：稍微放宽触摸检测范围
         var touchThreshold = self.outerRadius + 10; // 增加10像素的容错范围
         
         // 临时：强制激活触摸摇杆进行测试
-        console.log('强制激活触摸摇杆进行测试');
         self.touchId = touch.identifier;
         self.isDragging = true;
         self.isActive = true;
         self.updateJoystickPosition(x, y);
-        console.log('触摸摇杆激活，ID:', self.touchId, '状态:', self.isActive, self.isDragging, '触摸阈值:', touchThreshold);
-        
+
     };
     
     // 触摸移动
     var touchMoveHandler = function(e) {
-        console.log('触摸移动事件触发，触摸点数量:', e.touches.length, '当前触摸ID:', self.touchId);
-        
+
         if (!self.isVisible || !self.isDragging) {
-            console.log('触摸移动被忽略，可见:', self.isVisible, '拖拽:', self.isDragging);
             return;
         }
         
@@ -107,9 +87,7 @@ TouchJoystick.prototype.bindEvents = function() {
             var x = touch.x || touch.clientX || touch.pageX || 0;
             var y = touch.y || touch.clientY || touch.pageY || 0;
             
-            console.log('触摸移动，原始触摸坐标:', touch.x, touch.y, '处理后坐标:', x, y);
             self.updateJoystickPosition(x, y);
-            console.log('触摸移动更新，位置:', x, y, '移动方向:', self.moveDirection);
         } else {
             console.log('触摸移动未找到对应触摸点，触摸ID:', self.touchId);
         }
@@ -118,8 +96,6 @@ TouchJoystick.prototype.bindEvents = function() {
     // 触摸结束
     var touchEndHandler = function(e) {
         if (!self.isVisible) return;
-        
-        console.log('触摸结束事件触发，触摸点数量:', e.changedTouches.length, '当前触摸ID:', self.touchId);
         
         // 检查触摸点是否结束
         var touchEnded = false;
@@ -131,7 +107,6 @@ TouchJoystick.prototype.bindEvents = function() {
         }
         
         if (touchEnded) {
-            console.log('触摸摇杆重置，触摸ID:', self.touchId);
             self.resetJoystick();
         } else {
             console.log('触摸结束但触摸ID不匹配');
@@ -202,11 +177,6 @@ TouchJoystick.prototype.updateJoystickPosition = function(x, y) {
             name: '360度连续方向'
         };
         
-        // 调试信息
-        console.log('触摸偏移:', deltaX, deltaY);
-        console.log('触摸距离:', distance.toFixed(1));
-        console.log('单位向量:', unitX.toFixed(3), unitY.toFixed(3));
-        console.log('最终移动向量:', this.moveDirection.x.toFixed(3), this.moveDirection.y.toFixed(3));
     } else {
         // 触摸点在中心，不移动
         this.moveDirection = { x: 0, y: 0, name: '中心' };
@@ -216,8 +186,7 @@ TouchJoystick.prototype.updateJoystickPosition = function(x, y) {
 
 // 重置摇杆
 TouchJoystick.prototype.resetJoystick = function() {
-    console.log('触摸摇杆重置前状态:', this.isDragging, this.isActive, this.touchId);
-    
+
     this.isDragging = false;
     this.isActive = false;
     this.touchId = null;
@@ -225,8 +194,6 @@ TouchJoystick.prototype.resetJoystick = function() {
     this.joystickY = 0;
     this.moveDirection.x = 0;
     this.moveDirection.y = 0;
-    
-    console.log('触摸摇杆重置后状态:', this.isDragging, this.isActive, this.touchId);
 };
 
 // 渲染摇杆
