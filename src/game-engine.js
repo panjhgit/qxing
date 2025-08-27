@@ -648,7 +648,7 @@ GameEngine.prototype.spawnZombiesForDay = function() {
         if (this.collisionSystem && this.collisionSystem.isZombieOverlappingWithZombies) {
             var existingZombies = this.zombieManager.getAllZombies().filter(z => z.hp > 0);
             
-            if (this.collisionSystem.isZombieOverlappingWithZombies(zombieX, zombieY, 16, existingZombies, 0.1)) {
+            if (this.collisionSystem.isZombieOverlappingWithZombies(zombieX, zombieY, 16, existingZombies, 0.2)) {
                 // 如果与现有僵尸重叠，寻找不重叠的位置
                 var nonOverlapPos = this.collisionSystem.getNonOverlappingPosition(
                     mainChar.x, mainChar.y, zombieX, zombieY, 32, 32, 
