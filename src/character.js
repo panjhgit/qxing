@@ -190,6 +190,15 @@ Character.prototype.setMoveTarget = function (targetX, targetY) {
     return true;
 };
 
+// 停止移动
+Character.prototype.stopMovement = function() {
+    this.isMoving = false;
+    this.status = STATUS.IDLE;
+    this.targetX = this.x; // 将目标位置设为当前位置
+    this.targetY = this.y;
+    console.log('角色停止移动，当前位置:', this.x, this.y);
+};
+
     // 更新移动 - 使用工具类，优化平滑移动
     Character.prototype.updateMovement = function (deltaTime = 1/60) {
         if (!this.isMoving) {

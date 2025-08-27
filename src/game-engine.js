@@ -108,6 +108,14 @@ TouchJoystick.prototype.bindEvents = function() {
         
         if (touchEnded) {
             self.resetJoystick();
+            
+            // 额外保护：确保角色停止移动
+            if (window.gameEngine && window.gameEngine.characterManager) {
+                var mainChar = window.gameEngine.characterManager.getMainCharacter();
+                if (mainChar && mainChar.stopMovement) {
+                    mainChar.stopMovement();
+                }
+            }
         } else {
             console.log('触摸结束但触摸ID不匹配');
         }
@@ -186,7 +194,6 @@ TouchJoystick.prototype.updateJoystickPosition = function(x, y) {
 
 // 重置摇杆
 TouchJoystick.prototype.resetJoystick = function() {
-
     this.isDragging = false;
     this.isActive = false;
     this.touchId = null;
@@ -194,6 +201,14 @@ TouchJoystick.prototype.resetJoystick = function() {
     this.joystickY = 0;
     this.moveDirection.x = 0;
     this.moveDirection.y = 0;
+    
+    // 停止角色移动，防止滑行
+    if (window.gameEngine && window.gameEngine.characterManager) {
+        var mainChar = window.gameEngine.characterManager.getMainCharacter();
+        if (mainChar) {
+            mainChar.stopMovement();
+        }
+    }
 };
 
 // 渲染摇杆
@@ -479,6 +494,13 @@ GameEngine.prototype.updateJoystickMovement = function() {
     }
     
     if (!this.joystick.isActive) {
+        // 摇杆不活跃时，确保角色停止移动
+        if (this.characterManager) {
+            var mainChar = this.characterManager.getMainCharacter();
+            if (mainChar && mainChar.isMoving) {
+                mainChar.stopMovement();
+            }
+        }
         console.log('触摸摇杆未激活，状态:', this.joystick.isVisible, this.joystick.isDragging);
         return;
     }
@@ -510,7 +532,11 @@ GameEngine.prototype.updateJoystickMovement = function() {
         var result = mainChar.setMoveTarget(newX, newY);
         console.log('设置移动目标结果:', result);
     } else {
-        console.log('移动方向太小，忽略移动');
+        // 移动方向太小，停止移动
+        if (mainChar.isMoving) {
+            mainChar.stopMovement();
+        }
+        console.log('移动方向太小，停止移动');
     }
     
     // 更新状态

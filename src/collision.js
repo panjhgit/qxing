@@ -193,6 +193,143 @@ var CollisionSystem = {
     // 地图管理器引用
     mapManager: null,
 
+
+    // 统一的距离计算
+    calculateDistance: function (x1, y1, x2, y2) {
+        return Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+    },
+
+    // 统一的边界检查
+    isWithinMapBounds: function (x, y) {
+        var mapDimensions = this.getCurrentMapDimensions();
+        return x >= 0 && x < mapDimensions.width && y >= 0 && y < mapDimensions.height;
+    },
+
+    // 统一的安全位置生成方法（简化版本）
+    generateSafePosition: function (centerX, centerY, minDistance, maxDistance, objectWidth, objectHeight, isCircle = true) {
+        console.log('=== 生成安全位置 ===', {centerX, centerY, minDistance, maxDistance, objectWidth, objectHeight, isCircle});
+
+        // 优先尝试矩阵方法
+        if (this.currentMap && this.currentMap.type === 'matrix') {
+            try {
+                var matrixPos = this.generateMatrixSafePosition(centerX, centerY, minDistance, maxDistance, objectWidth, objectHeight);
+                if (matrixPos && matrixPos.source && matrixPos.source.startsWith('matrix')) {
+                    console.log('✅ 矩阵方法成功:', matrixPos);
+                    return matrixPos;
+                }
+            } catch (error) {
+                console.warn('矩阵方法失败:', error);
+            }
+        }
+
+        // 尝试街道位置
+        if (this.currentMap && this.currentMap.type === 'grid') {
+            var streetPos = this.findStreetPosition(centerX, centerY, minDistance, maxDistance, objectWidth, objectHeight, isCircle);
+            if (streetPos) {
+                console.log('✅ 街道位置成功:', streetPos);
+                return streetPos;
+            }
+        }
+
+        // 随机位置搜索
+        var collisionCheck = isCircle ? 
+            (x, y) => !this.isCircleCollidingWithBuildings(x, y, objectWidth / 2) : 
+            (x, y) => !this.isRectCollidingWithBuildings(x, y, objectWidth, objectHeight);
+
+        for (var attempt = 0; attempt < 200; attempt++) {
+            var angle = Math.random() * Math.PI * 2;
+            var distance = minDistance + Math.random() * (maxDistance - minDistance);
+            var testX = centerX + Math.cos(angle) * distance;
+            var testY = centerY + Math.sin(angle) * distance;
+
+            if (this.isWithinMapBounds(testX, testY) && collisionCheck(testX, testY)) {
+                console.log('✅ 随机位置成功:', {x: testX, y: testY}, '尝试次数:', attempt + 1);
+                return {x: testX, y: testY, source: 'random'};
+            }
+        }
+
+        // 边缘位置搜索
+        var mapDimensions = this.getCurrentMapDimensions();
+        var edgePositions = [
+            {x: 100, y: 100}, 
+            {x: mapDimensions.width - 100, y: 100}, 
+            {x: 100, y: mapDimensions.height - 100}, 
+            {x: mapDimensions.width - 100, y: mapDimensions.height - 100}
+        ];
+
+        for (var i = 0; i < edgePositions.length; i++) {
+            var edgePos = edgePositions[i];
+            if (collisionCheck(edgePos.x, edgePos.y)) {
+                console.log('✅ 边缘位置成功:', edgePos);
+                return {x: edgePos.x, y: edgePos.y, source: 'edge'};
+            }
+        }
+
+        // 默认位置
+        console.warn('⚠️ 使用默认位置');
+        return {x: 100, y: 100, source: 'default'};
+    },
+
+    // 统一的街道位置查找（简化版本）
+    findStreetPosition: function (centerX, centerY, minDistance, maxDistance, objectWidth, objectHeight, isCircle = false) {
+        if (this.currentMap.type !== 'grid') return null;
+
+        var gridSize = this.currentMap.gridSize;
+        var blockSize = this.currentMap.blockSize;
+        var streetWidth = this.currentMap.streetWidth;
+        var cols = this.currentMap.gridCols;
+        var rows = this.currentMap.gridRows;
+
+        var streetPositions = [];
+        var collisionCheck = isCircle ? 
+            (x, y) => !this.isCircleCollidingWithBuildings(x, y, objectWidth / 2) : 
+            (x, y) => !this.isRectCollidingWithBuildings(x, y, objectWidth, objectHeight);
+
+        // 街道交叉点
+        for (var col = 0; col <= cols; col++) {
+            for (var row = 0; row <= rows; row++) {
+                var streetX = col * gridSize;
+                var streetY = row * gridSize;
+
+                if (this.isWithinMapBounds(streetX, streetY) && collisionCheck(streetX, streetY)) {
+                    var distance = this.calculateDistance(streetX, streetY, centerX, centerY);
+                    if (distance >= minDistance && distance <= maxDistance) {
+                        streetPositions.push({x: streetX, y: streetY, distance: distance});
+                    }
+                }
+            }
+        }
+
+        // 街道区域
+        for (var col = 0; col < cols; col++) {
+            for (var row = 0; row < rows; row++) {
+                var buildingX = col * gridSize + gridSize / 2;
+                var buildingY = row * gridSize + gridSize / 2;
+                var buildingRight = buildingX + blockSize / 2;
+                var buildingBottom = buildingY + blockSize / 2;
+
+                var streetX = buildingRight + streetWidth / 2;
+                var streetY = buildingBottom + streetWidth / 2;
+
+                if (this.isWithinMapBounds(streetX, streetY) && collisionCheck(streetX, streetY)) {
+                    var distance = this.calculateDistance(streetX, streetY, centerX, centerY);
+                    if (distance >= minDistance && distance <= maxDistance) {
+                        streetPositions.push({x: streetX, y: streetY, distance: distance});
+                    }
+                }
+            }
+        }
+
+        if (streetPositions.length > 0) {
+            streetPositions.sort((a, b) => a.distance - b.distance);
+            console.log('✅ 街道位置成功:', streetPositions[0]);
+            return {x: streetPositions[0].x, y: streetPositions[0].y};
+        }
+
+        return null;
+    },
+
+
     // 初始化碰撞检测系统
     init: function (mapId) {
         if (!mapId) {
@@ -928,10 +1065,6 @@ var CollisionSystem = {
         return false;
     },
 
-
-    // 简洁高效的碰撞检测和移动系统
-    // 核心原则：不能重叠、不能穿墙、平滑移动
-
     // 检测两个矩形是否重叠
     isRectOverlapping: function (rect1, rect2) {
         return !(rect1.right <= rect2.left || rect1.left >= rect2.right || rect1.bottom <= rect2.top || rect1.top >= rect2.bottom);
@@ -972,113 +1105,74 @@ var CollisionSystem = {
     },
 
 
-    // 墙体滑动：让角色贴着建筑物边缘平滑移动 - 优化版本，减少抽搐
+    // 墙体滑动：让角色贴着建筑物边缘平滑移动（简化版本）
     getWallSlidePosition: function (fromX, fromY, toX, toY, width, height, excludeObject) {
-        // 计算移动向量
         var deltaX = toX - fromX;
         var deltaY = toY - fromY;
         var distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
 
         if (distance === 0) {
-            return {x: fromX, y: fromY, safe: false, source: 'no_movement'};
+            return {x: fromX, y: fromY, safe: false};
         }
 
-        // 尝试X轴滑动（水平移动）
+        // 尝试X轴滑动
         var slideX = this.tryAxisSlide(fromX, fromY, toX, toY, width, height, true, excludeObject);
-        if (slideX.safe && slideX.distance > 0) {
-            // 添加位置平滑，减少抽搐
-            var smoothedX = this.smoothPosition(fromX, slideX.x, 0.8); // 80%的平滑度
-            return {
-                x: smoothedX,
-                y: slideX.y,
-                safe: true,
-                source: 'wall_slide_smoothed',
-                axis: 'x',
-                distance: slideX.distance
-            };
+        if (slideX.safe) {
+            return {x: slideX.x, y: slideX.y, safe: true, source: 'slide_x'};
         }
 
-        // 尝试Y轴滑动（垂直移动）
+        // 尝试Y轴滑动
         var slideY = this.tryAxisSlide(fromX, fromY, toX, toY, width, height, false, excludeObject);
-        if (slideY.safe && slideY.distance > 0) {
-            // 添加位置平滑，减少抽搐
-            var smoothedY = this.smoothPosition(fromY, slideY.y, 0.8); // 80%的平滑度
-            return {
-                x: slideY.x,
-                y: smoothedY,
-                safe: true,
-                source: 'wall_slide_smoothed',
-                axis: 'y',
-                distance: slideY.distance
-            };
+        if (slideY.safe) {
+            return {x: slideY.x, y: slideY.y, safe: true, source: 'slide_y'};
         }
 
-        // 如果都无法滑动，返回原位置
-        return {x: fromX, y: fromY, safe: false, source: 'wall_slide_failed'};
+        return {x: fromX, y: fromY, safe: false};
     },
 
-    // 位置平滑函数，减少抽搐
-    smoothPosition: function (currentPos, targetPos, smoothFactor) {
-        // smoothFactor: 0-1，0表示完全平滑，1表示无平滑
-        return currentPos + (targetPos - currentPos) * smoothFactor;
-    },
 
-    // 尝试沿特定轴滑动 - 优化版本，减少抽搐
+
+    // 尝试沿特定轴滑动（简化版本）
     tryAxisSlide: function (fromX, fromY, toX, toY, width, height, isXAxis, excludeObject) {
         var deltaX = toX - fromX;
         var deltaY = toY - fromY;
         var distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
 
         if (distance === 0) {
-            return {x: fromX, y: fromY, safe: false, source: 'no_movement'};
+            return {x: fromX, y: fromY, safe: false};
         }
 
         // 计算这个轴上的移动距离
         var axisDistance = isXAxis ? Math.abs(deltaX) : Math.abs(deltaY);
         var axisDirection = isXAxis ? (deltaX > 0 ? 1 : -1) : (deltaY > 0 ? 1 : -1);
 
-        // 使用更大的步长，减少检测频率，避免抽搐
-        var stepSize = 8; // 增加到8像素，减少检测频率
+        var stepSize = 8;
         var currentDistance = 0;
         var lastSafeX = fromX;
         var lastSafeY = fromY;
-        var consecutiveSafeSteps = 0; // 连续安全步数
 
         while (currentDistance <= axisDistance) {
             var testX = isXAxis ? fromX + axisDirection * currentDistance : fromX;
             var testY = isXAxis ? fromY : fromY + axisDirection * currentDistance;
 
-            // 检测这个位置是否安全（只检查建筑物碰撞，动态对象碰撞由调用方处理）
             if (!this.isObjectCollidingWithBuildings(testX, testY, width, height)) {
-                // 更新最后的安全位置
                 lastSafeX = testX;
                 lastSafeY = testY;
                 currentDistance += stepSize;
-                consecutiveSafeSteps++;
-
-                // 如果连续多步都安全，可以提前停止，避免过度检测
-                if (consecutiveSafeSteps >= 3) {
-                    break;
-                }
             } else {
-                // 找到碰撞点，停止
                 break;
             }
         }
 
         if (lastSafeX !== fromX || lastSafeY !== fromY) {
-            var actualDistance = Math.sqrt(Math.pow(lastSafeX - fromX, 2) + Math.pow(lastSafeY - fromY, 2));
             return {
                 x: lastSafeX,
                 y: lastSafeY,
-                safe: true,
-                source: 'wall_slide',
-                axis: isXAxis ? 'x' : 'y',
-                distance: actualDistance
+                safe: true
             };
         }
 
-        return {x: fromX, y: fromY, safe: false, source: 'axis_slide_failed'};
+        return {x: fromX, y: fromY, safe: false};
     },
 
 
@@ -1185,9 +1279,7 @@ var CollisionSystem = {
     // 检测两个圆形对象是否重叠（用于人物和僵尸的动态碰撞检测）
     isCirclesOverlapping: function (obj1X, obj1Y, obj1Radius, obj2X, obj2Y, obj2Radius, safetyMargin = 0.1) {
         // 计算两个圆心之间的距离
-        var deltaX = obj2X - obj1X;
-        var deltaY = obj2Y - obj1Y;
-        var distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+        var distance = this.calculateDistance(obj1X, obj1Y, obj2X, obj2Y);
 
         // 计算安全距离：两个半径之和 + 10%的安全空间
         var safeDistance = (obj1Radius + obj2Radius) * (1 + safetyMargin);
@@ -1271,193 +1363,32 @@ var CollisionSystem = {
         return false;
     },
 
-    // 获取避免重叠的移动位置（只支持圆形对象）
+    // 获取避免重叠的移动位置（简化版本）
     getNonOverlappingPosition: function (fromX, fromY, toX, toY, objectWidth, objectHeight, avoidObjects, buildingCollision, isCircle = true) {
-        // 只支持圆形对象，强制使用圆形碰撞检测
-        var buildingCollisionCheck = (x, y) => !this.isCircleCollidingWithBuildings(x, y, objectWidth / 2);
-        var dynamicCollisionCheck = (x, y) => !this.isCircleOverlappingWithList(x, y, objectWidth / 2, avoidObjects, 0.1);
-
-        // 首先检查建筑物碰撞
-        if (buildingCollision && !buildingCollisionCheck(toX, toY)) {
+        // 检查建筑物碰撞
+        if (buildingCollision && this.isCircleCollidingWithBuildings(toX, toY, objectWidth / 2)) {
             var buildingSafePos = this.getCircleSafeMovePosition(fromX, fromY, toX, toY, objectWidth / 2);
             toX = buildingSafePos.x;
             toY = buildingSafePos.y;
         }
 
         // 检查是否与对象重叠
-        if (dynamicCollisionCheck(toX, toY)) {
+        if (this.isCircleOverlappingWithList(toX, toY, objectWidth / 2, avoidObjects, 0.1)) {
             return {x: toX, y: toY};
         }
 
-        // 如果重叠，直接返回原位置（不寻找替代位置）
-        console.log('目标位置与对象重叠，保持在原位置');
+        // 如果重叠，返回原位置
         return {x: fromX, y: fromY};
     },
 
 
-    // 在街道上寻找安全位置（修复街道位置计算）
+    // 在街道上寻找安全位置（已优化，使用统一方法）
     findSafePositionInStreets: function (centerX, centerY, minDistance, maxDistance, objectWidth, objectHeight, isCircle = false) {
-        if (this.currentMap.type !== 'grid') return null;
-
-        var gridSize = this.currentMap.gridSize;
-        var blockSize = this.currentMap.blockSize;
-        var streetWidth = this.currentMap.streetWidth;
-        var cols = this.currentMap.gridCols;
-        var rows = this.currentMap.gridRows;
-
-        console.log('在街道上寻找安全位置，配置:', {
-            gridSize: gridSize, blockSize: blockSize, streetWidth: streetWidth, cols: cols, rows: rows
-        });
-
-        // 尝试在街道区域寻找位置
-        var streetPositions = [];
-
-        // 方法1：在街道交叉点寻找（网格交叉点）
-        for (var col = 0; col <= cols; col++) {
-            for (var row = 0; row <= rows; row++) {
-                // 街道位置：网格交叉点
-                var streetX = col * gridSize;
-                var streetY = row * gridSize;
-
-                // 添加边界检查
-                if (streetX >= 0 && streetX < this.currentMap.mapWidth && streetY >= 0 && streetY < this.currentMap.mapHeight) {
-
-                    // 检查街道位置是否安全（根据对象类型选择碰撞检测方法）
-                    var isSafe = isCircle ? !this.isCircleCollidingWithBuildings(streetX, streetY, objectWidth / 2) : !this.isRectCollidingWithBuildings(streetX, streetY, objectWidth, objectHeight);
-
-                    if (isSafe) {
-                        var distance = Math.sqrt(Math.pow(streetX - centerX, 2) + Math.pow(streetY - centerY, 2));
-                        if (distance >= minDistance && distance <= maxDistance) {
-                            streetPositions.push({
-                                x: streetX, y: streetY, distance: distance, type: 'crossing'
-                            });
-                        }
-                    }
-                }
-            }
-        }
-
-        // 方法2：在街道中间区域寻找（建筑物之间的空隙）
-        for (var col = 0; col < cols; col++) {
-            for (var row = 0; row < rows; row++) {
-                // 计算建筑物边界
-                var buildingX = col * gridSize + gridSize / 2;
-                var buildingY = row * gridSize + gridSize / 2;
-                var buildingLeft = buildingX - blockSize / 2;
-                var buildingRight = buildingX + blockSize / 2;
-                var buildingTop = buildingY - blockSize / 2;
-                var buildingBottom = buildingY + blockSize / 2;
-
-                // 街道区域：建筑物之间的空隙
-                var streetLeft = buildingRight;
-                var streetRight = buildingRight + streetWidth;
-                var streetTop = buildingBottom;
-                var streetBottom = buildingBottom + streetWidth;
-
-                // 检查街道区域内的几个点
-                var streetTestPoints = [{x: streetLeft + streetWidth / 2, y: streetTop + streetWidth / 2}, // 街道中心
-                    {x: streetLeft + 50, y: streetTop + 50}, // 街道边缘
-                    {x: streetRight - 50, y: streetBottom - 50} // 街道边缘
-                ];
-
-                for (var i = 0; i < streetTestPoints.length; i++) {
-                    var testPoint = streetTestPoints[i];
-
-                    // 确保测试点在地图范围内
-                    if (testPoint.x >= 0 && testPoint.x < this.currentMap.mapWidth && testPoint.y >= 0 && testPoint.y < this.currentMap.mapHeight) {
-
-                        // 检查街道位置是否安全
-                        if (!this.isRectCollidingWithBuildings(testPoint.x, testPoint.y, objectWidth, objectHeight)) {
-                            var distance = Math.sqrt(Math.pow(testPoint.x - centerX, 2) + Math.pow(testPoint.y - centerY, 2));
-                            if (distance >= minDistance && distance <= maxDistance) {
-                                streetPositions.push({
-                                    x: testPoint.x, y: testPoint.y, distance: distance, type: 'street_area'
-                                });
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // 按距离排序，返回最近的安全位置
-        if (streetPositions.length > 0) {
-            streetPositions.sort(function (a, b) {
-                return a.distance - b.distance;
-            });
-
-            console.log('找到街道安全位置:', streetPositions[0]);
-            return {x: streetPositions[0].x, y: streetPositions[0].y};
-        }
-
-        console.log('未找到街道安全位置');
-        return null;
+        return this.findStreetPosition(centerX, centerY, minDistance, maxDistance, objectWidth, objectHeight, isCircle);
     },
 
-    // 强制验证生成位置（确保位置真的安全，支持圆形和矩形对象）
-    validateAndFixSpawnPosition: function (x, y, objectWidth, objectHeight, isCircle = false) {
-        console.log('强制验证生成位置:', x, y, '对象尺寸:', objectWidth, objectHeight, '是否圆形:', isCircle);
-
-        // 根据对象类型选择碰撞检测方法
-        var collisionCheck = isCircle ? (x, y) => !this.isCircleCollidingWithBuildings(x, y, objectWidth / 2) : (x, y) => !this.isRectCollidingWithBuildings(x, y, objectWidth, objectHeight);
-
-        // 首先检查当前位置是否安全
-        if (collisionCheck(x, y)) {
-            console.log('当前位置安全，无需调整');
-            return {x: x, y: y, adjusted: false};
-        }
-
-        console.log('当前位置不安全，寻找替代位置');
-
-        // 尝试在附近寻找安全位置
-        var searchSteps = 16;
-
-        for (var step = 0; step < searchSteps; step++) {
-            var angle = (step * Math.PI * 2) / searchSteps;
-            var distance = 50 + (step * 10); // 从50像素开始，逐步增加
-
-            var testX = x + Math.cos(angle) * distance;
-            var testY = y + Math.sin(angle) * distance;
-
-            // 确保测试位置在地图范围内
-            if (testX >= 0 && testX < this.currentMap.mapWidth && testY >= 0 && testY < this.currentMap.mapHeight) {
-
-                if (collisionCheck(testX, testY)) {
-                    console.log('找到安全的替代位置:', testX, testY, '距离:', distance);
-                    return {x: testX, y: testY, adjusted: true, distance: distance};
-                }
-            }
-        }
-
-        // 如果还是找不到，尝试街道位置
-        if (this.currentMap.type === 'grid') {
-            var streetPos = this.findSafePositionInStreets(x, y, 50, 500, objectWidth, objectHeight, isCircle);
-            if (streetPos) {
-                console.log('在街道上找到安全位置:', streetPos);
-                return {x: streetPos.x, y: streetPos.y, adjusted: true, source: 'street'};
-            }
-        }
-
-        // 最后尝试地图边缘
-        var edgePositions = [{x: 100, y: 100}, {x: this.currentMap.mapWidth - 100, y: 100}, {
-            x: 100, y: this.currentMap.mapHeight - 100
-        }, {x: this.currentMap.mapWidth - 100, y: this.currentMap.mapHeight - 100}];
-
-        for (var i = 0; i < edgePositions.length; i++) {
-            var edgePos = edgePositions[i];
-            if (collisionCheck(edgePos.x, edgePos.y)) {
-                console.log('在地图边缘找到安全位置:', edgePos);
-                return {x: edgePos.x, y: edgePos.y, adjusted: true, source: 'edge'};
-            }
-        }
-
-        console.warn('无法找到安全位置，使用默认位置');
-        return {x: 100, y: 100, adjusted: true, source: 'default'};
-    },
-
-    // 在矩阵的0值区域生成安全位置（确保只在街道上生成）
+    // 在矩阵的0值区域生成安全位置（已优化，减少重复代码）
     generateMatrixSafePosition: function (centerX, centerY, minDistance, maxDistance, objectWidth, objectHeight) {
-
         // 获取当前地图信息
         var currentMap = null;
         if (window.MapManager && window.MapManager.getCurrentMap) {
@@ -1481,12 +1412,10 @@ var CollisionSystem = {
         for (var row = 0; row < matrix.length; row++) {
             for (var col = 0; col < matrix[row].length; col++) {
                 if (matrix[row][col] === 0) {
-                    // 计算单元格中心坐标
                     var cellCenterX = (col + 0.5) * cellSize;
                     var cellCenterY = (row + 0.5) * cellSize;
 
-                    // 检查这个位置是否在地图范围内
-                    if (cellCenterX >= 0 && cellCenterX < mapWidth && cellCenterY >= 0 && cellCenterY < mapHeight) {
+                    if (this.isWithinMapBounds(cellCenterX, cellCenterY)) {
                         walkableCells.push({
                             x: cellCenterX, y: cellCenterY, row: row, col: col
                         });
@@ -1502,130 +1431,42 @@ var CollisionSystem = {
             return this.generateGameSafePosition(centerX, centerY, minDistance, maxDistance, objectWidth, objectHeight);
         }
 
-        // 计算与中心点的距离，找到合适的生成位置
-        var bestPositions = [];
-        for (var i = 0; i < walkableCells.length; i++) {
-            var cell = walkableCells[i];
-            var distance = Math.sqrt(Math.pow(cell.x - centerX, 2) + Math.pow(cell.y - centerY, 2));
-
-            if (distance >= minDistance && distance <= maxDistance) {
-                bestPositions.push({
-                    x: cell.x, y: cell.y, distance: distance, priority: 1
-                });
-            } else if (distance < minDistance) {
-                // 距离太近，但优先级较低
-                bestPositions.push({
-                    x: cell.x, y: cell.y, distance: distance, priority: 2
-                });
-            } else {
-                // 距离太远，优先级最低
-                bestPositions.push({
-                    x: cell.x, y: cell.y, distance: distance, priority: 3
-                });
-            }
-        }
-
-        // 按优先级和距离排序
-        bestPositions.sort(function (a, b) {
-            if (a.priority !== b.priority) {
-                return a.priority - b.priority;
-            }
-            return a.distance - b.distance;
-        });
-
-        // 选择最佳位置
-        if (bestPositions.length > 0) {
-            var bestPos = bestPositions[0];
-            console.log('✅ 在矩阵0值区域找到最佳位置:', bestPos);
-            return {x: bestPos.x, y: bestPos.y, adjusted: false, source: 'matrix'};
-        }
-
-        // 如果没有找到合适距离的位置，选择最近的0值区域
-        walkableCells.sort(function (a, b) {
-            var distA = Math.sqrt(Math.pow(a.x - centerX, 2) + Math.pow(a.y - centerY, 2));
-            var distB = Math.sqrt(Math.pow(b.x - centerX, 2) + Math.pow(b.y - centerY, 2));
+        // 按距离排序，找到合适的生成位置
+        walkableCells.sort((a, b) => {
+            var distA = this.calculateDistance(a.x, a.y, centerX, centerY);
+            var distB = this.calculateDistance(b.x, b.y, centerX, centerY);
             return distA - distB;
         });
 
+        // 选择最佳位置（优先选择在距离范围内的）
+        for (var i = 0; i < walkableCells.length; i++) {
+            var cell = walkableCells[i];
+            var distance = this.calculateDistance(cell.x, cell.y, centerX, centerY);
+            
+            if (distance >= minDistance && distance <= maxDistance) {
+                console.log('✅ 在矩阵0值区域找到最佳位置:', cell);
+                return {x: cell.x, y: cell.y, source: 'matrix'};
+            }
+        }
+
+        // 如果没有找到合适距离的位置，选择最近的
         if (walkableCells.length > 0) {
             var nearestPos = walkableCells[0];
             console.log('✅ 选择最近的0值区域:', nearestPos);
-            return {x: nearestPos.x, y: nearestPos.y, adjusted: true, source: 'matrix_nearest'};
+            return {x: nearestPos.x, y: nearestPos.y, source: 'matrix_nearest'};
         }
 
         console.warn('矩阵方法失败，使用传统方法');
         return this.generateGameSafePosition(centerX, centerY, minDistance, maxDistance, objectWidth, objectHeight);
     },
 
-    // 游戏中的安全位置生成（强制验证，确保不会生成在建筑物上，支持圆形和矩形对象）
+    // 游戏中的安全位置生成（已优化，使用统一方法）
     generateGameSafePosition: function (centerX, centerY, minDistance, maxDistance, objectWidth, objectHeight, isCircle = false) {
         console.log('=== 生成游戏安全位置 ===');
         console.log('参数:', {centerX, centerY, minDistance, maxDistance, objectWidth, objectHeight, isCircle});
 
-        // 根据对象类型选择碰撞检测方法
-        var collisionCheck = isCircle ? (x, y) => !this.isCircleCollidingWithBuildings(x, y, objectWidth / 2) : (x, y) => !this.isRectCollidingWithBuildings(x, y, objectWidth, objectHeight);
-
-        // 优先尝试使用矩阵方法（确保只在0值区域生成）
-        try {
-            var matrixPos = this.generateMatrixSafePosition(centerX, centerY, minDistance, maxDistance, objectWidth, objectHeight);
-            if (matrixPos && matrixPos.source && matrixPos.source.startsWith('matrix')) {
-                console.log('✅ 矩阵方法成功，返回位置:', matrixPos);
-                return matrixPos;
-            }
-        } catch (error) {
-            console.warn('矩阵方法失败，使用传统方法:', error);
-        }
-
-        // 如果矩阵方法失败，使用传统方法
-        console.log('使用传统方法寻找安全位置');
-        var safePos = this.findSafePosition(centerX, centerY, minDistance, maxDistance, objectWidth, objectHeight, isCircle);
-
-        if (safePos) {
-            // 强制验证找到的位置是否真的安全
-            var isReallySafe = collisionCheck(safePos.x, safePos.y);
-
-            if (isReallySafe) {
-                console.log('✅ 找到安全位置:', safePos);
-                return safePos;
-            } else {
-                console.log('❌ 找到的位置不安全，重新寻找');
-            }
-        }
-
-        // 如果标准方法失败，使用强制验证方法
-        console.log('使用强制验证方法寻找安全位置');
-        var validatedPos = this.validateAndFixSpawnPosition(centerX, centerY, objectWidth, objectHeight, isCircle);
-
-        if (validatedPos && !validatedPos.adjusted) {
-            console.log('✅ 当前位置安全:', validatedPos);
-            return validatedPos;
-        } else if (validatedPos && validatedPos.adjusted) {
-            console.log('✅ 找到替代安全位置:', validatedPos);
-            return validatedPos;
-        }
-
-        // 最后的备选方案：在地图边缘寻找
-        console.log('尝试在地图边缘寻找安全位置');
-        var mapDimensions = this.getCurrentMapDimensions();
-        var edgePositions = [{x: 100, y: 100}, {x: mapDimensions.width - 100, y: 100}, {
-            x: 100, y: mapDimensions.height - 100
-        }, {x: mapDimensions.width - 100, y: mapDimensions.height - 100}];
-
-        for (var i = 0; i < edgePositions.length; i++) {
-            var edgePos = edgePositions[i];
-            if (collisionCheck(edgePos.x, edgePos.y)) {
-                console.log('✅ 在地图边缘找到安全位置:', edgePos);
-                return edgePos;
-            }
-        }
-
-        // 如果还是找不到，使用默认位置并强制调整
-        console.log('⚠️ 使用默认位置并强制调整');
-        var defaultPos = {x: 100, y: 100};
-        var adjustedPos = this.validateAndFixSpawnPosition(defaultPos.x, defaultPos.y, objectWidth, objectHeight, isCircle);
-
-        console.log('最终安全位置:', adjustedPos);
-        return adjustedPos;
+        // 使用统一的安全位置生成方法
+        return this.generateSafePosition(centerX, centerY, minDistance, maxDistance, objectWidth, objectHeight, isCircle);
     },
 
     // 获取树的深度
@@ -2235,71 +2076,6 @@ var CollisionSystem = {
         return null;
     },
 
-    // 寻找安全的生成位置（只支持圆形对象）
-    findSafePosition: function (centerX, centerY, minDistance, maxDistance, objectWidth, objectHeight, isCircle = true) {
-        console.log('寻找安全位置，中心:', centerX, centerY, '对象尺寸:', objectWidth, objectHeight, '是否圆形:', isCircle);
-
-        // 只支持圆形对象，强制使用圆形碰撞检测
-        var collisionCheck = (x, y) => !this.isCircleCollidingWithBuildings(x, y, objectWidth / 2);
-
-        // 首先尝试在街道上寻找位置
-        if (this.currentMap.type === 'grid') {
-            var safePos = this.findSafePositionInStreets(centerX, centerY, minDistance, maxDistance, objectWidth, objectHeight, isCircle);
-            if (safePos) {
-                console.log('在街道上找到安全位置:', safePos);
-                return safePos;
-            }
-        }
-
-        // 如果街道上没有找到，尝试随机位置
-        for (var attempt = 0; attempt < 200; attempt++) {
-            var angle = Math.random() * Math.PI * 2;
-            var distance = minDistance + Math.random() * (maxDistance - minDistance);
-
-            var testX = centerX + Math.cos(angle) * distance;
-            var testY = centerY + Math.sin(angle) * distance;
-
-            // 确保位置在地图范围内
-            if (testX >= 0 && testX < this.currentMap.mapWidth && testY >= 0 && testY < this.currentMap.mapHeight) {
-
-                if (collisionCheck(testX, testY)) {
-                    console.log('找到随机安全位置:', testX, testY, '尝试次数:', attempt + 1);
-                    return {x: testX, y: testY};
-                }
-            }
-        }
-
-        // 如果还是找不到，尝试在地图边缘寻找
-        var edgePositions = [{x: 100, y: 100}, {x: this.currentMap.mapWidth - 100, y: 100}, {
-            x: 100, y: this.currentMap.mapHeight - 100
-        }, {x: this.currentMap.mapWidth - 100, y: this.currentMap.mapHeight - 100}];
-
-        for (var i = 0; i < edgePositions.length; i++) {
-            var edgePos = edgePositions[i];
-            if (collisionCheck(edgePos.x, edgePos.y)) {
-                console.log('在地图边缘找到安全位置:', edgePos);
-                return edgePos;
-            }
-        }
-
-        // 最后尝试在中心点附近寻找
-        var centerPositions = [{x: centerX, y: centerY}, {x: centerX + 50, y: centerY}, {
-            x: centerX - 50, y: centerY
-        }, {x: centerX, y: centerY + 50}, {x: centerX, y: centerY - 50}];
-
-        for (var j = 0; j < centerPositions.length; j++) {
-            var centerPos = centerPositions[j];
-            if (centerPos.x >= 0 && centerPos.x < this.currentMap.mapWidth && centerPos.y >= 0 && centerPos.y < this.currentMap.mapHeight) {
-                if (collisionCheck(centerPos.x, centerPos.y)) {
-                    console.log('在中心点附近找到安全位置:', centerPos);
-                    return centerPos;
-                }
-            }
-        }
-
-        console.warn('无法找到安全位置，使用默认位置');
-        return {x: 100, y: 100};
-    },
 };
 
 // ==================== 动态障碍物管理系统 ====================
