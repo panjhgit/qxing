@@ -324,31 +324,39 @@ ViewSystem.prototype.renderCharacters = function(characterManager) {
 
 // 渲染单个角色
 ViewSystem.prototype.renderCharacter = function(character, worldX, worldY) {
-    // 绘制阴影
+    // 绘制阴影 - 改为椭圆形阴影
     this.ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-    this.ctx.fillRect(worldX - character.width/2, worldY + character.height/2, character.width, 8);
+    this.ctx.beginPath();
+    this.ctx.ellipse(worldX, worldY + character.height/2 + 4, character.width/2, 4, 0, 0, Math.PI * 2);
+    this.ctx.fill();
     
-    // 绘制人物主体（2.5D效果）
+    // 绘制人物主体（圆形设计）
     var bodyY = worldY - character.height/2;
     
-    // 身体
+    // 身体 - 改为圆形
     this.ctx.fillStyle = character.getBodyColor();
-    this.ctx.fillRect(worldX - character.width/2, bodyY + character.height/3, character.width, character.height * 2/3);
+    this.ctx.beginPath();
+    this.ctx.arc(worldX, bodyY + character.height/2, character.width/2, 0, Math.PI * 2);
+    this.ctx.fill();
     
-    // 头部
+    // 头部 - 改为圆形
     this.ctx.fillStyle = character.getHeadColor();
-    this.ctx.fillRect(worldX - character.width/3, bodyY, character.width * 2/3, character.height/3);
+    this.ctx.beginPath();
+    this.ctx.arc(worldX, bodyY + character.height/6, character.width/3, 0, Math.PI * 2);
+    this.ctx.fill();
     
     // 绘制图标
     this.ctx.font = '16px Arial';
     this.ctx.textAlign = 'center';
     this.ctx.fillStyle = '#000';
-    this.ctx.fillText(character.icon, worldX, bodyY + character.height/3);
+    this.ctx.fillText(character.icon, worldX, bodyY + character.height/2);
     
-    // 绘制状态指示器
+    // 绘制状态指示器 - 改为圆形
     if (character.status === 'FOLLOW') {
         this.ctx.fillStyle = '#00ff00';
-        this.ctx.fillRect(worldX - 4, bodyY - 8, 8, 4);
+        this.ctx.beginPath();
+        this.ctx.arc(worldX, bodyY - 6, 4, 0, Math.PI * 2);
+        this.ctx.fill();
     }
 };
 
@@ -369,20 +377,26 @@ ViewSystem.prototype.renderZombies = function(zombieManager) {
 ViewSystem.prototype.renderZombie = function(zombie, screenX, screenY) {
     if (zombie.hp <= 0) return;
     
-    // 绘制阴影
+    // 绘制阴影 - 改为椭圆形阴影
     this.ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
-    this.ctx.fillRect(screenX - zombie.size/2, screenY + zombie.size/2, zombie.size, 6);
+    this.ctx.beginPath();
+    this.ctx.ellipse(screenX, screenY + zombie.size/2 + 3, zombie.size/2, 3, 0, 0, Math.PI * 2);
+    this.ctx.fill();
     
-    // 绘制僵尸主体
+    // 绘制僵尸主体（圆形设计）
     var bodyY = screenY - zombie.size/2;
     
-    // 身体
+    // 身体 - 改为圆形
     this.ctx.fillStyle = zombie.color;
-    this.ctx.fillRect(screenX - zombie.size/2, bodyY + zombie.size/3, zombie.size, zombie.size * 2/3);
+    this.ctx.beginPath();
+    this.ctx.arc(screenX, bodyY + zombie.size/2, zombie.size/2, 0, Math.PI * 2);
+    this.ctx.fill();
     
-    // 头部
+    // 头部 - 改为圆形
     this.ctx.fillStyle = '#654321';
-    this.ctx.fillRect(screenX - zombie.size/3, bodyY, zombie.size * 2/3, zombie.size/3);
+    this.ctx.beginPath();
+    this.ctx.arc(screenX, bodyY + zombie.size/6, zombie.size/3, 0, Math.PI * 2);
+    this.ctx.fill();
     
     // 绘制图标
     this.ctx.font = Math.floor(zombie.size/2) + 'px Arial';
@@ -393,10 +407,12 @@ ViewSystem.prototype.renderZombie = function(zombie, screenX, screenY) {
     // 绘制血条
     this.drawZombieHealthBar(zombie, screenX, bodyY - 10);
     
-    // 绘制状态指示器
+    // 绘制状态指示器 - 改为圆形
     if (zombie.state === 'chasing') {
         this.ctx.fillStyle = '#FF0000';
-        this.ctx.fillRect(screenX - 4, bodyY - 15, 8, 4);
+        this.ctx.beginPath();
+        this.ctx.arc(screenX, bodyY - 7.5, 4, 0, Math.PI * 2);
+        this.ctx.fill();
     }
 };
 

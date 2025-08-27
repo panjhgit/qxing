@@ -65,6 +65,9 @@ var Character = function (role, x, y) {
     this.width = objectSizes.WIDTH;         // 模型宽度
     this.height = objectSizes.HEIGHT;       // 模型高度
     
+    // 添加半径属性，用于圆形碰撞检测
+    this.radius = this.width / 2;          // 碰撞半径（宽度的一半）
+    
     // 从配置获取动画属性
     var animationConfig = ConfigManager.get('ANIMATION');
     this.animationFrame = 0;                // 动画帧
@@ -208,17 +211,18 @@ Character.prototype.setMoveTarget = function (targetX, targetY) {
     // 检查是否到达目标
     if (moveVector.reached || moveVector.distance < collisionConfig.MIN_MOVE_DISTANCE) {
         // 到达目标位置，但也要检查碰撞
-        if (window.collisionSystem && window.collisionSystem.getSafeMovePosition) {
-            var finalMove = window.collisionSystem.getSafeMovePosition(
-                this.x, this.y, this.targetX, this.targetY, this.width, this.height, this
+        if (window.collisionSystem && window.collisionSystem.getCircleSafeMovePosition) {
+            var finalMove = window.collisionSystem.getCircleSafeMovePosition(
+                this.x, this.y, this.targetX, this.targetY, this.radius
             );
-            if (finalMove.safe) {
+            if (finalMove) {
                 this.x = finalMove.x;
                 this.y = finalMove.y;
             }
         } else {
-            this.x = this.targetX;
-            this.y = this.targetY;
+            console.warn('碰撞系统不可用，角色停止移动');
+            this.status = STATUS.BLOCKED;
+            return;
         }
         this.isMoving = false;
         this.status = STATUS.IDLE;
@@ -230,41 +234,58 @@ Character.prototype.setMoveTarget = function (targetX, targetY) {
     var newY = this.y + moveVector.y;
 
     // 使用新的简洁碰撞检测系统
-    if (window.collisionSystem && window.collisionSystem.getSafeMovePosition) {
-        var safeMove = window.collisionSystem.getSafeMovePosition(
-            this.x, this.y, newX, newY, this.width, this.height, this
+    if (window.collisionSystem && window.collisionSystem.getCircleSafeMovePosition) {
+        // 首先检查建筑物碰撞
+        var buildingSafePos = window.collisionSystem.getCircleSafeMovePosition(
+            this.x, this.y, newX, newY, this.radius
         );
-
-        if (safeMove.safe) {
-            // 移动安全，更新位置
-            this.x = safeMove.x;
-            this.y = safeMove.y;
-            this.status = STATUS.MOVING;
-            
-            // 记录移动类型（用于调试）
-            if (safeMove.source !== 'direct') {
-                console.log('移动:', safeMove.source, '距离:', safeMove.distance ? safeMove.distance.toFixed(2) : 'N/A');
+        
+        if (buildingSafePos) {
+            // 建筑物碰撞检测通过，现在检查是否与僵尸重叠
+            if (window.collisionSystem.isCharacterOverlappingWithZombies && window.zombieManager) {
+                var allZombies = window.zombieManager.getAllZombies().filter(z => z.hp > 0);
+                
+                var zombieOverlap = window.collisionSystem.isCharacterOverlappingWithZombies(
+                    buildingSafePos.x, buildingSafePos.y, this.radius, allZombies, 0.1
+                );
+                
+                if (!zombieOverlap) {
+                    // 移动安全，更新位置
+                    this.x = buildingSafePos.x;
+                    this.y = buildingSafePos.y;
+                    this.status = STATUS.MOVING;
+                    
+                    // 记录移动类型（用于调试）
+                    if (buildingSafePos.type && buildingSafePos.type.startsWith('slide')) {
+                        console.log('角色墙体滑动:', buildingSafePos.type, '位置:', buildingSafePos.x.toFixed(2), buildingSafePos.y.toFixed(2));
+                    }
+                } else {
+                    // 与僵尸重叠，停止移动
+                    this.status = STATUS.BLOCKED;
+                    console.log('角色移动被僵尸阻挡');
+                    return;
+                }
+            } else {
+                // 移动安全，更新位置
+                this.x = buildingSafePos.x;
+                this.y = buildingSafePos.y;
+                this.status = STATUS.MOVING;
+                
+                // 记录移动类型（用于调试）
+                if (buildingSafePos.type && buildingSafePos.type.startsWith('slide')) {
+                    console.log('角色墙体滑动:', buildingSafePos.type, '位置:', buildingSafePos.x.toFixed(2), buildingSafePos.y.toFixed(2));
+                }
             }
         } else {
-            // 移动被阻挡
+            // 移动被阻挡，保持原位置
             this.status = STATUS.BLOCKED;
-            console.log('移动被阻挡');
+            console.log('角色移动被建筑物阻挡');
             return;
         }
     } else {
-        // 兼容旧的碰撞检测
-        if (window.collisionSystem && window.collisionSystem.isRectCollidingWithBuildings) {
-            if (window.collisionSystem.isRectCollidingWithBuildings(newX, newY, this.width, this.height)) {
-                this.status = STATUS.BLOCKED;
-                console.log('移动被阻挡，位置:', newX, newY);
-                return;
-            }
-        }
-        
-        // 应用移动
-        this.x = newX;
-        this.y = newY;
-        this.status = STATUS.MOVING;
+        console.warn('碰撞系统不可用，角色停止移动');
+        this.status = STATUS.BLOCKED;
+        return;
     }
 
     // 使用动画工具更新动画帧 - 优化动画更新频率

@@ -603,35 +603,30 @@ GameEngine.prototype.spawnZombiesForDay = function() {
         var angle = (Math.PI * 2 * i) / zombieCount; // 均匀分布
         var distance = 700 + Math.random() * 100; // 700-800px之间
         
-        var zombieX = mainChar.x + Math.cos(angle) * distance;
-        var zombieY = mainChar.y + Math.sin(angle) * distance;
-        
-        // 随机选择僵尸类型
         var zombieTypes = ['skinny', 'fat', 'fast', 'tank', 'boss'];
         var randomType = zombieTypes[Math.floor(Math.random() * zombieTypes.length)];
         
-        // 检查僵尸生成位置是否在建筑物内
+        // 计算僵尸生成位置
         var zombieX = mainChar.x + Math.cos(angle) * distance;
         var zombieY = mainChar.y + Math.sin(angle) * distance;
         
-        if (this.collisionSystem && this.collisionSystem.isRectCollidingWithBuildings) {
-            if (this.collisionSystem.isRectCollidingWithBuildings(zombieX, zombieY, 32, 32)) {
-                // 如果位置在建筑物内，寻找安全位置
-                var safePos = this.collisionSystem.generateGameSafePosition(mainChar.x, mainChar.y, 700, 800, 32, 32);
-                zombieX = safePos.x;
-                zombieY = safePos.y;
+        // 检查僵尸生成位置是否安全
+        if (this.collisionSystem && this.collisionSystem.isCircleCollidingWithBuildings) {
+            if (this.collisionSystem.isCircleCollidingWithBuildings(zombieX, zombieY, 16)) { // 16 = 32/2
+                console.log('僵尸生成位置不安全，跳过');
+                continue;
             }
         }
         
         // 检查是否与现有僵尸重叠
-        if (this.collisionSystem && this.collisionSystem.isObjectOverlappingWithList) {
+        if (this.collisionSystem && this.collisionSystem.isZombieOverlappingWithZombies) {
             var existingZombies = this.zombieManager.getAllZombies().filter(z => z.hp > 0);
             
-            if (this.collisionSystem.isObjectOverlappingWithList(zombieX, zombieY, 32, 32, existingZombies)) {
+            if (this.collisionSystem.isZombieOverlappingWithZombies(zombieX, zombieY, 16, existingZombies, 0.1)) {
                 // 如果与现有僵尸重叠，寻找不重叠的位置
                 var nonOverlapPos = this.collisionSystem.getNonOverlappingPosition(
                     mainChar.x, mainChar.y, zombieX, zombieY, 32, 32, 
-                    existingZombies, true
+                    existingZombies, true, true
                 );
                 zombieX = nonOverlapPos.x;
                 zombieY = nonOverlapPos.y;

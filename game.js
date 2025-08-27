@@ -133,7 +133,7 @@ function initMapSystem() {
     var spawnX = 8000, spawnY = 7500;
 
     // 使用新的安全位置生成方法
-    var safePos = collisionSystem.generateGameSafePosition(spawnX, spawnY, 100, 200, 32, 48);
+    var safePos = collisionSystem.generateGameSafePosition(spawnX, spawnY, 100, 200, 32, 48, true);
     spawnX = safePos.x;
     spawnY = safePos.y;
     console.log('找到安全位置:', spawnX, spawnY);
