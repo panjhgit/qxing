@@ -764,11 +764,7 @@ Zombie.prototype.takeDamage = function (damage) {
     return this.hp;
 };
 
-// 获取到目标的距离 - 使用工具类
-Zombie.prototype.getDistanceTo = function (target) {
-    var mathUtils = UtilsManager.getMathUtils();
-    return mathUtils.distanceBetween(this, target);
-};
+
 
 // 渲染僵尸
 Zombie.prototype.render = function (ctx, cameraX, cameraY) {

@@ -1381,12 +1381,6 @@ var CollisionSystem = {
         return {x: fromX, y: fromY};
     },
 
-
-    // 在街道上寻找安全位置（已优化，使用统一方法）
-    findSafePositionInStreets: function (centerX, centerY, minDistance, maxDistance, objectWidth, objectHeight, isCircle = false) {
-        return this.findStreetPosition(centerX, centerY, minDistance, maxDistance, objectWidth, objectHeight, isCircle);
-    },
-
     // 在矩阵的0值区域生成安全位置（已优化，减少重复代码）
     generateMatrixSafePosition: function (centerX, centerY, minDistance, maxDistance, objectWidth, objectHeight) {
         // 获取当前地图信息
