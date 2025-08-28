@@ -602,7 +602,7 @@ GameEngine.prototype.updateTimeSystem = function() {
     // 每帧增加时间（假设60帧=1秒）
     this.timeSystem.dayTime += 1/60;
     
-    // 每30秒切换一次
+    // 每30秒切换一次白天/夜晚
     if (this.timeSystem.dayTime >= 30) {
         this.timeSystem.dayTime = 0;
         
@@ -617,18 +617,14 @@ GameEngine.prototype.updateTimeSystem = function() {
             // 减少食物（每人消耗1个）
             var teamSize = this.getTeamSize();
             this.timeSystem.food = Math.max(0, this.timeSystem.food - teamSize);
-            
-            // 白天刷新僵尸（确保系统已初始化）
-            if (this.zombieManager && this.characterManager) {
-                // 只在需要时创建僵尸，避免重复创建
-                var currentZombies = this.zombieManager.getAllZombies();
-                if (currentZombies.length === 0) {
-                    console.log('GameEngine: 检测到没有僵尸，开始创建初始僵尸');
-                    this.spawnZombiesForDay();
-                } else {
-                    console.log('GameEngine: 当前僵尸数量:', currentZombies.length, '跳过创建');
-                }
-            }
+        }
+    }
+    
+    // 每10秒刷新一次僵尸（不管地图中有没有僵尸都继续刷新）
+    if (this.frameCount % 600 === 0) { // 600帧 = 10秒 (60fps)
+        if (this.zombieManager && this.characterManager) {
+            console.log('GameEngine: 定时刷新僵尸，当前帧数:', this.frameCount);
+            this.spawnZombiesForDay();
         }
     }
 };
@@ -652,17 +648,25 @@ GameEngine.prototype.getTimeInfo = function() {
     };
 };
 
-// 白天刷新僵尸
+// 定时刷新僵尸（每10秒调用一次）
 GameEngine.prototype.spawnZombiesForDay = function() {
     if (!this.zombieManager || !this.characterManager) return;
     
     var mainChar = this.characterManager.getMainCharacter();
     if (!mainChar) return;
     
-    // 计算僵尸数量：10 * 天数
-    var zombieCount = 10 * this.timeSystem.day;
+    // 控制单次刷新的僵尸数量，避免一次性生成过多
+    var baseZombieCount = 3; // 基础刷新数量
+    var maxZombieCount = 8;  // 单次最大刷新数量
     
-    // 不清除现有僵尸，只添加新的僵尸
+    // 根据天数增加僵尸数量，但有上限
+    var zombieCount = Math.min(baseZombieCount + Math.floor(this.timeSystem.day / 2), maxZombieCount);
+    
+    console.log('GameEngine: 开始刷新僵尸，数量:', zombieCount, '天数:', this.timeSystem.day);
+    
+    // 记录刷新前的僵尸数量
+    var zombiesBefore = this.zombieManager.getAllZombies().filter(z => z.hp > 0);
+    console.log('GameEngine: 刷新前活跃僵尸数量:', zombiesBefore.length);
     
     // 生成僵尸
     for (var i = 0; i < zombieCount; i++) {
@@ -711,10 +715,33 @@ GameEngine.prototype.spawnZombiesForDay = function() {
                 type: createdZombie.type,
                 x: createdZombie.x,
                 y: createdZombie.y,
-                hp: createdZombie.hp
+                hp: createdZombie.hp,
+                hasQuadTreeId: !!createdZombie._quadTreeId,
+                quadTreeId: createdZombie._quadTreeId
             });
+            
+            // 验证僵尸是否在四叉树中
+            if (createdZombie._quadTreeId) {
+                console.log('GameEngine: 僵尸已正确添加到四叉树:', createdZombie._quadTreeId);
+            } else {
+                console.error('GameEngine: 僵尸未添加到四叉树！');
+            }
         } else {
             console.error('GameEngine: 僵尸创建失败');
+        }
+    }
+    
+    // 输出当前僵尸总数和四叉树状态
+    var currentZombies = this.zombieManager.getAllZombies().filter(z => z.hp > 0);
+    console.log('GameEngine: 僵尸刷新完成，当前活跃僵尸总数:', currentZombies.length);
+    
+    // 验证四叉树中的僵尸数量
+    if (this.collisionSystem && this.collisionSystem.getDynamicObjectCountByType) {
+        var quadTreeZombieCount = this.collisionSystem.getDynamicObjectCountByType('zombie');
+        console.log('GameEngine: 四叉树中的僵尸数量:', quadTreeZombieCount);
+        
+        if (quadTreeZombieCount !== currentZombies.length) {
+            console.warn('GameEngine: 僵尸数量不匹配！管理器:', currentZombies.length, '四叉树:', quadTreeZombieCount);
         }
     }
 };
