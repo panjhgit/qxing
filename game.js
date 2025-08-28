@@ -202,6 +202,35 @@ function continueAfterCollisionInit(zombieManager) {
         
         console.log('🎉 地图系统初始化完成！所有资源已加载，游戏可以开始！');
         
+        // 立即测试僵尸创建和四叉树添加流程
+        console.log('🧪 立即开始测试僵尸创建流程...');
+        if (window.zombieManager && window.zombieManager.testZombieCreation) {
+            console.log('调用僵尸创建测试...');
+            var testResult = window.zombieManager.testZombieCreation();
+            console.log('僵尸创建测试结果:', testResult);
+            
+            // 测试四叉树状态
+            if (window.collisionSystem && window.collisionSystem.testQuadTreeStatus) {
+                console.log('🧪 测试四叉树状态...');
+                window.collisionSystem.testQuadTreeStatus();
+            }
+        } else {
+            console.warn('⚠️ 僵尸管理器测试方法不可用');
+            console.log('可用的僵尸管理器方法:', Object.keys(window.zombieManager || {}));
+        }
+        
+        // 检查僵尸管理器状态
+        if (window.zombieManager && window.zombieManager.checkZombieManagerStatus) {
+            console.log('🔍 检查僵尸管理器状态...');
+            window.zombieManager.checkZombieManagerStatus();
+        }
+        
+        // 深度检查僵尸管理器
+        if (window.zombieManager && window.zombieManager.deepCheckZombieManager) {
+            console.log('🔍 深度检查僵尸管理器...');
+            window.zombieManager.deepCheckZombieManager();
+        }
+        
     } catch (error) {
         console.error('❌ 地图系统后续步骤失败:', error);
         throw error;

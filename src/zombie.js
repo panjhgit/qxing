@@ -49,6 +49,13 @@ var Zombie = function (type, x, y) {
     // 基础属性 - 统一类型为'zombie'，用zombieType区分具体类型
     this.type = 'zombie';           // 统一类型标识，用于四叉树识别
     this.zombieType = type;         // 具体僵尸类型（skinny, fat, boss等）
+    
+    // 使用Object.defineProperty保护type属性，防止被意外修改
+    Object.defineProperty(this, 'type', {
+        value: 'zombie',
+        writable: false,
+        configurable: false
+    });
     this.x = x;
     this.y = y;
     this.id = Date.now() + Math.random(); // 唯一ID
@@ -1181,9 +1188,48 @@ var ZombieManager = {
             }
             
             // 确保僵尸有正确的type属性
-            if (!zombie.type) {
-                console.error('僵尸缺少type属性，手动设置:', zombie);
-                zombie.type = type;
+            if (!zombie.type || zombie.type !== 'zombie') {
+                console.warn('僵尸type属性不正确，重新设置为zombie:', zombie.type);
+                zombie.type = 'zombie'; // 确保type始终为'zombie'
+            }
+            
+            // 确保zombieType属性正确
+            if (!zombie.zombieType) {
+                console.warn('僵尸zombieType属性缺失，设置为传入的类型:', type);
+                zombie.zombieType = type;
+            }
+            
+            // 添加详细的僵尸属性验证
+            console.log('=== 僵尸属性验证 ===');
+            console.log('type属性:', zombie.type, '(应该是zombie)');
+            console.log('zombieType属性:', zombie.zombieType, '(应该是', type, ')');
+            console.log('id属性:', zombie.id);
+            console.log('位置属性:', zombie.x, zombie.y);
+            console.log('生命值属性:', zombie.hp, zombie.maxHp);
+            console.log('状态属性:', zombie.state);
+            console.log('尺寸属性:', zombie.size, zombie.width, zombie.height);
+            console.log('图标属性:', zombie.icon);
+            console.log('==================');
+            
+            // 验证关键属性
+            if (zombie.type !== 'zombie') {
+                console.error('❌ 僵尸type属性错误:', zombie.type);
+                return null;
+            }
+            
+            if (!zombie.zombieType) {
+                console.error('❌ 僵尸zombieType属性缺失');
+                return null;
+            }
+            
+            if (!zombie.id) {
+                console.error('❌ 僵尸id属性缺失');
+                return null;
+            }
+            
+            if (zombie.x === undefined || zombie.y === undefined) {
+                console.error('❌ 僵尸位置属性缺失:', zombie.x, zombie.y);
+                return null;
             }
             
             console.log('僵尸创建成功:', zombie.zombieType, zombie.id, 'hp:', zombie.hp, 'maxHp:', zombie.maxHp, '位置:', x, y);
@@ -1214,6 +1260,8 @@ var ZombieManager = {
                 icon: zombie.icon,
                 hasQuadTreeId: !!zombie._quadTreeId
             });
+            
+
             
             if (window.collisionSystem.createZombieObject) {
                 console.log('ZombieManager.createZombie: 调用四叉树createZombieObject方法');
@@ -1628,17 +1676,47 @@ var ZombieManager = {
             if (window.collisionSystem.dynamicQuadTree) {
                 var allObjects = window.collisionSystem.dynamicQuadTree.getAllObjects();
                 console.log('ZombieManager.getAllZombies: 动态四叉树中的所有对象数量:', allObjects.length);
+                
                 if (allObjects.length > 0) {
+                    console.log('🔍 动态四叉树中的所有对象详情:');
                     allObjects.forEach((obj, index) => {
-                        console.log(`ZombieManager.getAllZombies: 动态对象 ${index}:`, {
+                        console.log(`对象 ${index}:`, {
                             id: obj.id,
                             type: obj.type,
+                            zombieType: obj.zombieType,
                             role: obj.role,
                             x: obj.x,
                             y: obj.y,
-                            hasQuadTreeId: !!obj._quadTreeId
+                            hp: obj.hp,
+                            state: obj.state,
+                            hasQuadTreeId: !!obj._quadTreeId,
+                            quadTreeId: obj._quadTreeId,
+                            quadTreeType: obj._quadTreeType
                         });
+                        
+                        // 分析为什么这个对象不是僵尸
+                        if (obj.type !== 'zombie') {
+                            console.log(`对象 ${index} 不是僵尸的原因分析:`);
+                            console.log('- type属性:', obj.type, '(期望: zombie)');
+                            console.log('- zombieType属性:', obj.zombieType);
+                            console.log('- role属性:', obj.role);
+                            console.log('- 其他属性:', {
+                                hp: obj.hp,
+                                state: obj.state,
+                                icon: obj.icon
+                            });
+                        }
                     });
+                    
+                    // 统计对象类型
+                    var typeStats = {};
+                    allObjects.forEach(obj => {
+                        var type = obj.type || 'unknown';
+                        typeStats[type] = (typeStats[type] || 0) + 1;
+                    });
+                    console.log('对象类型统计:', typeStats);
+                } else {
+                    console.log('ZombieManager.getAllZombies: 动态四叉树中没有对象');
                 }
             } else {
                 console.error('ZombieManager.getAllZombies: 动态四叉树未初始化');
@@ -1728,7 +1806,220 @@ var ZombieManager = {
     // 获取当前难度
     getDifficulty: function () {
         return this.difficulty;
-    }
+    },
+
+    // 测试僵尸创建和四叉树添加流程
+    testZombieCreation: function() {
+        console.log('=== 测试僵尸创建和四叉树添加流程 ===');
+        
+        // 检查碰撞系统
+        if (!window.collisionSystem) {
+            console.error('❌ 碰撞系统未初始化');
+            return false;
+        }
+        
+        console.log('✅ 碰撞系统已初始化');
+        
+        // 检查四叉树
+        if (!window.collisionSystem.dynamicQuadTree) {
+            console.error('❌ 动态四叉树未初始化');
+            return false;
+        }
+        
+        console.log('✅ 动态四叉树已初始化');
+        
+        // 测试创建僵尸
+        console.log('🧟‍♂️ 测试创建僵尸...');
+        var testZombie = this.createZombie('skinny', 1000, 1000);
+        
+        if (!testZombie) {
+            console.error('❌ 僵尸创建失败');
+            return false;
+        }
+        
+        console.log('✅ 僵尸创建成功:', testZombie.id);
+        
+        // 验证僵尸属性
+        console.log('🔍 验证僵尸属性:');
+        console.log('- type:', testZombie.type, '(应该是zombie)');
+        console.log('- zombieType:', testZombie.zombieType, '(应该是skinny)');
+        console.log('- id:', testZombie.id);
+        console.log('- 位置:', testZombie.x, testZombie.y);
+        console.log('- 生命值:', testZombie.hp);
+        console.log('- 状态:', testZombie.state);
+        console.log('- 四叉树ID:', testZombie._quadTreeId);
+        
+        // 检查僵尸是否在四叉树中
+        if (testZombie._quadTreeId) {
+            console.log('✅ 僵尸已添加到四叉树');
+            
+            // 立即验证僵尸是否在四叉树中
+            var zombies = window.collisionSystem.getAllZombies();
+            console.log('四叉树中的僵尸数量:', zombies.length);
+            
+            if (zombies.length > 0) {
+                var foundZombie = zombies.find(z => z.id === testZombie.id);
+                if (foundZombie) {
+                    console.log('✅ 僵尸在四叉树中验证成功');
+                    return true;
+                } else {
+                    console.error('❌ 僵尸在四叉树中验证失败');
+                    return false;
+                }
+            } else {
+                console.error('❌ 四叉树中没有找到僵尸');
+                return false;
+            }
+        } else {
+            console.error('❌ 僵尸没有四叉树ID');
+            return false;
+        }
+    },
+
+    // 检查僵尸管理器状态
+    checkZombieManagerStatus: function() {
+        console.log('=== 僵尸管理器状态检查 ===');
+        
+        // 检查僵尸管理器实例
+        console.log('僵尸管理器实例:', this);
+        console.log('僵尸管理器类型:', typeof this);
+        console.log('僵尸管理器方法:', Object.keys(this));
+        
+        // 检查是否有本地存储的僵尸数组
+        if (this.zombies) {
+            console.log('✅ 发现本地僵尸数组，数量:', this.zombies.length);
+            this.zombies.forEach((zombie, index) => {
+                console.log(`本地僵尸 ${index}:`, {
+                    id: zombie.id,
+                    type: zombie.type,
+                    zombieType: zombie.zombieType,
+                    x: zombie.x,
+                    y: zombie.y,
+                    hp: zombie.hp,
+                    state: zombie.state
+                });
+            });
+        } else {
+            console.log('❌ 没有本地僵尸数组');
+        }
+        
+        // 检查其他可能的僵尸存储位置
+        if (this.activeZombies) {
+            console.log('✅ 发现活跃僵尸数组，数量:', this.activeZombies.length);
+        }
+        
+        if (this.zombieList) {
+            console.log('✅ 发现僵尸列表，数量:', this.zombieList.length);
+        }
+        
+        // 检查碰撞系统
+        if (window.collisionSystem) {
+            console.log('✅ 碰撞系统已初始化');
+            console.log('碰撞系统方法:', Object.keys(window.collisionSystem));
+            
+            if (window.collisionSystem.dynamicQuadTree) {
+                console.log('✅ 动态四叉树已初始化');
+                var allObjects = window.collisionSystem.dynamicQuadTree.getAllObjects();
+                console.log('动态四叉树中的对象数量:', allObjects.length);
+                
+                if (allObjects.length > 0) {
+                    console.log('动态四叉树中的对象:');
+                    allObjects.forEach((obj, index) => {
+                        console.log(`对象 ${index}:`, {
+                            id: obj.id,
+                            type: obj.type,
+                            zombieType: obj.zombieType,
+                            role: obj.role,
+                            x: obj.x,
+                            y: obj.y,
+                            hp: obj.hp,
+                            state: obj.state
+                        });
+                    });
+                }
+            } else {
+                console.error('❌ 动态四叉树未初始化');
+            }
+        } else {
+            console.error('❌ 碰撞系统未初始化');
+        }
+        
+        // 尝试从四叉树获取僵尸
+        if (window.collisionSystem && window.collisionSystem.getAllZombies) {
+            var zombies = window.collisionSystem.getAllZombies();
+            console.log('从四叉树获取的僵尸数量:', zombies.length);
+        }
+        
+        console.log('==================');
+    },
+
+    // 深度检查僵尸管理器状态
+    deepCheckZombieManager: function() {
+        console.log('=== 僵尸管理器深度检查 ===');
+        
+        // 检查僵尸管理器的所有属性
+        console.log('僵尸管理器所有属性:');
+        for (var prop in this) {
+            if (this.hasOwnProperty(prop)) {
+                var value = this[prop];
+                if (Array.isArray(value)) {
+                    console.log(`- ${prop}: 数组，长度 ${value.length}`);
+                    if (value.length > 0 && value[0] && typeof value[0] === 'object') {
+                        console.log(`  第一个元素:`, value[0]);
+                    }
+                } else if (typeof value === 'object' && value !== null) {
+                    console.log(`- ${prop}: 对象`, value);
+                } else {
+                    console.log(`- ${prop}:`, value);
+                }
+            }
+        }
+        
+        // 检查僵尸管理器的原型链
+        console.log('僵尸管理器原型链:');
+        var proto = Object.getPrototypeOf(this);
+        while (proto) {
+            console.log('原型:', proto);
+            for (var prop in proto) {
+                if (proto.hasOwnProperty(prop)) {
+                    var value = proto[prop];
+                    if (Array.isArray(value)) {
+                        console.log(`  ${prop}: 数组，长度 ${value.length}`);
+                    } else if (typeof value === 'object' && value !== null) {
+                        console.log(`  ${prop}: 对象`, value);
+                    } else {
+                        console.log(`  ${prop}:`, value);
+                    }
+                }
+            }
+            proto = Object.getPrototypeOf(proto);
+        }
+        
+        // 检查是否有隐藏的僵尸存储
+        console.log('检查可能的僵尸存储位置...');
+        
+        // 检查全局变量
+        if (window.zombies) {
+            console.log('✅ 发现全局zombies数组，数量:', window.zombies.length);
+        }
+        
+        if (window.zombieList) {
+            console.log('✅ 发现全局zombieList，数量:', window.zombieList.length);
+        }
+        
+        // 检查僵尸管理器的所有可能属性名
+        var possibleNames = ['zombies', 'zombieList', 'activeZombies', 'allZombies', 'zombieArray', 'zombieCollection'];
+        possibleNames.forEach(name => {
+            if (this[name]) {
+                console.log(`✅ 发现属性 ${name}:`, this[name]);
+                if (Array.isArray(this[name])) {
+                    console.log(`  数组长度: ${this[name].length}`);
+                }
+            }
+        });
+        
+        console.log('==================');
+    },
 };
 
 // 寻找最近的敌人（角色或伙伴）- 性能优化版本

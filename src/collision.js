@@ -726,10 +726,13 @@ var CollisionSystem = {
             id: object.id,
             role: object.role,
             type: object.type,
+            zombieType: object.zombieType,
             x: object.x,
             y: object.y,
             width: object.width,
-            height: object.height
+            height: object.height,
+            hp: object.hp,
+            state: object.state
         });
         
         // 添加错误处理
@@ -765,6 +768,17 @@ var CollisionSystem = {
         // 获取对象类型
         var objectType = this.getObjectType(object);
         console.log('对象类型识别结果:', objectType, '对象:', object);
+        
+        // 特别检查僵尸对象
+        if (object.type === 'zombie') {
+            console.log('🔍 检测到僵尸对象:');
+            console.log('- type:', object.type);
+            console.log('- zombieType:', object.zombieType);
+            console.log('- id:', object.id);
+            console.log('- 位置:', object.x, object.y);
+            console.log('- 生命值:', object.hp);
+            console.log('- 状态:', object.state);
+        }
 
         var result = this.dynamicQuadTree.insert(object);
         console.log('四叉树insert结果:', result);
@@ -774,10 +788,29 @@ var CollisionSystem = {
             object._quadTreeId = 'obj_' + Date.now() + '_' + Math.random();
             object._quadTreeType = objectType;
             object._quadTreeAddedTime = Date.now();
+            
+
+            
             console.log('动态对象已添加到四叉树:', object._quadTreeId, object._quadTreeType, object);
 
             // 注册到生命周期管理器
             this.registerObject(object, objectType);
+            
+            // 验证僵尸是否正确添加
+            if (object.type === 'zombie') {
+                console.log('✅ 僵尸对象已成功添加到四叉树');
+                console.log('- 四叉树ID:', object._quadTreeId);
+                console.log('- 四叉树类型:', object._quadTreeType);
+                
+                // 立即验证僵尸是否在四叉树中
+                var allObjects = this.dynamicQuadTree.getAllObjects();
+                var foundZombie = allObjects.find(obj => obj.id === object.id);
+                if (foundZombie) {
+                    console.log('✅ 僵尸在四叉树中验证成功');
+                } else {
+                    console.error('❌ 僵尸在四叉树中验证失败');
+                }
+            }
         } else {
             console.warn('动态对象添加失败:', object);
         }
@@ -1244,8 +1277,9 @@ var CollisionSystem = {
         console.log('CollisionSystem.getAllZombies: 动态四叉树中的总对象数量:', allObjects.length);
         
         if (allObjects.length > 0) {
+            console.log('🔍 所有对象的详细信息:');
             allObjects.forEach((obj, index) => {
-                console.log(`CollisionSystem.getAllZombies: 对象 ${index}:`, {
+                console.log(`对象 ${index}:`, {
                     id: obj.id,
                     type: obj.type,
                     zombieType: obj.zombieType,
@@ -1253,8 +1287,23 @@ var CollisionSystem = {
                     x: obj.x,
                     y: obj.y,
                     hp: obj.hp,
-                    hasQuadTreeId: !!obj._quadTreeId
+                    hasQuadTreeId: !!obj._quadTreeId,
+                    quadTreeId: obj._quadTreeId,
+                    quadTreeType: obj._quadTreeType
                 });
+                
+                // 特别检查僵尸对象
+                if (obj.type === 'zombie') {
+                    console.log(`✅ 发现僵尸对象 ${index}:`, {
+                        id: obj.id,
+                        type: obj.type,
+                        zombieType: obj.zombieType,
+                        x: obj.x,
+                        y: obj.y,
+                        hp: obj.hp,
+                        state: obj.state
+                    });
+                }
             });
         }
         
@@ -1264,12 +1313,30 @@ var CollisionSystem = {
             
             if (isZombie) {
                 console.log(`CollisionSystem.getAllZombies: 识别为僵尸 - 类型: ${obj.type}, 具体类型: ${obj.zombieType}, ID: ${obj.id}`);
+            } else if (obj) {
+                console.log(`CollisionSystem.getAllZombies: 对象 ${obj.id} 不是僵尸 - type: ${obj.type}, role: ${obj.role}`);
             }
             
             return isZombie;
         });
         
         console.log('CollisionSystem.getAllZombies: 识别出的僵尸数量:', zombies.length);
+        
+        // 如果没有找到僵尸，进行详细分析
+        if (zombies.length === 0 && allObjects.length > 0) {
+            console.warn('⚠️ 没有找到僵尸，分析所有对象:');
+            allObjects.forEach((obj, index) => {
+                console.log(`对象 ${index} 分析:`, {
+                    id: obj.id,
+                    type: obj.type,
+                    zombieType: obj.zombieType,
+                    role: obj.role,
+                    hp: obj.hp,
+                    state: obj.state,
+                    icon: obj.icon
+                });
+            });
+        }
         
         return zombies;
     },
@@ -1706,21 +1773,14 @@ var CollisionSystem = {
         var skippedCount = 0;
         var invalidCount = 0;
 
-        // 插入人物
+        // 插入人物 - 使用addDynamicObject方法确保属性正确
         if (characters && characters.length > 0) {
             for (var i = 0; i < characters.length; i++) {
                 var character = characters[i];
                 if (this.isObjectValid(character)) {
-                    if (this.dynamicQuadTree.insert(character)) {
+                    // 使用addDynamicObject方法而不是直接插入，确保属性正确
+                    if (this.addDynamicObject(character)) {
                         addedCount++;
-                        // 确保对象有四叉树标识，使用递增ID避免重复
-                        if (!character._quadTreeId) {
-                            character._quadTreeId = 'char_' + this._getNextObjectId();
-                            character._quadTreeType = 'character';
-                            character._quadTreeAddedTime = Date.now();
-                        }
-                        // 注册到生命周期管理器
-                        this.registerObject(character, 'character');
                     }
                 } else {
                     invalidCount++;
@@ -1728,21 +1788,14 @@ var CollisionSystem = {
             }
         }
 
-        // 插入僵尸
+        // 插入僵尸 - 使用addDynamicObject方法确保属性正确
         if (zombies && zombies.length > 0) {
             for (var j = 0; j < zombies.length; j++) {
                 var zombie = zombies[j];
                 if (this.isObjectValid(zombie)) {
-                    if (this.dynamicQuadTree.insert(zombie)) {
+                    // 使用addDynamicObject方法而不是直接插入，确保属性正确
+                    if (this.addDynamicObject(zombie)) {
                         addedCount++;
-                        // 确保对象有四叉树标识，使用递增ID避免重复
-                        if (!zombie._quadTreeId) {
-                            zombie._quadTreeId = 'zombie_' + this._getNextObjectId();
-                            zombie._quadTreeType = 'zombie';
-                            zombie._quadTreeAddedTime = Date.now();
-                        }
-                        // 注册到生命周期管理器
-                        this.registerObject(zombie, 'zombie');
                     }
                 } else {
                     invalidCount++;
@@ -2241,6 +2294,64 @@ var CollisionSystem = {
                 rect2.x + rect2.width < rect1.x || 
                 rect1.y + rect1.height < rect2.y || 
                 rect2.y + rect2.height < rect1.y);
+    },
+
+    // 测试四叉树状态
+    testQuadTreeStatus: function() {
+        console.log('=== 四叉树状态测试 ===');
+        
+        if (!this.dynamicQuadTree) {
+            console.error('❌ 动态四叉树未初始化');
+            return;
+        }
+        
+        var allObjects = this.dynamicQuadTree.getAllObjects();
+        console.log('动态四叉树中的总对象数量:', allObjects.length);
+        
+        if (allObjects.length === 0) {
+            console.warn('⚠️ 动态四叉树中没有对象');
+            return;
+        }
+        
+        console.log('🔍 分析所有对象:');
+        allObjects.forEach((obj, index) => {
+            console.log(`对象 ${index}:`, {
+                id: obj.id,
+                type: obj.type,
+                zombieType: obj.zombieType,
+                role: obj.role,
+                x: obj.x,
+                y: obj.y,
+                hp: obj.hp,
+                state: obj.state,
+                hasQuadTreeId: !!obj._quadTreeId,
+                quadTreeId: obj._quadTreeId,
+                quadTreeType: obj._quadTreeType
+            });
+            
+            // 检查僵尸对象
+            if (obj.type === 'zombie') {
+                console.log(`✅ 发现僵尸对象 ${index}:`, {
+                    id: obj.id,
+                    type: obj.type,
+                    zombieType: obj.zombieType,
+                    x: obj.x,
+                    y: obj.y,
+                    hp: obj.hp,
+                    state: obj.state
+                });
+            }
+        });
+        
+        // 统计不同类型的对象
+        var typeStats = {};
+        allObjects.forEach(obj => {
+            var type = obj.type || 'unknown';
+            typeStats[type] = (typeStats[type] || 0) + 1;
+        });
+        
+        console.log('对象类型统计:', typeStats);
+        console.log('==================');
     },
 
 };
