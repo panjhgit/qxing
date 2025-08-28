@@ -10,6 +10,7 @@
 
 import ConfigManager from './config.js';
 import UtilsManager from './utils.js';
+import StateMachine, { MAIN_CHARACTER_STATES, PARTNER_STATES } from './state-machine.js';
 
 // 角色枚举
 const ROLE = {
@@ -41,10 +42,12 @@ const WEAPON = {
 
 // 状态枚举
 const STATUS = {
-    FOLLOW: 'FOLLOW',    // 跟随
-    IDLE: 'IDLE',        // 静止
-    MOVING: 'MOVING',    // 移动中
-    BLOCKED: 'BLOCKED'   // 被阻挡
+    FOLLOW: 'FOLLOW',        // 跟随
+    IDLE: 'IDLE',            // 静止
+    MOVING: 'MOVING',        // 移动中
+    BLOCKED: 'BLOCKED',      // 被阻挡
+    ATTACKING: 'ATTACKING',  // 攻击中
+    AVOIDING: 'AVOIDING'     // 避障中
 };
 
 // 人物类
@@ -117,6 +120,9 @@ var Character = function (role, x, y) {
 
     // 根据角色设置属性
     this.setupRoleProperties();
+    
+    // 初始化状态机
+    this.initializeStateMachine();
 };
 
 // 设置角色属性
@@ -184,6 +190,156 @@ Character.prototype.setupRoleProperties = function() {
 
 
 
+// 初始化状态机
+Character.prototype.initializeStateMachine = function() {
+    if (this.role === ROLE.MAIN) {
+        // 主人物状态机
+        this.stateMachine = new StateMachine(this, MAIN_CHARACTER_STATES.IDLE);
+        this.setupMainCharacterStateMachine();
+    } else {
+        // 伙伴状态机
+        this.stateMachine = new StateMachine(this, PARTNER_STATES.INIT);
+        this.setupPartnerStateMachine();
+    }
+};
+
+// 设置主人物状态机
+Character.prototype.setupMainCharacterStateMachine = function() {
+    const sm = this.stateMachine;
+    
+    // 添加状态转换规则
+    sm.addTransition(MAIN_CHARACTER_STATES.IDLE, MAIN_CHARACTER_STATES.MOVE, () => {
+        // 摇杆有输入（触摸偏移 > 死区）
+        return this.hasJoystickInput();
+    });
+    
+    sm.addTransition(MAIN_CHARACTER_STATES.IDLE, MAIN_CHARACTER_STATES.ATTACK, () => {
+        // 100px 内有僵尸
+        return this.hasZombieInRange(100);
+    });
+    
+    sm.addTransition(MAIN_CHARACTER_STATES.MOVE, MAIN_CHARACTER_STATES.IDLE, () => {
+        // 摇杆输入消失且无僵尸
+        return !this.hasJoystickInput() && !this.hasZombieInRange(50);
+    });
+    
+    sm.addTransition(MAIN_CHARACTER_STATES.MOVE, MAIN_CHARACTER_STATES.ATTACK, () => {
+        // 摇杆输入消失且50px内有僵尸
+        return !this.hasJoystickInput() && this.hasZombieInRange(50);
+    });
+    
+    sm.addTransition(MAIN_CHARACTER_STATES.ATTACK, MAIN_CHARACTER_STATES.MOVE, () => {
+        // 摇杆有输入（打断攻击）
+        return this.hasJoystickInput();
+    });
+    
+    sm.addTransition(MAIN_CHARACTER_STATES.ATTACK, MAIN_CHARACTER_STATES.IDLE, () => {
+        // 无僵尸或僵尸超出范围
+        return !this.hasZombieInRange(50);
+    });
+    
+    // 添加状态行为
+    sm.addBehavior(MAIN_CHARACTER_STATES.IDLE, 
+        this.onEnterIdle.bind(this),      // 进入待机
+        this.onUpdateIdle.bind(this),     // 更新待机
+        this.onExitIdle.bind(this)        // 退出待机
+    );
+    
+    sm.addBehavior(MAIN_CHARACTER_STATES.MOVE, 
+        this.onEnterMove.bind(this),      // 进入移动
+        this.onUpdateMove.bind(this),     // 更新移动
+        this.onExitMove.bind(this)        // 退出移动
+    );
+    
+    sm.addBehavior(MAIN_CHARACTER_STATES.ATTACK, 
+        this.onEnterAttack.bind(this),    // 进入攻击
+        this.onUpdateAttack.bind(this),   // 更新攻击
+        this.onExitAttack.bind(this)      // 退出攻击
+    );
+};
+
+// 设置伙伴状态机
+Character.prototype.setupPartnerStateMachine = function() {
+    const sm = this.stateMachine;
+    
+    // 添加状态转换规则
+    sm.addTransition(PARTNER_STATES.INIT, PARTNER_STATES.FOLLOW, () => {
+        // 主人物靠近跟随者距离20px
+        return this.isMainCharacterNearby(20);
+    });
+    
+    sm.addTransition(PARTNER_STATES.IDLE, PARTNER_STATES.FOLLOW, () => {
+        // 主人物移动
+        return this.isMainCharacterMoving();
+    });
+    
+    sm.addTransition(PARTNER_STATES.IDLE, PARTNER_STATES.ATTACK, () => {
+        // 100px 内有僵尸
+        return this.hasZombieInRange(100);
+    });
+    
+    sm.addTransition(PARTNER_STATES.FOLLOW, PARTNER_STATES.IDLE, () => {
+        // 主人物停止移动且无僵尸
+        return !this.isMainCharacterMoving() && !this.hasZombieInRange(50);
+    });
+    
+    sm.addTransition(PARTNER_STATES.FOLLOW, PARTNER_STATES.ATTACK, () => {
+        // 主人物停止移动且50px内有僵尸
+        return !this.isMainCharacterMoving() && this.hasZombieInRange(50);
+    });
+    
+    sm.addTransition(PARTNER_STATES.FOLLOW, PARTNER_STATES.AVOID, () => {
+        // 检测到拥堵
+        return this.detectCongestion();
+    });
+    
+    sm.addTransition(PARTNER_STATES.ATTACK, PARTNER_STATES.FOLLOW, () => {
+        // 主人物移动（打断攻击）
+        return this.isMainCharacterMoving();
+    });
+    
+    sm.addTransition(PARTNER_STATES.AVOID, PARTNER_STATES.FOLLOW, () => {
+        // 避障完成且主人物仍在移动
+        return this.isAvoidanceComplete() && this.isMainCharacterMoving();
+    });
+    
+    sm.addTransition(PARTNER_STATES.AVOID, PARTNER_STATES.ATTACK, () => {
+        // 避障完成且主人物停止且50px内有僵尸
+        return this.isAvoidanceComplete() && !this.isMainCharacterMoving() && this.hasZombieInRange(50);
+    });
+    
+    // 添加状态行为
+    sm.addBehavior(PARTNER_STATES.INIT, 
+        this.onEnterInit.bind(this),      // 进入初始状态
+        this.onUpdateInit.bind(this),     // 更新初始状态
+        this.onExitInit.bind(this)        // 退出初始状态
+    );
+    
+    sm.addBehavior(PARTNER_STATES.IDLE, 
+        this.onEnterIdle.bind(this),      // 进入待机
+        this.onUpdateIdle.bind(this),     // 更新待机
+        this.onExitIdle.bind(this)        // 退出待机
+    );
+    
+    sm.addBehavior(PARTNER_STATES.FOLLOW, 
+        this.onEnterFollow.bind(this),    // 进入跟随
+        this.onUpdateFollow.bind(this),   // 更新跟随
+        this.onExitFollow.bind(this)      // 退出跟随
+    );
+    
+    sm.addBehavior(PARTNER_STATES.ATTACK, 
+        this.onEnterAttack.bind(this),    // 进入攻击
+        this.onUpdateAttack.bind(this),   // 更新攻击
+        this.onExitAttack.bind(this)      // 退出攻击
+    );
+    
+    sm.addBehavior(PARTNER_STATES.AVOID, 
+        this.onEnterAvoid.bind(this),     // 进入避障
+        this.onUpdateAvoid.bind(this),    // 更新避障
+        this.onExitAvoid.bind(this)       // 退出避障
+    );
+};
+
 // 受到攻击
 Character.prototype.takeDamage = function (damage) {
     var validationUtils = UtilsManager.getValidationUtils();
@@ -196,6 +352,192 @@ Character.prototype.takeDamage = function (damage) {
     this.hp -= damage;
     if (this.hp < 0) this.hp = 0;
     return this.hp;
+};
+
+// ==================== 状态机辅助方法 ====================
+
+// 检查是否有摇杆输入
+Character.prototype.hasJoystickInput = function() {
+    // 这里需要与游戏引擎的摇杆系统连接
+    // 暂时返回false，后续需要实现
+    return false;
+};
+
+// 检查指定范围内是否有僵尸
+Character.prototype.hasZombieInRange = function(range) {
+    if (!window.zombieManager) return false;
+    
+    const zombies = window.zombieManager.getAllZombies().filter(z => z.hp > 0);
+    const mathUtils = UtilsManager.getMathUtils();
+    
+    return zombies.some(zombie => {
+        const distance = mathUtils.distance(this.x, this.y, zombie.x, zombie.y);
+        return distance <= range;
+    });
+};
+
+// 检查主人物是否在附近
+Character.prototype.isMainCharacterNearby = function(distance) {
+    if (!window.characterManager) return false;
+    
+    const mainChar = window.characterManager.getMainCharacter();
+    if (!mainChar) return false;
+    
+    const mathUtils = UtilsManager.getMathUtils();
+    const dist = mathUtils.distance(this.x, this.y, mainChar.x, mainChar.y);
+    return dist <= distance;
+};
+
+// 检查主人物是否在移动
+Character.prototype.isMainCharacterMoving = function() {
+    if (!window.characterManager) return false;
+    
+    const mainChar = window.characterManager.getMainCharacter();
+    if (!mainChar) return false;
+    
+    return mainChar.stateMachine && mainChar.stateMachine.isInState(MAIN_CHARACTER_STATES.MOVE);
+};
+
+// 检测拥堵
+Character.prototype.detectCongestion = function() {
+    if (!window.characterManager) return false;
+    
+    const mainChar = window.characterManager.getMainCharacter();
+    if (!mainChar) return false;
+    
+    const mathUtils = UtilsManager.getMathUtils();
+    const distance = mathUtils.distance(this.x, this.y, mainChar.x, mainChar.y);
+    
+    // 检查主人物移动方向是否朝向自身
+    if (mainChar.stateMachine && mainChar.stateMachine.isInState(MAIN_CHARACTER_STATES.MOVE)) {
+        const angleToPartner = mathUtils.angle(mainChar.x, mainChar.y, this.x, this.y);
+        const mainCharAngle = mathUtils.angle(mainChar.x, mainChar.y, mainChar.targetX, mainChar.targetY);
+        const angleDiff = Math.abs(angleToPartner - mainCharAngle);
+        
+        // 如果角度差小于45度且距离小于80px，认为拥堵
+        return angleDiff < Math.PI / 4 && distance < 80;
+    }
+    
+    return false;
+};
+
+// 检查避障是否完成
+Character.prototype.isAvoidanceComplete = function() {
+    // 这里需要实现避障逻辑
+    // 暂时返回true，后续需要实现
+    return true;
+};
+
+// ==================== 状态行为方法 ====================
+
+// 主人物状态行为
+Character.prototype.onEnterIdle = function(stateData) {
+    this.status = STATUS.IDLE;
+    this.isMoving = false;
+    console.log('主人物进入待机状态');
+};
+
+Character.prototype.onUpdateIdle = function(deltaTime, stateData) {
+    // 待机状态下的行为：渲染待机动画
+    this.updateAnimation(deltaTime);
+};
+
+Character.prototype.onExitIdle = function(stateData) {
+    console.log('主人物退出待机状态');
+};
+
+Character.prototype.onEnterMove = function(stateData) {
+    this.status = STATUS.MOVING;
+    this.isMoving = true;
+    console.log('主人物进入移动状态');
+};
+
+Character.prototype.onUpdateMove = function(deltaTime, stateData) {
+    // 移动状态下的行为：处理移动逻辑
+    // 调用原有的移动更新方法
+    this.updateMovement(deltaTime);
+};
+
+Character.prototype.onExitMove = function(stateData) {
+    this.isMoving = false;
+    console.log('主人物退出移动状态');
+};
+
+Character.prototype.onEnterAttack = function(stateData) {
+    this.status = STATUS.ATTACKING;
+    console.log('主人物进入攻击状态');
+};
+
+Character.prototype.onUpdateAttack = function(deltaTime, stateData) {
+    // 攻击状态下的行为：移动到攻击距离，触发攻击动画
+    this.updateAttack(deltaTime);
+};
+
+Character.prototype.onExitAttack = function(stateData) {
+    console.log('主人物退出攻击状态');
+};
+
+// 伙伴状态行为
+Character.prototype.onEnterInit = function(stateData) {
+    this.status = STATUS.IDLE;
+    console.log('伙伴进入初始状态');
+};
+
+Character.prototype.onUpdateInit = function(deltaTime, stateData) {
+    // 初始状态下的行为：静止不动，渲染待机动画
+    this.updateAnimation(deltaTime);
+};
+
+Character.prototype.onExitInit = function(stateData) {
+    console.log('伙伴退出初始状态');
+};
+
+Character.prototype.onEnterFollow = function(stateData) {
+    this.status = STATUS.FOLLOW;
+    this.isMoving = true;
+    console.log('伙伴进入跟随状态');
+};
+
+Character.prototype.onUpdateFollow = function(deltaTime, stateData) {
+    // 跟随状态下的行为：追逐主人物侧后方跟随点
+    this.updateFollow(deltaTime);
+};
+
+Character.prototype.onExitFollow = function(stateData) {
+    this.isMoving = false;
+    console.log('伙伴退出跟随状态');
+};
+
+Character.prototype.onEnterAvoid = function(stateData) {
+    this.status = STATUS.AVOIDING;
+    console.log('伙伴进入避障状态');
+};
+
+Character.prototype.onUpdateAvoid = function(deltaTime, stateData) {
+    // 避障状态下的行为：按避障策略为主体让路
+    this.updateAvoid(deltaTime);
+};
+
+Character.prototype.onExitAvoid = function(stateData) {
+    console.log('伙伴退出避障状态');
+};
+
+// 通用的攻击更新方法
+Character.prototype.updateAttack = function(deltaTime) {
+    // 这里需要实现攻击逻辑
+    // 暂时为空，后续需要实现
+};
+
+// 通用的跟随更新方法
+Character.prototype.updateFollow = function(deltaTime) {
+    // 这里需要实现跟随逻辑
+    // 暂时为空，后续需要实现
+};
+
+// 通用的避障更新方法
+Character.prototype.updateAvoid = function(deltaTime) {
+    // 这里需要实现避障逻辑
+    // 暂时为空，后续需要实现
 };
 
 // 设置移动目标 - 使用工具类
@@ -246,6 +588,11 @@ Character.prototype.stopMovement = function() {
 
     // 更新移动 - 使用工具类，优化平滑移动
     Character.prototype.updateMovement = function (deltaTime = 1/60) {
+        // 更新状态机
+        if (this.stateMachine) {
+            this.stateMachine.update(deltaTime);
+        }
+        
         if (!this.isMoving) {
             console.log('人物不在移动状态:', this.status, this.isMoving);
             return;
