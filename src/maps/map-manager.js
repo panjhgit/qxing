@@ -4,15 +4,14 @@
  */
 
 import {CityMap} from './city-map.js';
-import {SmallTownMap} from './small-town.js';
 
 export const MapManager = {
     // 当前激活的地图
     currentMap: null,
 
-    // 所有可用的地图
+    // 所有可用的地图 - 只保留city地图
     availableMaps: {
-        'city': CityMap, 'small-town': SmallTownMap
+        'city': CityMap
     },
 
     // 地图配置缓存
@@ -26,15 +25,11 @@ export const MapManager = {
         console.log('🗺️ 地图管理器初始化中...');
         console.log('可用地图:', Object.keys(this.availableMaps));
 
-        // 设置默认地图
+        // 只使用city地图，如果不存在则抛出错误
         if (this.availableMaps[defaultMapId]) {
             this.switchMap(defaultMapId);
         } else {
-            console.warn('默认地图不存在，使用第一个可用地图');
-            const firstMapId = Object.keys(this.availableMaps)[0];
-            if (firstMapId) {
-                this.switchMap(firstMapId);
-            }
+            throw new Error(`地图 ${defaultMapId} 不存在，无法初始化地图管理器`);
         }
 
         console.log('✅ 地图管理器初始化完成');

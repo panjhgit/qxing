@@ -467,8 +467,34 @@ GameEngine.prototype.setSystems = function(mapSystem, characterManager, menuSyst
     }
     
     // 初始化视觉系统
+    if (!this.viewSystem && typeof ViewSystem !== 'undefined') {
+        console.log('创建视觉系统...');
+        this.viewSystem = new ViewSystem(this.canvas, this.ctx);
+        console.log('视觉系统创建完成');
+    }
+    
     if (this.viewSystem && mapSystem) {
-        this.viewSystem.init(mapSystem.mapWidth, mapSystem.mapHeight);
+        console.log('初始化视觉系统...');
+        
+        // 获取地图尺寸
+        var mapWidth = 0;
+        var mapHeight = 0;
+        
+        if (mapSystem.currentMap && mapSystem.currentMap.config) {
+            mapWidth = mapSystem.currentMap.config.width;
+            mapHeight = mapSystem.currentMap.config.height;
+            console.log('从地图配置获取尺寸:', mapWidth, 'x', mapHeight);
+        } else if (mapSystem.config) {
+            mapWidth = mapSystem.config.width;
+            mapHeight = mapSystem.config.height;
+            console.log('从地图系统配置获取尺寸:', mapWidth, 'x', mapHeight);
+        } else {
+            console.warn('无法获取地图尺寸，使用默认值');
+            mapWidth = 10000;
+            mapHeight = 10000;
+        }
+        
+        this.viewSystem.init(mapWidth, mapHeight);
         
         // 设置初始摄像机位置为主人物位置
         if (characterManager) {
@@ -477,6 +503,9 @@ GameEngine.prototype.setSystems = function(mapSystem, characterManager, menuSyst
                 this.viewSystem.setFollowTarget(mainChar.x, mainChar.y);
             }
         }
+        console.log('视觉系统初始化完成');
+    } else {
+        console.warn('视觉系统或地图系统未准备好，无法初始化视觉系统');
     }
 };
 

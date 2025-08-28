@@ -26,51 +26,56 @@ export class MapRenderer {
     }
 
     /**
-     * 初始化渲染器
+     * 初始化地图渲染器
+     * @param {string} mapId - 地图ID
      */
-    init() {
+    init(mapId) {
         try {
-            // 直接使用ES6导入的MapManager
-            this.currentMap = MapManager.getCurrentMap();
-            if (this.currentMap) {
-                console.log('✅ 从地图管理器获取地图:', this.currentMap.config.name);
-
-                // 如果是矩阵类型的地图，需要解析矩阵数据
-                if (this.currentMap.matrix && this.currentMap.buildingTypes) {
-                    console.log('✅ 检测到矩阵地图，解析矩阵数据...');
-                    this.parseMatrixMap();
-                }
-
-                return;
+            console.log('🗺️ 地图渲染器初始化中...');
+            
+            // 获取地图数据
+            if (window.MapManager && window.MapManager.getCurrentMap) {
+                this.currentMap = window.MapManager.getCurrentMap();
+            } else {
+                throw new Error('地图管理器未初始化');
             }
-
-            console.warn('无法获取当前地图，使用默认配置');
-            this.useDefaultMap();
+            
+            if (!this.currentMap) {
+                throw new Error('无法获取地图数据');
+            }
+            
+            // 解析地图数据
+            if (this.currentMap.matrix && this.currentMap.buildingTypes) {
+                console.log('✅ 地图数据完整，开始解析矩阵...');
+                console.log('矩阵数据:', {
+                    matrix: this.currentMap.matrix,
+                    matrixLength: this.currentMap.matrix.length,
+                    buildingTypes: this.currentMap.buildingTypes,
+                    buildingTypesCount: Object.keys(this.currentMap.buildingTypes).length
+                });
+                
+                this.parseMatrixMap();
+                
+                // 检查解析结果
+                console.log('解析完成后的状态:', {
+                    buildings: this.currentMap.buildings,
+                    buildingsLength: this.currentMap.buildings ? this.currentMap.buildings.length : 'undefined',
+                    walkableAreas: this.currentMap.walkableAreas,
+                    walkableAreasLength: this.currentMap.walkableAreas ? this.currentMap.walkableAreas.length : 'undefined'
+                });
+            } else {
+                console.error('❌ 地图数据不完整:');
+                console.error('- matrix:', this.currentMap.matrix);
+                console.error('- buildingTypes:', this.currentMap.buildingTypes);
+                throw new Error('地图数据不完整，缺少matrix或buildingTypes');
+            }
+            
+            console.log('✅ 地图渲染器初始化完成');
+            
         } catch (error) {
             console.error('❌ 地图渲染器初始化失败:', error);
-            this.useDefaultMap();
+            throw error; // 抛出错误而不是使用兜底
         }
-    }
-
-    /**
-     * 使用默认地图配置
-     */
-    useDefaultMap() {
-        // 先设置基本配置
-        const defaultConfig = {
-            name: '默认地图', type: 'matrix', width: 4000, height: 4000, cellSize: 100, gridCols: 40, gridRows: 40
-        };
-
-        // 生成建筑物和可通行区域
-        const buildings = this.generateDefaultBuildings(defaultConfig);
-        const walkableAreas = this.generateDefaultWalkableAreas(defaultConfig);
-
-        // 设置完整的地图配置
-        this.currentMap = {
-            config: defaultConfig, buildings: buildings, walkableAreas: walkableAreas
-        };
-
-        console.log('✅ 默认地图配置已生成:', this.currentMap.config.name);
     }
 
     /**
@@ -78,6 +83,8 @@ export class MapRenderer {
      * 将矩阵转换为建筑物和可通行区域
      */
     parseMatrixMap() {
+        console.log('🚀 ===== 开始解析矩阵地图 =====');
+        
         if (!this.currentMap.matrix || !this.currentMap.buildingTypes) {
             console.warn('矩阵地图数据不完整');
             return;
@@ -86,12 +93,35 @@ export class MapRenderer {
         console.log('开始解析矩阵地图...');
         console.log('矩阵尺寸:', this.currentMap.matrix.length, 'x', this.currentMap.matrix[0].length);
         console.log('建筑类型数量:', Object.keys(this.currentMap.buildingTypes).length);
+        console.log('建筑类型详情:', this.currentMap.buildingTypes);
+        
+        // 检查矩阵数据
+        const matrix = this.currentMap.matrix;
+        const sampleRows = Math.min(5, matrix.length);
+        const sampleCols = Math.min(5, matrix[0].length);
+        console.log('矩阵数据样本 (前5x5):');
+        for (let row = 0; row < sampleRows; row++) {
+            let rowStr = '';
+            for (let col = 0; col < sampleCols; col++) {
+                rowStr += matrix[row][col] + ' ';
+            }
+            console.log(`行 ${row}: ${rowStr}`);
+        }
 
         const buildings = [];
         const walkableAreas = [];
-        const matrix = this.currentMap.matrix;
         const buildingTypes = this.currentMap.buildingTypes;
         const cellSize = this.currentMap.config.cellSize;
+
+        // 统计矩阵中的值分布
+        const valueCounts = {};
+        for (let row = 0; row < matrix.length; row++) {
+            for (let col = 0; col < matrix[row].length; col++) {
+                const cellType = matrix[row][col];
+                valueCounts[cellType] = (valueCounts[cellType] || 0) + 1;
+            }
+        }
+        console.log('矩阵值分布:', valueCounts);
 
         // 遍历矩阵，识别连续的建筑块
         for (let row = 0; row < matrix.length; row++) {
@@ -115,10 +145,16 @@ export class MapRenderer {
                         if (buildingBlock) {
                             const building = this.createBuildingFromBlock(buildingBlock, buildingInfo, cellSize);
                             buildings.push(building);
+                            
+                            console.log(`✅ 创建建筑物: 类型=${buildingInfo.name}, 位置=(${building.x}, ${building.y}), 尺寸=${building.width}x${building.height}`);
 
-                            // 跳过已处理的建筑块
-                            col += buildingBlock.width - 1;
+                            // 跳过已处理的建筑块（修复跳过逻辑）
+                            if (buildingBlock.width > 1) {
+                                col += buildingBlock.width - 1;
+                            }
                         }
+                    } else {
+                        console.warn(`未找到建筑类型 ${cellType} 的定义`);
                     }
                 }
             }
@@ -131,6 +167,12 @@ export class MapRenderer {
         console.log('✅ 矩阵地图解析完成');
         console.log('生成的建筑物数量:', buildings.length);
         console.log('生成的可通行区域数量:', walkableAreas.length);
+        
+        // 输出第一个建筑物的详细信息（如果存在）
+        if (buildings.length > 0) {
+            console.log('第一个建筑物详情:', buildings[0]);
+        }
+        console.log('🚀 ===== 矩阵地图解析完成 =====');
     }
 
     /**
@@ -148,32 +190,43 @@ export class MapRenderer {
 
         // 计算建筑块的高度
         let height = 1;
-        while (startRow + height < maxRows) {
-            let canExtend = true;
-            for (let col = startCol; col < startCol + width; col++) {
-                if (matrix[startRow + height][col] !== cellType) {
-                    canExtend = false;
-                    break;
+        while (startRow + height < maxRows && matrix[startRow + height][startCol] === cellType) {
+            height++;
+        }
+
+        // 验证整个建筑块是否都是相同的类型
+        let isValidBlock = true;
+        for (let r = startRow; r < startRow + height && isValidBlock; r++) {
+            for (let c = startCol; c < startCol + width && isValidBlock; c++) {
+                if (matrix[r][c] !== cellType) {
+                    isValidBlock = false;
                 }
-            }
-            if (canExtend) {
-                height++;
-            } else {
-                break;
             }
         }
 
-        return {
-            row: startRow, col: startCol, width: width, height: height, type: cellType
+        if (!isValidBlock) {
+            console.warn(`建筑块验证失败: 位置(${startRow}, ${startCol}), 类型${cellType}, 尺寸${width}x${height}`);
+            return null;
+        }
+
+        const result = {
+            startRow: startRow,
+            startCol: startCol,
+            width: width,
+            height: height,
+            cellType: cellType
         };
+
+        console.log(`🔍 找到建筑块: 位置(${startRow}, ${startCol}), 类型${cellType}, 尺寸${width}x${height}`);
+        return result;
     }
 
     /**
      * 从建筑块创建建筑物对象
      */
     createBuildingFromBlock(block, buildingInfo, cellSize) {
-        const buildingX = (block.col + block.width / 2) * cellSize;
-        const buildingY = (block.row + block.height / 2) * cellSize;
+        const buildingX = (block.startCol + block.width / 2) * cellSize;
+        const buildingY = (block.startRow + block.height / 2) * cellSize;
         const buildingWidth = block.width * cellSize;
         const buildingHeight = block.height * cellSize;
 
@@ -194,70 +247,6 @@ export class MapRenderer {
                 bottom: buildingY + buildingHeight / 2
             }
         };
-    }
-
-    /**
-     * 生成默认建筑物
-     */
-    generateDefaultBuildings(config) {
-        const buildings = [];
-        const cellSize = config.cellSize;
-        const gridCols = config.gridCols;
-        const gridRows = config.gridRows;
-
-        // 生成4x4单元格的建筑物
-        for (let col = 0; col < gridCols - 3; col += 4) {
-            for (let row = 0; row < gridRows - 3; row += 4) {
-                const buildingX = (col + 2) * cellSize + cellSize / 2;
-                const buildingY = (row + 2) * cellSize + cellSize / 2;
-                const buildingWidth = 4 * cellSize;
-                const buildingHeight = 4 * cellSize;
-
-                buildings.push({
-                    x: buildingX,
-                    y: buildingY,
-                    width: buildingWidth,
-                    height: buildingHeight,
-                    type: '民房',
-                    color: '#8B4513',
-                    bounds: {
-                        left: buildingX - buildingWidth / 2,
-                        right: buildingX + buildingWidth / 2,
-                        top: buildingY - buildingHeight / 2,
-                        bottom: buildingY + buildingHeight / 2
-                    }
-                });
-            }
-        }
-
-        return buildings;
-    }
-
-    /**
-     * 生成默认可通行区域
-     */
-    generateDefaultWalkableAreas(config) {
-        const areas = [];
-        const cellSize = config.cellSize;
-        const gridCols = config.gridCols;
-        const gridRows = config.gridRows;
-
-        for (let col = 0; col <= gridCols; col++) {
-            for (let row = 0; row <= gridRows; row++) {
-                const areaX = col * cellSize;
-                const areaY = row * cellSize;
-                const areaWidth = cellSize;
-                const areaHeight = cellSize;
-
-                areas.push({
-                    x: areaX, y: areaY, width: areaWidth, height: areaHeight, type: 'street', bounds: {
-                        left: areaX, right: areaX + areaWidth, top: areaY, bottom: areaY + areaHeight
-                    }
-                });
-            }
-        }
-
-        return areas;
     }
 
     /**

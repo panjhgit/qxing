@@ -299,9 +299,8 @@ var CollisionSystem = {
             }
         }
 
-        // 默认位置
-        console.warn('⚠️ 使用默认位置');
-        return {x: 100, y: 100, source: 'default'};
+        // 无法找到安全位置，抛出错误
+        throw new Error('无法找到安全的街道位置');
     },
 
     // 统一的街道位置查找（简化版本）
@@ -397,16 +396,14 @@ var CollisionSystem = {
                     };
                     console.log('✅ 从地图管理器获取地图配置:', this.currentMap);
                 } else {
-                    console.warn('⚠️ 地图管理器未返回配置，使用默认配置');
-                    this.useDefaultMapConfig(mapId);
+                    throw new Error('地图管理器未返回配置，无法初始化碰撞系统');
                 }
             } catch (error) {
                 console.error('❌ 从地图管理器获取配置失败:', error);
-                this.useDefaultMapConfig(mapId);
+                throw new Error('地图管理器配置获取失败，无法初始化碰撞系统');
             }
         } else {
-            console.warn('⚠️ 地图管理器不可用，使用默认配置');
-            this.useDefaultMapConfig(mapId);
+            throw new Error('地图管理器不可用，无法初始化碰撞系统');
         }
 
         // 强制启用建筑物碰撞检测，禁用调试模式
@@ -435,39 +432,7 @@ var CollisionSystem = {
         return true;
     },
 
-    // 使用默认地图配置（兼容性）
-    useDefaultMapConfig: function (mapId) {
-        console.log('使用默认地图配置:', mapId);
 
-        // 保留原有的地图配置作为后备
-        const defaultMaps = {
-            'city': {
-                name: '城市地图',
-                type: 'matrix',
-                mapWidth: 10000,
-                mapHeight: 10000,
-                cellSize: 100,
-                gridCols: 100,
-                gridRows: 100
-            }, 'small-town': {
-                name: '小镇地图', type: 'matrix', mapWidth: 4000, mapHeight: 4000, cellSize: 100, gridCols: 40, gridRows: 40
-            }, 'main': {
-                name: '主地图',
-                type: 'grid',
-                blockSize: 750,
-                streetWidth: 500,
-                gridSize: 1250,
-                gridCols: 8,
-                gridRows: 8,
-                mapWidth: 10000,
-                mapHeight: 10000,
-                buildingTypes: ['民房', '别墅', '医院', '商店', '学校', '警察局']
-            }
-        };
-
-        this.currentMap = defaultMaps[mapId] || defaultMaps['city'];
-        console.log('使用默认配置:', this.currentMap);
-    },
 
     // 初始化静态四叉树
     initStaticQuadTree: function () {
@@ -530,9 +495,8 @@ var CollisionSystem = {
             return;
         }
 
-        // 如果都没有，生成默认建筑物
-        console.log('⚠️ 无法获取建筑物数据，生成默认建筑物');
-        this.generateDefaultMatrixBuildings();
+        // 如果都没有，抛出错误
+        throw new Error('无法获取建筑物数据，碰撞系统无法初始化');
     },
 
     // 从地图管理器插入建筑物
@@ -593,49 +557,7 @@ var CollisionSystem = {
         console.log('✅ 从mapSystem插入建筑物完成，成功插入:', insertedCount, '个');
     },
 
-    // 生成默认矩阵建筑物（基于当前地图配置）
-    generateDefaultMatrixBuildings: function () {
-        console.log('生成默认矩阵建筑物，地图配置:', this.currentMap);
 
-        const cellSize = this.currentMap.cellSize;
-        const gridCols = this.currentMap.gridCols;
-        const gridRows = this.currentMap.gridRows;
-
-        // 生成一些示例建筑物（4x4单元格组成一个建筑物）
-        let buildingCount = 0;
-
-        for (let col = 0; col < gridCols - 3; col += 4) {
-            for (let row = 0; row < gridRows - 3; row += 4) {
-                // 每4x4个单元格组成一个建筑物
-                const buildingX = (col + 2) * cellSize + cellSize / 2; // 建筑物中心X
-                const buildingY = (row + 2) * cellSize + cellSize / 2; // 建筑物中心Y
-                const buildingWidth = 4 * cellSize; // 4个单元格的宽度
-                const buildingHeight = 4 * cellSize; // 4个单元格的高度
-
-                const building = {
-                    x: buildingX,
-                    y: buildingY,
-                    width: buildingWidth,
-                    height: buildingHeight,
-                    type: '默认建筑',
-                    gridCol: col,
-                    gridRow: row,
-                    bounds: {
-                        left: buildingX - buildingWidth / 2,
-                        right: buildingX + buildingWidth / 2,
-                        top: buildingY - buildingHeight / 2,
-                        bottom: buildingY + buildingHeight / 2
-                    }
-                };
-
-                if (this.staticQuadTree.insert(building)) {
-                    buildingCount++;
-                }
-            }
-        }
-
-        console.log('✅ 生成默认建筑物完成，数量:', buildingCount);
-    },
 
     // 插入网格建筑物
     insertGridBuildings: function () {
@@ -1646,8 +1568,7 @@ var CollisionSystem = {
         }
 
         if (!currentMap || !currentMap.matrix || !currentMap.config) {
-            console.warn('无法获取矩阵地图数据，使用传统方法');
-            return this.generateSafePosition(centerX, centerY, minDistance, maxDistance, objectWidth, objectHeight);
+            throw new Error('无法获取矩阵地图数据，碰撞系统无法正常工作');
         }
 
         var matrix = currentMap.matrix;
@@ -1675,8 +1596,7 @@ var CollisionSystem = {
         console.log('找到可通行单元格数量:', walkableCells.length);
 
         if (walkableCells.length === 0) {
-            console.warn('没有找到可通行的单元格，使用传统方法');
-            return this.generateSafePosition(centerX, centerY, minDistance, maxDistance, objectWidth, objectHeight);
+            throw new Error('没有找到可通行的单元格，地图数据可能有问题');
         }
 
         // 按距离排序，找到合适的生成位置
@@ -1704,8 +1624,7 @@ var CollisionSystem = {
             return {x: nearestPos.x, y: nearestPos.y, source: 'matrix_nearest'};
         }
 
-        console.warn('矩阵方法失败，使用传统方法');
-        return this.generateSafePosition(centerX, centerY, minDistance, maxDistance, objectWidth, objectHeight);
+        throw new Error('矩阵方法失败，无法生成安全位置');
     },
 
     // 游戏中的安全位置生成（已优化，使用统一方法）

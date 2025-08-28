@@ -1,50 +1,109 @@
-// 菜单系统
+// 菜单系统 - 自包含版本，不依赖任何外部模块
 var menuPrototype = {};
 
-// 菜单渲染
-menuPrototype.renderMenu = function () {
-    var centerX = this.canvas.width / 2;
+// 初始化菜单系统
+menuPrototype.init = function(canvas, ctx) {
+    this.canvas = canvas;
+    this.ctx = ctx;
+    
+    // 设置默认值
+    this.startButtonArea = null;
+    
+    // 绑定触摸事件（抖音小游戏环境）
+    this.bindTouchEvents();
+    
+    console.log('✅ 菜单系统初始化完成');
+};
 
-    var gradient = this.ctx.createLinearGradient(0, 0, 0, this.canvas.height);
-    gradient.addColorStop(0, '#1a1a2e');
-    gradient.addColorStop(0.5, '#16213e');
-    gradient.addColorStop(1, '#0f3460');
-    this.ctx.fillStyle = gradient;
-    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+// 绑定触摸事件
+menuPrototype.bindTouchEvents = function() {
+    var self = this;
+    
+    // 检查是否在抖音小游戏环境
+    if (typeof tt !== 'undefined') {
+        // 抖音小游戏环境
+        tt.onTouchStart(function(e) {
+            if (e.touches && e.touches[0]) {
+                var touch = e.touches[0];
+                var x = touch.clientX || touch.pageX || 0;
+                var y = touch.clientY || touch.pageY || 0;
+                self.handleTouch(x, y);
+            }
+        });
+        console.log('✅ 抖音小游戏触摸事件绑定完成');
+    } else if (typeof window !== 'undefined' && window.addEventListener) {
+        // 普通浏览器环境
+        this.canvas.addEventListener('click', function(e) {
+            var rect = self.canvas.getBoundingClientRect();
+            var x = e.clientX - rect.left;
+            var y = e.clientY - rect.top;
+            self.handleTouch(x, y);
+        });
+        console.log('✅ 浏览器点击事件绑定完成');
+    }
+};
 
-    this.renderBackgroundGrid();
-    this.renderDecorations();
+// 处理触摸/点击事件
+menuPrototype.handleTouch = function(x, y) {
+    console.log('菜单触摸事件:', x, y);
+    
+    // 检查开始游戏按钮点击
+    if (this.startButtonArea) {
+        if (x >= this.startButtonArea.x && 
+            x <= this.startButtonArea.x + this.startButtonArea.width &&
+            y >= this.startButtonArea.y && 
+            y <= this.startButtonArea.y + this.startButtonArea.height) {
+            
+            console.log('✅ 开始游戏按钮被点击！');
+            
+            // 调用全局的startGame函数
+            if (typeof window.startGame === 'function') {
+                window.startGame();
+            } else {
+                console.error('❌ startGame函数未找到，请检查game.js是否正确加载');
+                // 显示错误提示
+                this.showError('开始游戏功能未准备好，请刷新页面重试');
+            }
+            return true;
+        }
+    }
+    
+    return false;
+};
 
-    this.ctx.save();
-    this.ctx.shadowColor = 'rgba(255, 87, 51, 0.8)';
-    this.ctx.shadowBlur = 20;
-    this.ctx.fillStyle = '#ff5733';
-    this.ctx.font = 'bold 42px Arial';
-    this.ctx.textAlign = 'center';
-    this.ctx.fillText('末日Q行', centerX, 120);
-
-    this.ctx.strokeStyle = '#ff5733';
-    this.ctx.lineWidth = 3;
-    this.ctx.beginPath();
-    this.ctx.moveTo(centerX - 100, 140);
-    this.ctx.lineTo(centerX + 100, 140);
-    this.ctx.stroke();
-    this.ctx.restore();
-
-    this.ctx.fillStyle = '#e8e8e8';
-    this.ctx.font = 'bold 18px Arial';
-    this.ctx.textAlign = 'center';
-    this.ctx.fillText('生存至100天的挑战', centerX, 170);
-
-    this.renderGameFeatures(centerX);
-    this.renderStartButton(centerX);
-    this.renderFooterInfo(centerX);
-
-    this.ctx.textAlign = 'left';
+// 显示错误信息
+menuPrototype.showError = function(message) {
+    if (this.ctx) {
+        // 保存当前状态
+        this.ctx.save();
+        
+        // 绘制错误背景
+        this.ctx.fillStyle = 'rgba(255, 0, 0, 0.8)';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // 绘制错误文字
+        this.ctx.fillStyle = '#FFFFFF';
+        this.ctx.font = '20px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText('错误: ' + message, this.canvas.width / 2, this.canvas.height / 2);
+        
+        // 恢复状态
+        this.ctx.restore();
+        
+        // 3秒后清除错误信息
+        setTimeout(() => {
+            this.renderHomePage();
+        }, 3000);
+    }
 };
 
 // 渲染首页
 menuPrototype.renderHomePage = function () {
+    if (!this.canvas || !this.ctx) {
+        console.error('❌ 菜单系统未正确初始化');
+        return;
+    }
+    
     var centerX = this.canvas.width / 2;
     var centerY = this.canvas.height / 2;
 
@@ -93,9 +152,10 @@ menuPrototype.renderHomePage = function () {
     // 开始游戏按钮
     this.renderHomeStartButton(centerX, centerY, isMobile);
 
-
     // 底部信息
     this.renderHomeFooter(centerX, footerFontSize);
+    
+    console.log('✅ 首页渲染完成');
 };
 
 // 渲染沙盒背景

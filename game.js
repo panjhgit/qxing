@@ -9,77 +9,264 @@ import GameEngine from './src/game-engine.js';
 import ViewSystem from './src/view.js';
 import CollisionSystem from './src/collision.js';
 
+// 全局变量声明
 let systemInfo = tt.getSystemInfoSync();
 let canvas = tt.createCanvas(), ctx = canvas.getContext('2d');
 canvas.width = systemInfo.windowWidth;
 canvas.height = systemInfo.windowHeight;
 
+// 第一阶段：只初始化菜单系统
+let menuSystem = null;
 let gameEngine = null;
 let mapSystem = null;
 let eventSystem = null;
-let menuSystem = null;
 let characterManager = null;
 let collisionSystem = null;
 
-// 将关键变量设置为全局变量，供事件系统使用
-window.mapSystem = mapSystem;
-window.eventSystem = eventSystem;
-window.menuSystem = menuSystem;
+// 游戏状态
+let isGameInitialized = false; // 标记游戏是否已初始化
+let isInitializing = false; // 标记是否正在初始化
 
-function initGame() {
-    console.log('游戏初始化开始');
-    console.log('GameEngine类:', typeof GameEngine);
-    console.log('canvas:', canvas);
-    console.log('ctx:', ctx);
+// 页面加载完成后立即执行
+console.log('🚀 游戏页面加载完成，开始初始化菜单系统...');
 
-    // 初始化游戏引擎
-
-    // 将视觉系统设置为全局变量，供游戏引擎使用
-    window.ViewSystem = ViewSystem;
-
-    gameEngine = new GameEngine(canvas, ctx);
-
-    // 初始化菜单系统
-    menuSystem = Object.create(menuPrototype);
-    menuSystem.canvas = canvas;
-    menuSystem.ctx = ctx;
-
-    // 将menuSystem设置到全局作用域，供事件系统使用
-    window.menuSystem = menuSystem;
-
-    // 初始化事件系统
-    eventSystem = Object.create(eventPrototype);
-    eventSystem.init(canvas, 'home');
-    eventSystem.bindTouchEvents();
-
-    // 更新全局变量 - 只设置已初始化的系统
-    window.eventSystem = eventSystem;
-    window.gameEngine = gameEngine;
-    // 注意：mapSystem 和 characterManager 此时还是 null，需要在地图系统初始化完成后设置
+try {
+    // 第一步：初始化菜单系统（仅此而已）
+    console.log('🔧 初始化菜单系统...');
+    initMenuSystem();
     
-    console.log('游戏初始化完成');
+    // 第二步：显示首页
+    console.log('🏠 显示首页...');
+    showHomePage();
+    
+    console.log('✅ 菜单系统初始化完成，等待用户点击开始游戏');
+    
+} catch (error) {
+    console.error('❌ 菜单系统初始化失败:', error);
+    showErrorMessage('菜单系统初始化失败: ' + error.message);
 }
 
-// 游戏状态改变回调
-window.onGameStateChange = function (newState) {
-    // 使用游戏引擎管理状态
-    if (gameEngine) {
-        gameEngine.setGameState(newState);
-
-        // 更新事件系统的游戏状态
-        if (eventSystem) {
-            console.log('更新事件系统状态');
-            eventSystem.gameState = newState;
-        } else {
-            console.error('eventSystem不存在，无法更新状态');
-        }
-
-        // 如果切换到游戏状态，初始化地图系统
-        if (newState === 'playing' && !mapSystem) {
-            initMapSystem();
-        }
+// 初始化菜单系统
+function initMenuSystem() {
+    try {
+        // 初始化菜单系统
+        menuSystem = Object.create(menuPrototype);
+        menuSystem.init(canvas, ctx);
+        
+        // 设置全局变量
+        window.menuSystem = menuSystem;
+        window.canvas = canvas;
+        window.ctx = ctx;
+        
+        console.log('✅ 菜单系统初始化完成');
+        
+    } catch (error) {
+        console.error('❌ 菜单系统初始化失败:', error);
+        throw error;
     }
-};
+}
+
+// 显示首页
+function showHomePage() {
+    try {
+        if (menuSystem && menuSystem.renderHomePage) {
+            menuSystem.renderHomePage();
+            console.log('✅ 首页显示完成');
+        } else {
+            console.error('❌ 菜单系统不可用');
+            throw new Error('菜单系统不可用');
+        }
+    } catch (error) {
+        console.error('❌ 首页显示失败:', error);
+        throw error;
+    }
+}
+
+// 显示错误消息
+function showErrorMessage(message) {
+    if (ctx) {
+        ctx.fillStyle = 'rgba(255, 0, 0, 0.8)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = '20px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('错误: ' + message, canvas.width / 2, canvas.height / 2 - 20);
+        ctx.fillText('请刷新页面重试', canvas.width / 2, canvas.height / 2 + 20);
+    }
+}
+
+// 开始游戏（用户点击开始游戏按钮后调用）
+function startGame() {
+    if (isInitializing) {
+        console.log('⏳ 游戏正在初始化中，请稍候...');
+        return;
+    }
+    
+    if (isGameInitialized) {
+        console.log('✅ 游戏已经初始化完成');
+        return;
+    }
+    
+    console.log('🎮 用户点击开始游戏，开始懒加载游戏系统...');
+    isInitializing = true;
+    
+    try {
+        // 显示加载提示
+        showLoadingMessage('正在加载游戏资源...');
+        
+        // 异步初始化游戏系统
+        initGameSystemsAsync();
+        
+    } catch (error) {
+        console.error('❌ 开始游戏失败:', error);
+        isInitializing = false;
+        showErrorMessage('开始游戏失败: ' + error.message);
+    }
+}
+
+// 显示加载提示
+function showLoadingMessage(message) {
+    console.log('⏳ 显示加载提示:', message);
+    
+    if (ctx) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = '24px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(message, canvas.width / 2, canvas.height / 2);
+    }
+}
+
+// 隐藏加载提示
+function hideLoadingMessage() {
+    console.log('✅ 隐藏加载提示');
+    
+    if (ctx) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+}
+
+// 异步初始化游戏系统
+function initGameSystemsAsync() {
+    console.log('🔄 开始异步初始化游戏系统...');
+    
+    // 使用setTimeout确保UI更新
+    setTimeout(() => {
+        try {
+            // 第一步：初始化游戏引擎
+            console.log('⚙️ 步骤1: 初始化游戏引擎');
+            initGameEngine();
+            
+            // 第二步：初始化地图系统（其他系统会在地图系统准备好后自动初始化）
+            console.log('🗺️ 步骤2: 初始化地图系统');
+            initMapSystem();
+            
+            // 注意：其他系统（角色、僵尸、碰撞等）会在地图系统完全准备好后自动初始化
+            // 这是通过 continueGameSystemsInit() 函数实现的
+            
+        } catch (error) {
+            console.error('❌ 游戏系统初始化失败:', error);
+            isInitializing = false;
+            showErrorMessage('游戏初始化失败: ' + error.message);
+        }
+    }, 100);
+}
+
+// 初始化游戏引擎
+function initGameEngine() {
+    try {
+        console.log('🔧 初始化游戏引擎...');
+        
+        // 将视觉系统设置为全局变量，供游戏引擎使用
+        window.ViewSystem = ViewSystem;
+        
+        gameEngine = new GameEngine(canvas, ctx);
+        
+        console.log('✅ 游戏引擎初始化完成');
+        
+    } catch (error) {
+        console.error('❌ 游戏引擎初始化失败:', error);
+        throw error;
+    }
+}
+
+// 初始化角色和僵尸系统
+function initCharacterAndZombieSystems() {
+    try {
+        // 初始化角色管理器
+        console.log('👤 初始化角色管理器');
+        characterManager = Object.create(CharacterManager);
+        
+        // 初始化僵尸管理器
+        console.log('🧟‍♂️ 初始化僵尸管理器');
+        var zombieManager = Object.create(ZombieManager);
+        zombieManager.maxZombies = zombieManager.maxZombies || 100;
+        zombieManager.difficulty = zombieManager.difficulty || 1;
+        
+        // 设置全局变量
+        if (typeof window !== 'undefined') {
+            window.characterManager = characterManager;
+            window.zombieManager = zombieManager;
+        }
+        
+        console.log('✅ 角色和僵尸系统初始化完成');
+        
+    } catch (error) {
+        console.error('❌ 角色和僵尸系统初始化失败:', error);
+        throw error;
+    }
+}
+
+// 初始化碰撞系统
+function initCollisionSystem() {
+    try {
+        console.log('🔍 初始化碰撞检测系统...');
+        
+        // 创建碰撞检测系统
+        collisionSystem = Object.create(CollisionSystem);
+        
+        // 确保地图管理器已准备好
+        if (MapManager.currentMap) {
+            console.log('✅ 地图数据已准备，开始初始化碰撞系统');
+            collisionSystem.init('city');
+        } else {
+            console.error('❌ 地图数据未准备，无法初始化碰撞系统');
+            throw new Error('地图数据未准备');
+        }
+        
+        // 设置到全局变量
+        window.collisionSystem = collisionSystem;
+        console.log('✅ 碰撞检测系统初始化成功');
+        
+    } catch (error) {
+        console.error('❌ 碰撞检测系统初始化失败:', error);
+        throw error;
+    }
+}
+
+// 设置游戏引擎系统
+function setupGameEngineSystems() {
+    try {
+        console.log('⚙️ 设置游戏引擎系统...');
+        
+        // 设置游戏引擎系统引用
+        gameEngine.setSystems(mapSystem, characterManager, menuSystem, eventSystem, window.zombieManager, collisionSystem);
+        
+        console.log('✅ 游戏引擎系统设置完成');
+        
+    } catch (error) {
+        console.error('❌ 游戏引擎系统设置失败:', error);
+        throw error;
+    }
+}
+
+// 将startGame函数暴露到全局，供菜单系统调用
+if (typeof window !== 'undefined') {
+    window.startGame = startGame;
+}
 
 // 初始化地图系统
 function initMapSystem() {
@@ -89,12 +276,10 @@ function initMapSystem() {
         // 第一步：初始化地图管理器
         console.log('📋 步骤1: 初始化地图管理器');
         MapManager.init('city');
-        console.log('✅ 地图管理器初始化成功');
         
         // 将MapManager设置为全局变量，供其他模块使用
         if (typeof window !== 'undefined') {
             window.MapManager = MapManager;
-            console.log('✅ 地图管理器已设置为全局变量');
         }
         
         // 第二步：等待地图数据完全加载
@@ -106,7 +291,6 @@ function initMapSystem() {
         
     } catch (error) {
         console.error('❌ 地图系统初始化失败:', error);
-        // 直接抛出错误，快速定位问题
         throw new Error(`地图系统初始化失败: ${error.message}`);
     }
 }
@@ -117,39 +301,13 @@ function continueMapSystemInit() {
         // 第三步：创建地图渲染器
         console.log('🎨 步骤3: 创建地图渲染器');
         mapSystem = new MapRenderer(canvas, ctx);
-        console.log('✅ 地图渲染器初始化成功');
+        mapSystem.init('city'); // 立即初始化地图渲染器
         
-        // 第四步：初始化角色管理器
-        console.log('👤 步骤4: 初始化角色管理器');
-        characterManager = Object.create(CharacterManager);
-        // 角色管理器现在通过四叉树管理，不需要本地数组
-        console.log('✅ 角色管理器初始化成功');
-        
-        // 将characterManager设置为全局变量，供其他模块使用
-        if (typeof window !== 'undefined') {
-            window.characterManager = characterManager;
-            console.log('✅ 角色管理器已设置为全局变量');
-        }
-        
-        // 第五步：初始化僵尸管理器
-        console.log('🧟‍♂️ 步骤5: 初始化僵尸管理器');
-        var zombieManager = Object.create(ZombieManager);
-        // 确保僵尸管理器的属性被正确初始化
-        zombieManager.maxZombies = zombieManager.maxZombies || 100;
-        zombieManager.difficulty = zombieManager.difficulty || 1;
-        console.log('✅ 僵尸管理器初始化成功');
-        
-        // 将zombieManager设置为全局变量，供其他模块使用
-        if (typeof window !== 'undefined') {
-            window.zombieManager = zombieManager;
-            console.log('✅ 僵尸管理器已设置为全局变量');
-        }
-        
-        // 第六步：初始化碰撞检测系统（确保地图数据已加载）
-        console.log('🔍 步骤6: 初始化碰撞检测系统');
-        initCollisionSystemWithVerification(() => {
-            // 碰撞系统初始化完成后继续后续步骤
-            continueAfterCollisionInit(zombieManager);
+        // 第四步：等待建筑物数据生成完成
+        console.log('⏳ 步骤4: 等待建筑物数据生成完成');
+        waitForBuildingsReady(() => {
+            // 建筑物数据准备好后继续后续步骤
+            continueAfterBuildingsReady();
         });
         
     } catch (error) {
@@ -158,78 +316,56 @@ function continueMapSystemInit() {
     }
 }
 
-// 碰撞系统初始化完成后继续
-function continueAfterCollisionInit(zombieManager) {
+// 等待建筑物数据生成完成
+function waitForBuildingsReady(callback) {
+    console.log('⏳ 等待建筑物数据生成...');
+    let attempts = 0;
+    const maxAttempts = 50; // 最多等待5秒
+    
+    function checkBuildings() {
+        // 添加详细的调试信息
+        console.log('🔍 检查建筑物数据状态:', {
+            mapSystem: !!mapSystem,
+            currentMap: mapSystem ? mapSystem.currentMap : 'undefined',
+            matrix: mapSystem && mapSystem.currentMap ? mapSystem.currentMap.matrix : 'undefined',
+            buildingTypes: mapSystem && mapSystem.currentMap ? mapSystem.currentMap.buildingTypes : 'undefined',
+            buildings: mapSystem && mapSystem.currentMap ? mapSystem.currentMap.buildings : 'undefined',
+            buildingsLength: mapSystem && mapSystem.currentMap && mapSystem.currentMap.buildings ? mapSystem.currentMap.buildings.length : 'N/A'
+        });
+        
+        if (mapSystem && mapSystem.currentMap && mapSystem.currentMap.buildings && mapSystem.currentMap.buildings.length > 0) {
+            console.log('✅ 建筑物数据生成完成，数量:', mapSystem.currentMap.buildings.length);
+            callback(); // 调用回调函数继续后续步骤
+            return;
+        }
+        
+        attempts++;
+        if (attempts >= maxAttempts) {
+            console.error('❌ 建筑物数据生成超时');
+            console.error('最终状态:', {
+                mapSystem: mapSystem,
+                currentMap: mapSystem ? mapSystem.currentMap : 'undefined',
+                buildings: mapSystem && mapSystem.currentMap ? mapSystem.currentMap.buildings : 'undefined'
+            });
+            throw new Error('建筑物数据生成超时');
+        }
+        
+        console.log(`⏳ 等待建筑物数据生成... (${attempts}/${maxAttempts})`);
+        
+        // 使用setTimeout异步等待，不阻塞主线程
+        setTimeout(checkBuildings, 100);
+    }
+    
+    checkBuildings();
+}
+
+// 建筑物数据准备好后的后续步骤
+function continueAfterBuildingsReady() {
     try {
-        // 第七步：创建游戏对象并添加到四叉树
-        console.log('🎯 步骤7: 创建游戏对象并添加到四叉树');
-        createAndAddGameObjects();
+        console.log('✅ 地图系统初始化完成');
         
-        // 第八步：验证四叉树数据完整性
-        console.log('✅ 步骤8: 验证四叉树数据完整性');
-        verifyQuadTreeDataIntegrity();
-        
-        // 第九步：设置游戏引擎系统引用
-        console.log('⚙️ 步骤9: 设置游戏引擎系统引用');
-        console.log('🔍 传递给setSystems的参数:');
-        console.log('- mapSystem:', !!mapSystem);
-        console.log('- characterManager:', !!characterManager, '类型:', typeof characterManager);
-        console.log('- menuSystem:', !!menuSystem);
-        console.log('- eventSystem:', !!eventSystem);
-        console.log('- zombieManager:', !!zombieManager);
-        console.log('- collisionSystem:', !!collisionSystem);
-        
-        gameEngine.setSystems(mapSystem, characterManager, menuSystem, eventSystem, zombieManager, collisionSystem);
-        console.log('✅ 游戏引擎系统设置完成');
-        
-        // 第十步：执行初始渲染
-        console.log('🎨 步骤10: 执行初始渲染');
-        performInitialRendering();
-        
-        // 第十一步：切换到游戏状态
-        console.log('🚀 步骤11: 切换到游戏状态');
-        gameEngine.setGameState('playing');
-        
-        // 验证所有系统是否正确设置
-        console.log('🔍 系统验证:');
-        console.log('- 游戏引擎:', !!gameEngine);
-        console.log('- 地图系统:', !!mapSystem);
-        console.log('- 角色管理器:', !!window.characterManager);
-        console.log('- 僵尸管理器:', !!window.zombieManager);
-        console.log('- 碰撞系统:', !!collisionSystem);
-        console.log('- 触摸摇杆:', !!gameEngine.joystick);
-        console.log('- 触摸摇杆可见:', gameEngine.joystick ? gameEngine.joystick.isVisible : 'N/A');
-        
-        console.log('🎉 地图系统初始化完成！所有资源已加载，游戏可以开始！');
-        
-        // 立即测试僵尸创建和四叉树添加流程
-        console.log('🧪 立即开始测试僵尸创建流程...');
-        if (window.zombieManager && window.zombieManager.testZombieCreation) {
-            console.log('调用僵尸创建测试...');
-            var testResult = window.zombieManager.testZombieCreation();
-            console.log('僵尸创建测试结果:', testResult);
-            
-            // 测试四叉树状态
-            if (window.collisionSystem && window.collisionSystem.testQuadTreeStatus) {
-                console.log('🧪 测试四叉树状态...');
-                window.collisionSystem.testQuadTreeStatus();
-            }
-        } else {
-            console.warn('⚠️ 僵尸管理器测试方法不可用');
-            console.log('可用的僵尸管理器方法:', Object.keys(window.zombieManager || {}));
-        }
-        
-        // 检查僵尸管理器状态
-        if (window.zombieManager && window.zombieManager.checkZombieManagerStatus) {
-            console.log('🔍 检查僵尸管理器状态...');
-            window.zombieManager.checkZombieManagerStatus();
-        }
-        
-        // 深度检查僵尸管理器
-        if (window.zombieManager && window.zombieManager.deepCheckZombieManager) {
-            console.log('🔍 深度检查僵尸管理器...');
-            window.zombieManager.deepCheckZombieManager();
-        }
+        // 继续后续的系统初始化
+        continueGameSystemsInit();
         
     } catch (error) {
         console.error('❌ 地图系统后续步骤失败:', error);
@@ -237,15 +373,61 @@ function continueAfterCollisionInit(zombieManager) {
     }
 }
 
-// 等待地图数据完全加载 - 使用异步回调方式
+// 继续游戏系统初始化（在地图系统准备好后）
+function continueGameSystemsInit() {
+    try {
+        console.log('🔄 继续游戏系统初始化...');
+        
+        // 第一步：初始化角色和僵尸系统
+        console.log('👥 步骤1: 初始化角色和僵尸系统');
+        initCharacterAndZombieSystems();
+        
+        // 第二步：初始化碰撞系统
+        console.log('🔍 步骤2: 初始化碰撞系统');
+        initCollisionSystem();
+        
+        // 第三步：设置游戏引擎系统
+        console.log('⚙️ 步骤3: 设置游戏引擎系统');
+        setupGameEngineSystems();
+        
+        // 第四步：执行初始渲染
+        console.log('🎨 步骤4: 执行初始渲染');
+        performInitialRendering();
+        
+        // 第五步：切换到游戏状态
+        console.log('🚀 步骤5: 切换到游戏状态');
+        gameEngine.setGameState('playing');
+        
+        // 第六步：启动游戏循环
+        console.log('🔄 步骤6: 启动游戏循环');
+        startGameLoop();
+        
+        // 标记游戏初始化完成
+        isGameInitialized = true;
+        isInitializing = false;
+        
+        console.log('🎉 游戏系统初始化完成！游戏可以开始！');
+        
+        // 隐藏加载提示
+        hideLoadingMessage();
+        
+    } catch (error) {
+        console.error('❌ 游戏系统初始化失败:', error);
+        isInitializing = false;
+        showErrorMessage('游戏初始化失败: ' + error.message);
+    }
+}
+
+// 等待地图数据完全加载
 function waitForMapDataLoaded(callback) {
     console.log('⏳ 等待地图数据加载...');
     let attempts = 0;
     const maxAttempts = 100; // 最多等待10秒
     
     function checkMapData() {
+        // 检查地图管理器是否准备好
         if (MapManager.currentMap && MapManager.currentMap.isLoaded) {
-            console.log('✅ 地图数据加载完成');
+            console.log('✅ 地图管理器数据加载完成');
             callback(); // 调用回调函数继续后续步骤
             return;
         }
@@ -256,322 +438,13 @@ function waitForMapDataLoaded(callback) {
             throw new Error('地图数据加载超时');
         }
         
-        console.log(`⏳ 等待地图数据加载... (${attempts}/${maxAttempts})`);
+        console.log(`⏳ 等待地图管理器数据加载... (${attempts}/${maxAttempts})`);
         
         // 使用setTimeout异步等待，不阻塞主线程
         setTimeout(checkMapData, 100);
     }
     
     checkMapData();
-}
-
-// 初始化碰撞检测系统并验证
-function initCollisionSystemWithVerification(callback) {
-    console.log('🔍 初始化碰撞检测系统...');
-    
-    // 创建碰撞检测系统
-    collisionSystem = Object.create(CollisionSystem);
-    
-    // 确保地图管理器已准备好
-    if (MapManager.currentMap) {
-        console.log('✅ 地图数据已准备，开始初始化碰撞系统');
-        collisionSystem.init('city');
-    } else {
-        console.warn('⚠️ 地图数据未准备，使用默认配置初始化碰撞系统');
-        collisionSystem.init('city');
-    }
-    
-    // 设置到全局变量
-    window.collisionSystem = collisionSystem;
-    console.log('✅ 碰撞检测系统初始化成功');
-    
-    // 等待四叉树数据加载完成
-    console.log('⏳ 等待四叉树数据加载...');
-    waitForQuadTreeDataLoaded(callback);
-}
-
-// 等待四叉树数据加载完成 - 使用异步回调方式
-function waitForQuadTreeDataLoaded(callback) {
-    console.log('⏳ 等待四叉树数据加载...');
-    let attempts = 0;
-    const maxAttempts = 100; // 最多等待10秒
-    
-    function checkQuadTreeData() {
-        // 检查静态四叉树是否有建筑物数据
-        if (collisionSystem.staticQuadTree) {
-            const buildings = collisionSystem.staticQuadTree.getAllObjects();
-            if (buildings && buildings.length > 0) {
-                console.log(`✅ 静态四叉树数据加载完成，建筑物数量: ${buildings.length}`);
-                callback(); // 调用回调函数继续后续步骤
-                return;
-            }
-        }
-        
-        attempts++;
-        if (attempts >= maxAttempts) {
-            console.error('❌ 四叉树数据加载超时');
-            throw new Error('四叉树数据加载超时');
-        }
-        
-        console.log(`⏳ 等待四叉树数据加载... (${attempts}/${maxAttempts})`);
-        
-        // 使用setTimeout异步等待，不阻塞主线程
-        setTimeout(checkQuadTreeData, 100);
-    }
-    
-    checkQuadTreeData();
-}
-
-// 创建游戏对象并添加到四叉树
-function createAndAddGameObjects() {
-    console.log('🎯 开始创建游戏对象...');
-    
-    // 在摄像机附近创建主人物（更容易看到）
-    var spawnX = 8000, spawnY = 7500;
-    
-    // 使用碰撞系统生成安全位置（此时四叉树已有建筑物数据）
-    if (collisionSystem && collisionSystem.generateGameSafePosition) {
-        var safePos = collisionSystem.generateGameSafePosition(spawnX, spawnY, 100, 200, 32, 48, true);
-        spawnX = safePos.x;
-        spawnY = safePos.y;
-        console.log('✅ 找到安全位置:', spawnX, spawnY);
-    } else {
-        console.warn('⚠️ 碰撞系统未准备好，使用默认位置');
-    }
-    
-    // 创建主人物
-    var characterManager = window.characterManager;
-    if (!characterManager) {
-        console.error('❌ 角色管理器未找到');
-        throw new Error('角色管理器未找到');
-    }
-    
-    var mainChar = characterManager.createMainCharacter(spawnX, spawnY);
-    if (mainChar) {
-        console.log('✅ 主人物创建成功:', mainChar.id);
-        
-        // 验证角色是否在角色管理器中
-        var allCharacters = characterManager.getAllCharacters();
-        console.log('🔍 角色管理器验证:');
-        console.log('- 角色管理器中的角色数量:', allCharacters.length);
-        console.log('- 主人物在角色管理器中:', allCharacters.includes(mainChar));
-        console.log('- 主人物角色:', mainChar.role);
-        console.log('- 主人物位置:', mainChar.x, mainChar.y);
-        
-        // 将主人物添加到碰撞系统的动态四叉树
-        if (collisionSystem && collisionSystem.addDynamicObject) {
-            var added = collisionSystem.addDynamicObject(mainChar);
-            if (added) {
-                console.log('✅ 主人物已添加到碰撞系统动态四叉树');
-            } else {
-                console.error('❌ 主人物添加到四叉树失败');
-                throw new Error('主人物添加到四叉树失败');
-            }
-        } else {
-            console.error('❌ 碰撞系统未准备好，无法添加主人物到四叉树');
-            throw new Error('碰撞系统未准备好');
-        }
-    } else {
-        console.error('❌ 主人物创建失败');
-        throw new Error('主人物创建失败');
-    }
-    
-    // 将角色管理器设置到地图系统
-    mapSystem.characterManager = characterManager;
-    
-    // 创建初始僵尸
-    console.log('🧟‍♂️ 创建初始僵尸...');
-    var zombieManager = window.zombieManager;
-    if (!zombieManager) {
-        console.error('❌ 僵尸管理器未找到');
-        throw new Error('僵尸管理器未找到');
-    }
-    
-    // 在距离主人物安全距离的位置创建僵尸，避免重叠
-    var zombieSpawnX = spawnX + 200; // 距离主人物200像素
-    var zombieSpawnY = spawnY + 200;
-    
-    // 使用碰撞系统生成僵尸的安全位置
-    if (collisionSystem && collisionSystem.generateGameSafePosition) {
-        var zombieSafePos = collisionSystem.generateGameSafePosition(zombieSpawnX, zombieSpawnY, 100, 200, 32, 32, true);
-        zombieSpawnX = zombieSafePos.x;
-        zombieSpawnY = zombieSafePos.y;
-        console.log('✅ 找到僵尸安全位置:', zombieSpawnX, zombieSpawnY);
-    } else {
-        console.warn('⚠️ 碰撞系统未准备好，使用默认僵尸位置');
-    }
-    
-    var testZombie = zombieManager.createZombie('skinny', zombieSpawnX, zombieSpawnY);
-    if (testZombie) {
-        console.log('✅ 初始僵尸创建成功:', testZombie.id);
-        
-        // 验证僵尸属性
-        console.log('🔍 僵尸属性验证:');
-        console.log('- 生命值:', testZombie.hp, '最大生命值:', testZombie.maxHp);
-        console.log('- 位置:', testZombie.x, testZombie.y);
-        console.log('- 状态:', testZombie.state);
-        console.log('- 尺寸:', testZombie.size);
-        console.log('- 目标位置:', testZombie.targetX, testZombie.targetY);
-        console.log('- 四叉树ID:', testZombie._quadTreeId);
-        
-        // 检查僵尸是否在四叉树中
-        var zombies = zombieManager.getAllZombies();
-        console.log('✅ 四叉树中的僵尸数量:', zombies.length);
-        
-        // 验证僵尸在四叉树中的状态
-        if (zombies.length > 0) {
-            zombies.forEach((zombie, index) => {
-                console.log(`🔍 四叉树僵尸 ${index}:`, {
-                    id: zombie.id,
-                    type: zombie.type,
-                    hp: zombie.hp,
-                    state: zombie.state,
-                    x: zombie.x,
-                    y: zombie.y,
-                    hasQuadTreeId: !!zombie._quadTreeId
-                });
-            });
-        } else {
-            console.error('❌ 僵尸创建成功但未在四叉树中找到，手动添加到四叉树');
-            // 手动添加到四叉树
-            if (collisionSystem && collisionSystem.addDynamicObject) {
-                var added = collisionSystem.addDynamicObject(testZombie);
-                if (added) {
-                    console.log('✅ 僵尸已手动添加到四叉树');
-                    // 重新检查
-                    var zombiesAfterAdd = zombieManager.getAllZombies();
-                    console.log('✅ 手动添加后四叉树中的僵尸数量:', zombiesAfterAdd.length);
-                } else {
-                    console.error('❌ 僵尸手动添加到四叉树失败');
-                }
-            }
-        }
-        
-        // 检查僵尸是否与主人物重叠，如果重叠则调整位置
-        var mainChar = characterManager.getMainCharacter();
-        if (mainChar && testZombie) {
-            var distance = Math.sqrt(
-                Math.pow(testZombie.x - mainChar.x, 2) + 
-                Math.pow(testZombie.y - mainChar.y, 2)
-            );
-            
-            console.log('🔍 僵尸与主人物距离检查:', {
-                zombiePos: { x: testZombie.x, y: testZombie.y },
-                mainCharPos: { x: mainChar.x, y: mainChar.y },
-                distance: distance,
-                minSafeDistance: 100
-            });
-            
-            // 如果距离小于100像素，调整僵尸位置
-            if (distance < 100) {
-                console.log('⚠️ 僵尸与主人物距离过近，调整位置');
-                var newZombieX = mainChar.x + 150;
-                var newZombieY = mainChar.y + 150;
-                
-                // 使用碰撞系统验证新位置是否安全
-                if (collisionSystem && collisionSystem.generateGameSafePosition) {
-                    var adjustedPos = collisionSystem.generateGameSafePosition(newZombieX, newZombieY, 100, 200, 32, 32, true);
-                    testZombie.x = adjustedPos.x;
-                    testZombie.y = adjustedPos.y;
-                    console.log('✅ 僵尸位置已调整到安全位置:', adjustedPos.x, adjustedPos.y);
-                } else {
-                    testZombie.x = newZombieX;
-                    testZombie.y = newZombieY;
-                    console.log('✅ 僵尸位置已调整:', newZombieX, newZombieY);
-                }
-                
-                // 更新四叉树中的位置
-                if (collisionSystem && collisionSystem.updateDynamicObjectPosition) {
-                    collisionSystem.updateDynamicObjectPosition(testZombie, testZombie.x, testZombie.y, testZombie.x, testZombie.y);
-                }
-            }
-        }
-        
-        // 确保僵尸能找到主人物目标
-        var mainChar = characterManager.getMainCharacter();
-        if (mainChar && testZombie.findTarget) {
-            console.log('🔍 为僵尸设置目标...');
-            console.log('- 主人物位置:', mainChar.x, mainChar.y);
-            console.log('- 僵尸位置:', testZombie.x, testZombie.y);
-            
-            // 手动调用僵尸的findTarget方法
-            testZombie.findTarget([mainChar]);
-            
-            console.log('- 僵尸目标位置:', testZombie.targetX, testZombie.targetY);
-            console.log('- 僵尸状态:', testZombie.state);
-            
-            // 验证僵尸目标设置是否成功
-            if (isNaN(testZombie.targetX) || isNaN(testZombie.targetY)) {
-                console.error('❌ 僵尸目标设置失败，targetX:', testZombie.targetX, 'targetY:', testZombie.targetY);
-            } else {
-                console.log('✅ 僵尸目标设置成功');
-            }
-        } else {
-            console.error('❌ 无法为僵尸设置目标:', {
-                mainChar: !!mainChar,
-                hasFindTarget: !!testZombie.findTarget,
-                mainCharRole: mainChar ? mainChar.role : 'N/A'
-            });
-        }
-    } else {
-        console.error('❌ 初始僵尸创建失败');
-        throw new Error('初始僵尸创建失败');
-    }
-    
-    console.log('✅ 所有游戏对象创建并添加到四叉树完成');
-}
-
-// 验证四叉树数据完整性
-function verifyQuadTreeDataIntegrity() {
-    console.log('🔍 验证四叉树数据完整性...');
-    
-    // 验证静态四叉树（建筑物）
-    if (collisionSystem.staticQuadTree) {
-        const buildings = collisionSystem.staticQuadTree.getAllObjects();
-        if (buildings && buildings.length > 0) {
-            console.log(`✅ 静态四叉树验证通过，建筑物数量: ${buildings.length}`);
-        } else {
-            console.error('❌ 静态四叉树验证失败，没有建筑物数据');
-            throw new Error('静态四叉树没有建筑物数据');
-        }
-    } else {
-        console.error('❌ 静态四叉树未初始化');
-        throw new Error('静态四叉树未初始化');
-    }
-    
-    // 验证动态四叉树（人物和僵尸）
-    if (collisionSystem.dynamicQuadTree) {
-        const dynamicObjects = collisionSystem.dynamicQuadTree.getAllObjects();
-        if (dynamicObjects && dynamicObjects.length > 0) {
-            console.log(`✅ 动态四叉树验证通过，动态对象数量: ${dynamicObjects.length}`);
-            
-            // 检查是否包含主人物
-            const mainChar = dynamicObjects.find(obj => obj.role === 1);
-            if (mainChar) {
-                console.log('✅ 主人物在动态四叉树中验证通过');
-            } else {
-                console.error('❌ 主人物不在动态四叉树中');
-                throw new Error('主人物不在动态四叉树中');
-            }
-            
-            // 检查是否包含僵尸
-            const zombies = dynamicObjects.filter(obj => obj.type === 'zombie');
-            if (zombies.length > 0) {
-                console.log(`✅ 僵尸在动态四叉树中验证通过，数量: ${zombies.length}`);
-            } else {
-                console.error('❌ 僵尸不在动态四叉树中');
-                throw new Error('僵尸不在动态四叉树中');
-            }
-        } else {
-            console.error('❌ 动态四叉树验证失败，没有动态对象数据');
-            throw new Error('动态四叉树没有动态对象数据');
-        }
-    } else {
-        console.error('❌ 动态四叉树未初始化');
-        throw new Error('动态四叉树未初始化');
-    }
-    
-    console.log('✅ 四叉树数据完整性验证通过！');
 }
 
 // 执行初始渲染
@@ -584,29 +457,85 @@ function performInitialRendering() {
         if (mapSystem && mapSystem.render) {
             mapSystem.render();
             console.log('✅ 地图渲染完成');
+            
+            // 检查地图系统的建筑物数据
+            if (mapSystem.currentMap && mapSystem.currentMap.buildings) {
+                console.log('✅ 地图系统建筑物数量:', mapSystem.currentMap.buildings.length);
+                if (mapSystem.currentMap.buildings.length > 0) {
+                    console.log('第一个建筑物示例:', {
+                        id: mapSystem.currentMap.buildings[0].id,
+                        x: mapSystem.currentMap.buildings[0].x,
+                        y: mapSystem.currentMap.buildings[0].y,
+                        width: mapSystem.currentMap.buildings[0].width,
+                        height: mapSystem.currentMap.buildings[0].height,
+                        type: mapSystem.currentMap.buildings[0].type
+                    });
+                }
+            } else {
+                console.warn('⚠️ 地图系统没有建筑物数据');
+            }
         }
         
         // 第二步：设置摄像机位置
         console.log('📷 设置摄像机位置...');
-        if (gameEngine.viewSystem && window.characterManager) {
-            var mainChar = window.characterManager.getMainCharacter();
-            if (mainChar && gameEngine.viewSystem.setFollowTarget) {
-                gameEngine.viewSystem.setFollowTarget(mainChar.x, mainChar.y);
-                console.log('✅ 摄像机位置设置完成');
+        if (gameEngine.viewSystem && gameEngine.viewSystem.camera) {
+            // 设置摄像机初始位置（地图中心附近）
+            var cameraX = 5000; // 地图中心X
+            var cameraY = 5000; // 地图中心Y
+            
+            if (gameEngine.viewSystem.camera.setPosition) {
+                gameEngine.viewSystem.camera.setPosition(cameraX, cameraY);
+                console.log('✅ 摄像机位置设置完成:', cameraX, cameraY);
+            } else if (gameEngine.viewSystem.camera.x !== undefined) {
+                gameEngine.viewSystem.camera.x = cameraX;
+                gameEngine.viewSystem.camera.y = cameraY;
+                console.log('✅ 摄像机位置设置完成:', cameraX, cameraY);
+            } else {
+                console.warn('⚠️ 无法设置摄像机位置');
             }
+            
+            // 输出摄像机信息
+            console.log('摄像机状态:', {
+                x: gameEngine.viewSystem.camera.x,
+                y: gameEngine.viewSystem.camera.y,
+                zoom: gameEngine.viewSystem.camera.zoom,
+                screenWidth: gameEngine.viewSystem.camera.screenWidth,
+                screenHeight: gameEngine.viewSystem.camera.screenHeight
+            });
+        } else {
+            console.warn('⚠️ 视觉系统或摄像机未初始化');
         }
         
         // 第三步：渲染角色
         console.log('👤 渲染角色...');
         if (gameEngine.viewSystem && window.characterManager) {
-            console.log('✅ 角色渲染设置完成');
+            // 创建主人物
+            var mainChar = window.characterManager.createMainCharacter(8000, 7500);
+            if (mainChar) {
+                console.log('✅ 主人物创建成功:', mainChar.id);
+                console.log('✅ 角色渲染设置完成');
+            } else {
+                console.error('❌ 主人物创建失败');
+            }
+        } else {
+            console.warn('⚠️ 角色管理器或视觉系统未初始化');
         }
         
         // 第四步：渲染僵尸
         console.log('🧟‍♂️ 渲染僵尸...');
         if (gameEngine.viewSystem && window.zombieManager) {
+            // 创建初始僵尸
+            var testZombie = window.zombieManager.createZombie('skinny', 8200, 7700);
+            if (testZombie) {
+                console.log('✅ 初始僵尸创建成功:', testZombie.id);
+            } else {
+                console.error('❌ 初始僵尸创建失败');
+            }
+            
             var zombies = window.zombieManager.getAllZombies();
             console.log(`✅ 僵尸渲染设置完成，僵尸数量: ${zombies.length}`);
+        } else {
+            console.warn('⚠️ 僵尸管理器或视觉系统未初始化');
         }
         
         // 第五步：渲染UI元素
@@ -615,36 +544,101 @@ function performInitialRendering() {
             console.log('✅ UI元素渲染设置完成');
         }
         
+        // 第六步：检查碰撞系统状态
+        console.log('🔍 检查碰撞系统状态...');
+        if (window.collisionSystem) {
+            // 检查静态四叉树中的建筑物数量
+            if (window.collisionSystem.staticQuadTree) {
+                var allBuildings = window.collisionSystem.staticQuadTree.getAllObjects();
+                console.log('✅ 静态四叉树中的建筑物数量:', allBuildings.length);
+                
+                if (allBuildings.length > 0) {
+                    console.log('第一个建筑物示例:', {
+                        id: allBuildings[0].id,
+                        x: allBuildings[0].x,
+                        y: allBuildings[0].y,
+                        width: allBuildings[0].width,
+                        height: allBuildings[0].height,
+                        bounds: allBuildings[0].bounds
+                    });
+                } else {
+                    console.warn('⚠️ 静态四叉树中没有建筑物');
+                }
+            } else {
+                console.warn('⚠️ 静态四叉树未初始化');
+            }
+            
+            // 检查动态四叉树中的对象数量
+            if (window.collisionSystem.dynamicQuadTree) {
+                var allDynamicObjects = window.collisionSystem.dynamicQuadTree.getAllObjects();
+                console.log('✅ 动态四叉树中的对象数量:', allDynamicObjects.length);
+                
+                if (allDynamicObjects.length > 0) {
+                    allDynamicObjects.forEach((obj, index) => {
+                        console.log(`动态对象 ${index}:`, {
+                            id: obj.id,
+                            type: obj.type,
+                            role: obj.role,
+                            x: obj.x,
+                            y: obj.y
+                        });
+                    });
+                }
+            } else {
+                console.warn('⚠️ 动态四叉树未初始化');
+            }
+            
+            // 测试碰撞检测
+            if (window.collisionSystem.isCircleCollidingWithBuildings) {
+                var testX = 8000; // 主人物位置
+                var testY = 7500;
+                var testRadius = 16;
+                var collisionResult = window.collisionSystem.isCircleCollidingWithBuildings(testX, testY, testRadius);
+                console.log('✅ 碰撞检测测试 - 位置:', testX, testY, '半径:', testRadius, '结果:', collisionResult);
+                
+                // 测试更多位置
+                var testPositions = [
+                    {x: 5000, y: 5000, desc: '地图中心'},
+                    {x: 1000, y: 1000, desc: '地图左上角'},
+                    {x: 9000, y: 9000, desc: '地图右下角'}
+                ];
+                
+                testPositions.forEach(pos => {
+                    var result = window.collisionSystem.isCircleCollidingWithBuildings(pos.x, pos.y, testRadius);
+                    console.log(`碰撞检测测试 - ${pos.desc}:`, pos.x, pos.y, '结果:', result);
+                });
+            } else {
+                console.warn('⚠️ 碰撞检测方法不存在');
+            }
+        } else {
+            console.warn('⚠️ 碰撞系统未初始化');
+        }
+        
         console.log('✅ 初始渲染完成');
         
-        // 测试僵尸渲染
-        console.log('🧟‍♂️ 测试僵尸渲染...');
-        if (window.zombieManager && gameEngine.viewSystem) {
-            var zombies = window.zombieManager.getAllZombies();
-            console.log('测试渲染的僵尸数量:', zombies.length);
-            
-            zombies.forEach((zombie, index) => {
-                console.log(`测试僵尸 ${index} 渲染:`, {
-                    id: zombie.id,
-                    type: zombie.type,
-                    hp: zombie.hp,
-                    state: zombie.state,
-                    x: zombie.x,
-                    y: zombie.y,
-                    size: zombie.size
-                });
-                
-                // 检查僵尸是否在视野内
-                if (gameEngine.viewSystem.camera && gameEngine.viewSystem.camera.isInView) {
-                    var inView = gameEngine.viewSystem.camera.isInView(zombie.x, zombie.y, zombie.size, zombie.size);
-                    console.log(`僵尸 ${index} 在视野内:`, inView);
-                    
-                    if (inView) {
-                        var screenPos = gameEngine.viewSystem.camera.worldToScreen(zombie.x, zombie.y);
-                        console.log(`僵尸 ${index} 屏幕位置:`, screenPos);
-                    }
-                }
+        // 立即执行一次游戏引擎渲染，确保所有内容显示在屏幕上
+        console.log('🎨 执行初始游戏引擎渲染...');
+        
+        // 检查视觉系统状态
+        if (gameEngine && gameEngine.viewSystem) {
+            console.log('🔍 检查视觉系统状态:', {
+                viewSystem: !!gameEngine.viewSystem,
+                camera: !!gameEngine.viewSystem.camera,
+                canvas: !!gameEngine.viewSystem.canvas,
+                ctx: !!gameEngine.viewSystem.ctx
             });
+        }
+        
+        if (gameEngine && gameEngine.render) {
+            try {
+                // 强制渲染一次
+                gameEngine.render();
+                console.log('✅ 初始游戏引擎渲染完成');
+            } catch (error) {
+                console.warn('⚠️ 初始游戏引擎渲染失败:', error);
+            }
+        } else {
+            console.warn('⚠️ 游戏引擎或渲染方法不存在');
         }
         
     } catch (error) {
@@ -653,87 +647,94 @@ function performInitialRendering() {
     }
 }
 
+// 启动游戏循环
+function startGameLoop() {
+    console.log('🔄 启动游戏循环...');
+    
+    function gameLoop() {
+        try {
+            // 检查游戏引擎状态
+            if (!gameEngine) {
+                console.warn('游戏引擎未初始化，停止游戏循环');
+                return;
+            }
 
-function gameLoop() {
-    // 同步检查游戏引擎状态
-    if (!gameEngine) {
-        console.warn('游戏引擎未初始化');
-        // 使用setTimeout异步重试，而不是递归调用
-        setTimeout(() => gameLoop(), 100); // 100ms后重试
-        return;
-    }
-
-    // 同步执行游戏逻辑
-    try {
-        if (gameEngine.gameState === 'home') {
-            // 调用src/menu.js中的renderHomePage方法
-            if (menuSystem && menuSystem.renderHomePage) {
-                menuSystem.renderHomePage();
-            } else {
-                console.warn('menuSystem或renderHomePage方法不存在');
-            }
-        } else if (gameEngine.gameState === 'playing') {
-            // 使用游戏引擎的更新和渲染方法
-            if (gameEngine.update && gameEngine.render) {
-                gameEngine.update();
-                gameEngine.render();
-            } else {
-                console.error('游戏引擎的update或render方法不存在');
-            }
-        } else if (gameEngine.gameState === 'menu') {
-            // 调用src/menu.js中的renderMenu方法
-            if (menuSystem && menuSystem.renderMenu) {
-                menuSystem.renderMenu();
-            } else {
-                console.warn('menuSystem或renderMenu方法不存在');
-            }
-        }
-    } catch (error) {
-        console.error('游戏循环执行错误:', error);
-        // 添加错误恢复机制
-        if (error.message && error.message.includes('地图系统初始化失败')) {
-            console.log('尝试重新初始化地图系统...');
-            // 延迟重试，避免无限循环
-            setTimeout(() => {
-                if (gameEngine.gameState === 'playing' && !mapSystem) {
-                    try {
-                        initMapSystem();
-                    } catch (retryError) {
-                        console.error('地图系统重新初始化失败:', retryError);
-                    }
+            // 执行游戏逻辑
+            if (gameEngine.gameState === 'home') {
+                // 渲染首页
+                if (menuSystem && menuSystem.renderHomePage) {
+                    menuSystem.renderHomePage();
                 }
-            }, 1000);
+            } else if (gameEngine.gameState === 'playing') {
+                // 使用游戏引擎的更新和渲染方法
+                if (gameEngine.update && gameEngine.render) {
+                    // 添加调试信息
+                    if (window.characterManager) {
+                        var characters = window.characterManager.getAllCharacters();
+                        console.log('游戏循环 - 角色数量:', characters.length);
+                        if (characters.length > 0) {
+                            characters.forEach((char, index) => {
+                                console.log(`角色 ${index}:`, {
+                                    id: char.id,
+                                    role: char.role,
+                                    x: char.x,
+                                    y: char.y,
+                                    type: char.type
+                                });
+                            });
+                        }
+                    }
+                    
+                    if (window.zombieManager) {
+                        var zombies = window.zombieManager.getAllZombies();
+                        console.log('游戏循环 - 僵尸数量:', zombies.length);
+                        if (zombies.length > 0) {
+                            zombies.forEach((zombie, index) => {
+                                console.log(`僵尸 ${index}:`, {
+                                    id: zombie.id,
+                                    type: zombie.type,
+                                    x: zombie.x,
+                                    y: zombie.y,
+                                    hp: zombie.hp
+                                });
+                            });
+                        }
+                    }
+                    
+                    gameEngine.update();
+                    gameEngine.render();
+                } else {
+                    console.error('游戏引擎的update或render方法不存在');
+                }
+            } else if (gameEngine.gameState === 'menu') {
+                // 渲染菜单
+                if (menuSystem && menuSystem.renderMenu) {
+                    menuSystem.renderMenu();
+                }
+            }
+        } catch (error) {
+            console.error('游戏循环执行错误:', error);
         }
+
+        // 继续下一帧
+        requestAnimationFrame(gameLoop);
     }
 
-    // 继续下一帧
-    requestAnimationFrame(gameLoop);
-}
-
-function startGame() {
-    try {
-        console.log('🚀 开始启动游戏...');
-        initGame();
-        gameLoop();
-        console.log('✅ 游戏启动成功');
-    } catch (error) {
-        console.error('❌ 游戏启动失败:', error);
-        // 尝试重新启动
-        console.log('🔄 尝试重新启动游戏...');
+    // 启动游戏循环
+    gameLoop();
+    console.log('✅ 游戏循环已启动');
+    
+    // 立即执行一次渲染，确保内容显示
+    console.log('🎨 游戏循环启动后立即渲染...');
+    if (gameEngine && gameEngine.render) {
         setTimeout(() => {
             try {
-                startGame();
-            } catch (retryError) {
-                console.error('❌ 游戏重新启动失败:', retryError);
-                // 显示错误信息给用户
-                if (typeof window !== 'undefined' && window.alert) {
-                    window.alert('游戏启动失败，请刷新页面重试');
-                }
+                gameEngine.render();
+                console.log('✅ 游戏循环启动后立即渲染完成');
+            } catch (error) {
+                console.warn('⚠️ 游戏循环启动后立即渲染失败:', error);
             }
-        }, 2000);
+        }, 50);
     }
 }
-
-// 启动游戏
-startGame();
 
