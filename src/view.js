@@ -39,6 +39,17 @@ Camera.prototype.setMapBounds = function(width, height) {
     console.log('摄像机地图边界设置:', width, 'x', height);
 };
 
+// 设置摄像机位置
+Camera.prototype.setPosition = function(x, y) {
+    this.x = x;
+    this.y = y;
+    
+    // 限制摄像机在地图边界内
+    this.constrainToMap();
+    
+    console.log('摄像机位置已设置为:', this.x, this.y);
+};
+
 // 跟随目标
 Camera.prototype.followTarget = function(targetX, targetY) {
     console.log('摄像机跟随目标:', targetX, targetY);

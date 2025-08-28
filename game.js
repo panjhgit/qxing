@@ -479,19 +479,27 @@ function performInitialRendering() {
         // 第二步：设置摄像机位置
         console.log('📷 设置摄像机位置...');
         if (gameEngine.viewSystem && gameEngine.viewSystem.camera) {
-            // 设置摄像机初始位置（地图中心附近）
-            var cameraX = 5000; // 地图中心X
-            var cameraY = 5000; // 地图中心Y
+            // 先创建主人物，然后根据主人物位置设置摄像机
+            var mainChar = null;
+            if (window.characterManager) {
+                mainChar = window.characterManager.createMainCharacter(8000, 7500);
+                if (mainChar) {
+                    console.log('✅ 主人物创建成功:', mainChar.id);
+                } else {
+                    console.error('❌ 主人物创建失败');
+                }
+            }
             
-            if (gameEngine.viewSystem.camera.setPosition) {
-                gameEngine.viewSystem.camera.setPosition(cameraX, cameraY);
-                console.log('✅ 摄像机位置设置完成:', cameraX, cameraY);
-            } else if (gameEngine.viewSystem.camera.x !== undefined) {
-                gameEngine.viewSystem.camera.x = cameraX;
-                gameEngine.viewSystem.camera.y = cameraY;
-                console.log('✅ 摄像机位置设置完成:', cameraX, cameraY);
+            // 获取主人物当前位置，设置摄像机跟随
+            if (mainChar && gameEngine.viewSystem.setFollowTarget) {
+                gameEngine.viewSystem.setFollowTarget(mainChar.x, mainChar.y);
+                console.log('✅ 摄像机跟随主人物位置:', mainChar.x, mainChar.y);
+            } else if (mainChar && gameEngine.viewSystem.camera.setPosition) {
+                // 如果没有setFollowTarget方法，直接设置摄像机位置
+                gameEngine.viewSystem.camera.setPosition(mainChar.x, mainChar.y);
+                console.log('✅ 摄像机位置设置完成:', mainChar.x, mainChar.y);
             } else {
-                console.warn('⚠️ 无法设置摄像机位置');
+                console.warn('⚠️ 无法设置摄像机位置或跟随');
             }
             
             // 输出摄像机信息
@@ -509,10 +517,8 @@ function performInitialRendering() {
         // 第三步：渲染角色
         console.log('👤 渲染角色...');
         if (gameEngine.viewSystem && window.characterManager) {
-            // 创建主人物
-            var mainChar = window.characterManager.createMainCharacter(8000, 7500);
+            // 主人物已经在上面创建了，这里只需要确认状态
             if (mainChar) {
-                console.log('✅ 主人物创建成功:', mainChar.id);
                 console.log('✅ 角色渲染设置完成');
             } else {
                 console.error('❌ 主人物创建失败');
@@ -723,18 +729,5 @@ function startGameLoop() {
     // 启动游戏循环
     gameLoop();
     console.log('✅ 游戏循环已启动');
-    
-    // 立即执行一次渲染，确保内容显示
-    console.log('🎨 游戏循环启动后立即渲染...');
-    if (gameEngine && gameEngine.render) {
-        setTimeout(() => {
-            try {
-                gameEngine.render();
-                console.log('✅ 游戏循环启动后立即渲染完成');
-            } catch (error) {
-                console.warn('⚠️ 游戏循环启动后立即渲染失败:', error);
-            }
-        }, 50);
-    }
 }
 
