@@ -36,8 +36,23 @@ QuadTreeNode.prototype.getBounds = function () {
 QuadTreeNode.prototype.containsObject = function (object) {
     var bounds = this.getBounds();
     var objBounds = this.getObjectBounds(object);
+    
+    console.log('四叉树节点边界检查:', {
+        nodeBounds: bounds,
+        objectBounds: objBounds,
+        object: {
+            id: object.id,
+            role: object.role,
+            type: object.type,
+            x: object.x,
+            y: object.y
+        }
+    });
 
-    return !(objBounds.right < bounds.x || objBounds.left > bounds.right || objBounds.bottom < bounds.y || objBounds.top > bounds.bottom);
+    var contains = !(objBounds.right < bounds.x || objBounds.left > bounds.right || objBounds.bottom < bounds.y || objBounds.top > bounds.bottom);
+    console.log('对象是否在节点范围内:', contains);
+    
+    return contains;
 };
 
 // 获取对象边界（统一版本）
@@ -706,6 +721,17 @@ var CollisionSystem = {
 
     // 添加动态对象到四叉树
     addDynamicObject: function (object) {
+        console.log('CollisionSystem.addDynamicObject: 开始添加动态对象:', object);
+        console.log('对象属性:', {
+            id: object.id,
+            role: object.role,
+            type: object.type,
+            x: object.x,
+            y: object.y,
+            width: object.width,
+            height: object.height
+        });
+        
         // 添加错误处理
         if (!this.dynamicQuadTree) {
             console.error('动态四叉树未初始化');
@@ -728,16 +754,30 @@ var CollisionSystem = {
             return true;
         }
 
+        // 检查四叉树边界
+        console.log('四叉树边界:', {
+            x: this.dynamicQuadTree.x,
+            y: this.dynamicQuadTree.y,
+            width: this.dynamicQuadTree.width,
+            height: this.dynamicQuadTree.height
+        });
+
+        // 获取对象类型
+        var objectType = this.getObjectType(object);
+        console.log('对象类型识别结果:', objectType, '对象:', object);
+
         var result = this.dynamicQuadTree.insert(object);
+        console.log('四叉树insert结果:', result);
+        
         if (result) {
             // 为对象添加四叉树标识和类型信息
             object._quadTreeId = 'obj_' + Date.now() + '_' + Math.random();
-            object._quadTreeType = this.getObjectType(object);
+            object._quadTreeType = objectType;
             object._quadTreeAddedTime = Date.now();
             console.log('动态对象已添加到四叉树:', object._quadTreeId, object._quadTreeType, object);
 
             // 注册到生命周期管理器
-            this.registerObject(object, object._quadTreeType);
+            this.registerObject(object, objectType);
         } else {
             console.warn('动态对象添加失败:', object);
         }
@@ -798,6 +838,9 @@ var CollisionSystem = {
 
         // 检查角色属性
         if (object.role !== undefined) {
+            // 检查数字类型的role（1=主人物，2=伙伴）
+            if (object.role === 1 || object.role === 2) return 'character';
+            // 检查字符串类型的role
             if (object.role === 'player' || object.role === 'character') return 'character';
             if (object.role === 'zombie') return 'zombie';
         }
@@ -1054,14 +1097,10 @@ var CollisionSystem = {
             console.error('创建僵尸对象失败: 僵尸对象无效');
             return null;
         }
-
-        // 检查僵尸是否已经在四叉树中
         if (zombie._quadTreeId) {
             console.warn('僵尸已在四叉树中:', zombie._quadTreeId);
             return zombie;
         }
-
-        // 添加到动态四叉树
         var result = this.addDynamicObject(zombie);
         if (result) {
             console.log('僵尸对象已创建并添加到四叉树:', zombie.type, zombie.id);
@@ -1072,17 +1111,51 @@ var CollisionSystem = {
         }
     },
 
+    // 角色对象管理方法
+    createCharacterObject: function (character) {
+        console.log('CollisionSystem.createCharacterObject: 开始创建角色对象:', character);
+        
+        if (!character || !character.id) {
+            console.error('创建角色对象失败: 角色对象无效', character);
+            return null;
+        }
+        
+        if (character._quadTreeId) {
+            console.warn('角色已在四叉树中:', character._quadTreeId);
+            return character;
+        }
+        
+        // 检查角色对象的属性
+        console.log('角色对象属性:', {
+            id: character.id,
+            role: character.role,
+            x: character.x,
+            y: character.y,
+            hp: character.hp,
+            moveSpeed: character.moveSpeed
+        });
+        
+        var result = this.addDynamicObject(character);
+        console.log('addDynamicObject结果:', result);
+        
+        if (result) {
+            console.log('角色对象已创建并添加到四叉树:', character.role, character.id);
+            return character;
+        } else {
+            console.error('角色对象创建失败:', character.role, character.id);
+            return null;
+        }
+    },
+
     // 销毁僵尸对象
     destroyZombieObject: function (zombie) {
-        if (!zombie || !zombie.id) {
-            console.error('销毁僵尸对象失败: 僵尸对象无效');
+        if (!zombie || !zombie._quadTreeId) {
+            console.warn('销毁僵尸对象失败: 僵尸对象无效或不在四叉树中');
             return false;
         }
-
-        // 从动态四叉树移除
         var result = this.removeDynamicObject(zombie);
         if (result) {
-            console.log('僵尸对象已销毁并从四叉树移除:', zombie.type, zombie.id);
+            console.log('僵尸对象已从四叉树销毁:', zombie.type, zombie.id);
             return true;
         } else {
             console.error('僵尸对象销毁失败:', zombie.type, zombie.id);
@@ -1090,79 +1163,95 @@ var CollisionSystem = {
         }
     },
 
+    // 销毁角色对象
+    destroyCharacterObject: function (character) {
+        if (!character || !character._quadTreeId) {
+            console.warn('销毁角色对象失败: 角色对象无效或不在四叉树中');
+            return false;
+        }
+        var result = this.removeDynamicObject(character);
+        if (result) {
+            console.log('角色对象已从四叉树销毁:', character.role, character.id);
+            return true;
+        } else {
+            console.error('角色对象销毁失败:', character.role, character.id);
+            return false;
+        }
+    },
+
     // 更新僵尸位置
     updateZombiePosition: function (zombie, oldX, oldY, newX, newY) {
-        if (!zombie || !zombie.id) {
-            console.error('更新僵尸位置失败: 僵尸对象无效');
+        if (!zombie || !zombie._quadTreeId) {
+            console.warn('更新僵尸位置失败: 僵尸对象无效或不在四叉树中');
             return false;
         }
-
-        // 验证新位置的有效性
-        if (newX === undefined || newY === undefined) {
-            console.warn('更新僵尸位置失败: 新位置无效', {oldX, oldY, newX, newY});
-            return false;
-        }
-
-        // 使用通用的动态对象位置更新方法
         var result = this.updateDynamicObjectPosition(zombie, oldX, oldY, newX, newY);
         if (result) {
             console.log('僵尸位置已更新:', zombie.type, zombie.id, '从', oldX, oldY, '到', newX, newY);
+            return true;
+        } else {
+            console.error('僵尸位置更新失败:', zombie.type, zombie.id);
+            return false;
         }
-        return result;
+    },
+
+    // 更新角色位置
+    updateCharacterPosition: function (character, oldX, oldY, newX, newY) {
+        if (!character || !character._quadTreeId) {
+            console.warn('更新角色位置失败: 角色对象无效或不在四叉树中');
+            return false;
+        }
+        var result = this.updateDynamicObjectPosition(character, oldX, oldY, newX, newY);
+        if (result) {
+            console.log('角色位置已更新:', character.role, character.id, '从', oldX, oldY, '到', newX, newY);
+            return true;
+        } else {
+            console.error('角色位置更新失败:', character.role, character.id);
+            return false;
+        }
     },
 
     // 获取所有僵尸
     getAllZombies: function () {
-        console.log('CollisionSystem.getAllZombies: 开始获取僵尸列表');
-        
         if (!this.dynamicQuadTree) {
-            console.warn('CollisionSystem.getAllZombies: 动态四叉树未初始化');
+            console.warn('动态四叉树未初始化');
             return [];
         }
-
-        console.log('CollisionSystem.getAllZombies: 动态四叉树已初始化，开始获取所有对象');
+        
         var allObjects = this.dynamicQuadTree.getAllObjects();
-        console.log('CollisionSystem.getAllZombies: 从四叉树获取到所有对象数量:', allObjects.length);
-        
-        if (allObjects.length > 0) {
-            allObjects.forEach((obj, index) => {
-                console.log(`CollisionSystem.getAllZombies: 对象 ${index}:`, {
-                    id: obj.id,
-                    type: obj.type,
-                    x: obj.x,
-                    y: obj.y
-                });
-            });
-        }
-        
         var zombies = allObjects.filter(function(obj) {
-            // 僵尸的类型字段是具体的类型（如 'skinny', 'fat', 'boss'），不是 'zombie'
-            // 我们需要通过其他方式识别僵尸对象
             return obj && obj.type && (
                 obj.type === 'skinny' || 
                 obj.type === 'fat' || 
                 obj.type === 'boss' || 
                 obj.type === 'fast' || 
                 obj.type === 'tank' ||
-                // 或者检查是否有僵尸特有的属性
                 (obj.hp !== undefined && obj.moveSpeed !== undefined && obj.icon === '🧟‍♂️')
             );
         });
         
-        console.log('CollisionSystem.getAllZombies: 过滤后的僵尸数量:', zombies.length);
-        
-        if (zombies.length > 0) {
-            zombies.forEach((zombie, index) => {
-                console.log(`CollisionSystem.getAllZombies: 僵尸 ${index}:`, {
-                    id: zombie.id,
-                    type: zombie.type,
-                    x: zombie.x,
-                    y: zombie.y
-                });
-            });
-        }
-
         return zombies;
+    },
+
+    // 获取所有角色
+    getAllCharacters: function () {
+        if (!this.dynamicQuadTree) {
+            console.warn('动态四叉树未初始化');
+            return [];
+        }
+        
+        var allObjects = this.dynamicQuadTree.getAllObjects();
+        var characters = allObjects.filter(function(obj) {
+            return obj && obj.role && (
+                obj.role === 1 || // 主人物
+                obj.role === 2 || // 伙伴
+                obj.role === 'player' || // 字符串类型
+                obj.role === 'character' || // 字符串类型
+                (obj.hp !== undefined && obj.moveSpeed !== undefined && obj.role !== undefined)
+            );
+        });
+        
+        return characters;
     },
 
     // 获取指定类型的动态对象数量

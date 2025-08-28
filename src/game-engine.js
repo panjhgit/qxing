@@ -41,6 +41,8 @@ TouchJoystick.prototype.bindEvents = function() {
     
     // 触摸开始
     var touchStartHandler = function(e) {
+        console.log('触摸开始事件触发:', e.touches.length, '个触摸点');
+        
         if (!self.isVisible) {
             console.log('触摸摇杆不可见，忽略触摸开始');
             return;
@@ -51,6 +53,7 @@ TouchJoystick.prototype.bindEvents = function() {
         var x = touch.x || touch.clientX || touch.pageX || 0;
         var y = touch.y || touch.clientY || touch.pageY || 0;
         
+        console.log('触摸坐标:', x, y, '摇杆中心:', self.centerX, self.centerY);
 
         // 检查触摸是否在摇杆范围内
         var distance = Math.sqrt(Math.pow(x - self.centerX, 2) + Math.pow(y - self.centerY, 2));
@@ -58,18 +61,24 @@ TouchJoystick.prototype.bindEvents = function() {
         // 抖音小游戏环境：稍微放宽触摸检测范围
         var touchThreshold = self.outerRadius + 10; // 增加10像素的容错范围
         
-        // 临时：强制激活触摸摇杆进行测试
-        self.touchId = touch.identifier;
-        self.isDragging = true;
-        self.isActive = true;
-        self.updateJoystickPosition(x, y);
-
+        console.log('触摸距离:', distance, '触摸阈值:', touchThreshold, '触摸是否在范围内:', distance <= touchThreshold);
+        
+        // 只有在触摸范围内才激活摇杆
+        if (distance <= touchThreshold) {
+            self.touchId = touch.identifier;
+            self.isDragging = true;
+            self.isActive = true;
+            self.updateJoystickPosition(x, y);
+            
+            console.log('触摸摇杆已激活:', '触摸ID:', self.touchId, '拖拽状态:', self.isDragging, '活跃状态:', self.isActive);
+        } else {
+            console.log('触摸超出摇杆范围，忽略触摸');
+        }
     };
     
     // 触摸移动
     var touchMoveHandler = function(e) {
-
-        if (!self.isVisible || !self.isDragging) {
+        if (!self.isVisible || !self.isDragging || !self.isActive) {
             return;
         }
         
@@ -87,7 +96,18 @@ TouchJoystick.prototype.bindEvents = function() {
             var x = touch.x || touch.clientX || touch.pageX || 0;
             var y = touch.y || touch.clientY || touch.pageY || 0;
             
-            self.updateJoystickPosition(x, y);
+            // 限制摇杆移动范围
+            var deltaX = x - self.centerX;
+            var deltaY = y - self.centerY;
+            var distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+            
+            if (distance > self.outerRadius) {
+                // 如果超出外圈，限制在边界上
+                deltaX = (deltaX / distance) * self.outerRadius;
+                deltaY = (deltaY / distance) * self.outerRadius;
+            }
+            
+            self.updateJoystickPosition(self.centerX + deltaX, self.centerY + deltaY);
         } else {
             console.log('触摸移动未找到对应触摸点，触摸ID:', self.touchId);
         }
@@ -108,17 +128,17 @@ TouchJoystick.prototype.bindEvents = function() {
         
         if (touchEnded) {
             self.resetJoystick();
-            
-            // 额外保护：确保角色停止移动
-            if (window.gameEngine && window.gameEngine.characterManager) {
-                var mainChar = window.gameEngine.characterManager.getMainCharacter();
-                if (mainChar && mainChar.stopMovement) {
-                    mainChar.stopMovement();
-                }
-            }
-        } else {
-            console.log('触摸结束但触摸ID不匹配');
+            console.log('触摸摇杆触摸结束，重置状态');
         }
+    };
+    
+    // 触摸取消
+    var touchCancelHandler = function(e) {
+        if (!self.isVisible) return;
+        
+        // 触摸被中断时重置摇杆
+        self.resetJoystick();
+        console.log('触摸摇杆触摸被中断，重置状态');
     };
     
     // 绑定触摸事件（兼容不同环境）
@@ -128,12 +148,14 @@ TouchJoystick.prototype.bindEvents = function() {
         tt.onTouchStart(touchStartHandler);
         tt.onTouchMove(touchMoveHandler);
         tt.onTouchEnd(touchEndHandler);
+        tt.onTouchCancel(touchCancelHandler); // 绑定触摸取消事件
         
         // 抖音小游戏环境：确保触摸事件正确绑定
         console.log('抖音小游戏触摸事件绑定状态:', {
             onTouchStart: typeof tt.onTouchStart,
             onTouchMove: typeof tt.onTouchMove,
-            onTouchEnd: typeof tt.onTouchEnd
+            onTouchEnd: typeof tt.onTouchEnd,
+            onTouchCancel: typeof tt.onTouchCancel
         });
     } else {
         // 标准Web环境
@@ -141,74 +163,52 @@ TouchJoystick.prototype.bindEvents = function() {
         self.canvas.addEventListener('touchstart', touchStartHandler);
         self.canvas.addEventListener('touchmove', touchMoveHandler);
         self.canvas.addEventListener('touchend', touchEndHandler);
+        self.canvas.addEventListener('touchcancel', touchCancelHandler); // 绑定触摸取消事件
     }
 };
 
-// 更新摇杆位置 - 8方向控制
+// 更新摇杆位置
 TouchJoystick.prototype.updateJoystickPosition = function(x, y) {
+    // 计算相对于中心点的偏移
     var deltaX = x - this.centerX;
     var deltaY = y - this.centerY;
+    
+    // 计算距离
     var distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
     
-    // 限制摇杆移动范围
+    // 如果距离超出外圈半径，限制在边界上
     if (distance > this.outerRadius) {
         deltaX = (deltaX / distance) * this.outerRadius;
         deltaY = (deltaY / distance) * this.outerRadius;
     }
     
+    // 更新摇杆位置
     this.joystickX = deltaX;
     this.joystickY = deltaY;
     
-    // 16方向控制：竖屏游戏方向修正
-    console.log('触摸摇杆16方向控制调试:');
-    console.log('- 触摸位置:', x, y);
-    console.log('- 摇杆中心:', this.centerX, this.centerY);
-    console.log('- 触摸偏移:', deltaX, deltaY);
-    
-    // 360度连续方向控制：竖屏游戏方向修正
-    // 修复角度计算，确保方向完全正确
-    var distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-    
+    // 计算移动方向（归一化向量）
     if (distance > 0) {
-        // 直接计算单位向量，确保方向完全正确
-        var unitX = deltaX / distance;
-        var unitY = deltaY / distance;
-        
-        // 应用触摸摇杆的移动范围限制
-        var maxDistance = this.outerRadius;
-        var clampedDistance = Math.min(distance, maxDistance);
-        
-        // 计算最终的移动向量
-        this.moveDirection = {
-            x: (unitX * clampedDistance) / maxDistance,
-            y: (unitY * clampedDistance) / maxDistance,
-            name: '360度连续方向'
-        };
-        
+        this.moveDirection.x = deltaX / this.outerRadius;
+        this.moveDirection.y = deltaY / this.outerRadius;
     } else {
-        // 触摸点在中心，不移动
-        this.moveDirection = { x: 0, y: 0, name: '中心' };
-        console.log('触摸点在中心，不移动');
+        this.moveDirection.x = 0;
+        this.moveDirection.y = 0;
     }
+    
+    console.log('摇杆位置更新:', '偏移:', deltaX.toFixed(2), deltaY.toFixed(2), '方向:', this.moveDirection.x.toFixed(2), this.moveDirection.y.toFixed(2));
 };
 
 // 重置摇杆
 TouchJoystick.prototype.resetJoystick = function() {
-    this.isDragging = false;
-    this.isActive = false;
-    this.touchId = null;
     this.joystickX = 0;
     this.joystickY = 0;
     this.moveDirection.x = 0;
     this.moveDirection.y = 0;
+    this.isDragging = false;
+    this.isActive = false;
+    this.touchId = null;
     
-    // 停止角色移动，防止滑行
-    if (window.gameEngine && window.gameEngine.characterManager) {
-        var mainChar = window.gameEngine.characterManager.getMainCharacter();
-        if (mainChar) {
-            mainChar.stopMovement();
-        }
-    }
+    console.log('触摸摇杆已重置');
 };
 
 // 渲染摇杆
@@ -322,29 +322,53 @@ GameEngine.prototype.init = function() {
 
 // 设置游戏状态
 GameEngine.prototype.setGameState = function(newState) {
+    console.log('游戏状态改变:', this.gameState, '->', newState);
     this.gameState = newState;
     
-    // 根据状态显示/隐藏摇杆
-    if (newState === 'playing') {
-        this.joystick.show();
-        
-        // 游戏开始时刷新初始僵尸
-        if (this.zombieManager && this.characterManager) {
-            this.spawnZombiesForDay();
+    // 根据游戏状态控制触摸摇杆
+    if (this.joystick) {
+        if (newState === 'playing') {
+            this.joystick.show();
+            console.log('触摸摇杆已显示');
+        } else {
+            this.joystick.hide();
+            console.log('触摸摇杆已隐藏');
         }
-    } else {
-        this.joystick.hide();
     }
+    
+    // 更新事件系统状态
+    if (this.eventSystem) {
+        this.eventSystem.gameState = newState;
+    }
+    
+    // 重置帧计数器
+    this.frameCount = 0;
+    this.lastUpdateTime = performance.now();
 };
 
 // 设置系统引用
 GameEngine.prototype.setSystems = function(mapSystem, characterManager, menuSystem, eventSystem, zombieManager, collisionSystem) {
+    console.log('GameEngine.setSystems: 开始设置系统引用');
+    console.log('🔍 接收到的参数:');
+    console.log('- mapSystem:', !!mapSystem);
+    console.log('- characterManager:', !!characterManager, '类型:', typeof characterManager);
+    console.log('- menuSystem:', !!menuSystem);
+    console.log('- eventSystem:', !!eventSystem);
+    console.log('- zombieManager:', !!zombieManager);
+    console.log('- collisionSystem:', !!collisionSystem);
+    
     this.mapSystem = mapSystem;
     this.characterManager = characterManager;
     this.menuSystem = menuSystem;
     this.eventSystem = eventSystem;
     this.zombieManager = zombieManager;
     this.collisionSystem = collisionSystem;
+    
+    console.log('✅ 系统引用设置完成');
+    console.log('🔍 设置后的实例变量:');
+    console.log('- this.characterManager:', !!this.characterManager);
+    console.log('- this.zombieManager:', !!this.zombieManager);
+    console.log('- this.collisionSystem:', !!this.collisionSystem);
     
     // 同步初始化NavMesh导航系统
     var navResult = this.initNavigationSystem();
@@ -362,18 +386,6 @@ GameEngine.prototype.setSystems = function(mapSystem, characterManager, menuSyst
     if (!this.joystick) {
         this.joystick = new TouchJoystick(this.canvas, this.ctx);
         console.log('触摸摇杆初始化完成');
-    }
-    
-    // 测试僵尸创建
-    console.log('GameEngine: 测试僵尸创建...');
-    var testZombie = zombieManager.createZombie('skinny', 8000, 7500);
-    if (testZombie) {
-        console.log('GameEngine: 测试僵尸创建成功:', testZombie);
-        // 检查僵尸是否在四叉树中
-        var zombies = zombieManager.getAllZombies();
-        console.log('GameEngine: 四叉树中的僵尸数量:', zombies.length);
-    } else {
-        console.error('GameEngine: 测试僵尸创建失败');
     }
     
     // 初始化视觉系统
@@ -604,7 +616,14 @@ GameEngine.prototype.updateTimeSystem = function() {
             
             // 白天刷新僵尸（确保系统已初始化）
             if (this.zombieManager && this.characterManager) {
-                this.spawnZombiesForDay();
+                // 只在需要时创建僵尸，避免重复创建
+                var currentZombies = this.zombieManager.getAllZombies();
+                if (currentZombies.length === 0) {
+                    console.log('GameEngine: 检测到没有僵尸，开始创建初始僵尸');
+                    this.spawnZombiesForDay();
+                } else {
+                    console.log('GameEngine: 当前僵尸数量:', currentZombies.length, '跳过创建');
+                }
             }
         }
     }
