@@ -713,14 +713,11 @@ GameEngine.prototype.updateTimeSystem = function() {
         this.timeSystem.day++;
         console.log('新的一天开始，当前天数:', this.timeSystem.day);
         
-        // 每天开始时刷新僵尸
-        this.spawnZombiesAroundPlayer();
+        // 每天开始时刷新一只僵尸
+        this.spawnOneZombiePerDay();
     }
     
-    // 每5秒刷新10个僵尸（性能优化版本）
-    if (this.frameCount % 300 === 0) { // 300帧 = 5秒 (60fps)
-        this.spawnZombiesAroundPlayer();
-    }
+    // 移除每5秒刷新的逻辑，改为每天刷新一只
     
     // 更新白天/夜晚状态
     var dayProgress = this.timeSystem.currentTime / this.timeSystem.dayDuration;
@@ -749,8 +746,8 @@ GameEngine.prototype.getTimeInfo = function() {
     };
 };
 
-// 定时刷新僵尸（每5秒调用一次）
-GameEngine.prototype.spawnZombiesAroundPlayer = function() {
+// 每天刷新一只僵尸
+GameEngine.prototype.spawnOneZombiePerDay = function() {
     if (!this.zombieManager || !this.characterManager) {
         console.log('GameEngine: 僵尸管理器或角色管理器未初始化，跳过僵尸刷新');
         return;
@@ -762,11 +759,11 @@ GameEngine.prototype.spawnZombiesAroundPlayer = function() {
         return;
     }
     
-    console.log('GameEngine: 开始定时刷新僵尸，当前帧数:', this.frameCount, '主人物位置:', mainChar.x, mainChar.y);
+    console.log('GameEngine: 新的一天开始，刷新一只僵尸，当前天数:', this.timeSystem.day, '主人物位置:', mainChar.x, mainChar.y);
     
-    // 每5秒固定刷新10个僵尸
-    var zombiesToCreate = 10;
-    console.log('GameEngine: 需要创建', zombiesToCreate, '个僵尸，在人物700px范围内');
+    // 每天只刷新一只僵尸
+    var zombiesToCreate = 1;
+    console.log('GameEngine: 需要创建', zombiesToCreate, '只僵尸，在人物700px范围内');
     
     // 创建僵尸批次
     this.createZombieBatchAroundPlayer(zombiesToCreate, mainChar);
@@ -860,7 +857,7 @@ GameEngine.prototype.createZombieBatchAroundPlayer = function(batchSize, mainCha
     }
     
     var finalZombieCount = this.zombieManager.getAllZombies().filter(z => z.hp > 0).length;
-    console.log('GameEngine: 批次创建完成，成功创建:', createdZombies.length, '个僵尸，当前总僵尸数:', finalZombieCount);
+    console.log('GameEngine: 批次创建完成，成功创建:', createdZombies.length, '只僵尸，当前总僵尸数:', finalZombieCount);
     
     // 验证新创建的僵尸是否都在700px范围内
     var allZombies = this.zombieManager.getAllZombies().filter(z => z.hp > 0);
