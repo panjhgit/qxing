@@ -255,6 +255,9 @@ function setupGameEngineSystems() {
         // 设置游戏引擎系统引用
         gameEngine.setSystems(mapSystem, characterManager, menuSystem, eventSystem, window.zombieManager, collisionSystem);
         
+        // 将gameEngine设置为全局变量，让角色能够访问摇杆系统
+        window.gameEngine = gameEngine;
+        
         console.log('✅ 游戏引擎系统设置完成');
         
     } catch (error) {

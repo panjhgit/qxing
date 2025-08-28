@@ -1080,6 +1080,29 @@ var CollisionSystem = {
             return zombie;
         }
         
+        // 检查当前位置是否安全（不与建筑物碰撞）
+        var hasCollision = this.isCircleCollidingWithBuildings(zombie.x, zombie.y, zombie.size / 2 || 16);
+        
+        if (hasCollision) {
+            console.warn('僵尸位置与建筑物碰撞，需要生成安全位置');
+            
+            // 生成安全位置
+            var safePosition = this.generateSafePosition(zombie.x, zombie.y, 50, 200, zombie.size || 32, zombie.size || 32, false);
+            
+            if (safePosition) {
+                console.log('生成安全位置:', safePosition);
+                zombie.x = safePosition.x;
+                zombie.y = safePosition.y;
+                console.log('僵尸位置已更新为安全位置:', zombie.x, zombie.y);
+            } else {
+                console.error('无法生成安全位置，使用默认位置');
+                zombie.x = 100;
+                zombie.y = 100;
+            }
+        } else {
+            console.log('僵尸位置安全，无需调整');
+        }
+        
         console.log('CollisionSystem.createZombieObject: 调用addDynamicObject');
         var result = this.addDynamicObject(zombie);
         console.log('CollisionSystem.createZombieObject: addDynamicObject结果:', result);
@@ -1127,6 +1150,29 @@ var CollisionSystem = {
             hp: character.hp,
             moveSpeed: character.moveSpeed
         });
+        
+        // 检查当前位置是否安全（不与建筑物碰撞）
+        var hasCollision = this.isCircleCollidingWithBuildings(character.x, character.y, character.width / 2 || 16);
+        
+        if (hasCollision) {
+            console.warn('角色位置与建筑物碰撞，需要生成安全位置');
+            
+            // 生成安全位置
+            var safePosition = this.generateSafePosition(character.x, character.y, 50, 200, character.width || 32, character.height || 48, false);
+            
+            if (safePosition) {
+                console.log('生成安全位置:', safePosition);
+                character.x = safePosition.x;
+                character.y = safePosition.y;
+                console.log('角色位置已更新为安全位置:', character.x, character.y);
+            } else {
+                console.error('无法生成安全位置，使用默认位置');
+                character.x = 100;
+                character.y = 100;
+            }
+        } else {
+            console.log('角色位置安全，无需调整');
+        }
         
         var result = this.addDynamicObject(character);
         console.log('addDynamicObject结果:', result);

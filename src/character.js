@@ -411,9 +411,23 @@ Character.prototype.takeDamage = function (damage) {
 
 // 检查是否有摇杆输入
 Character.prototype.hasJoystickInput = function() {
-    // 这里需要与游戏引擎的摇杆系统连接
-    // 暂时返回false，后续需要实现
-    return false;
+    // 检查游戏引擎和摇杆系统是否可用
+    if (!window.gameEngine || !window.gameEngine.joystick) {
+        return false;
+    }
+    
+    var joystick = window.gameEngine.joystick;
+    
+    // 检查摇杆是否可见且激活
+    if (!joystick.isVisible || !joystick.isActive) {
+        return false;
+    }
+    
+    // 检查是否有移动方向
+    var direction = joystick.getMoveDirection();
+    var deadZone = 0.1;
+    
+    return Math.abs(direction.x) > deadZone || Math.abs(direction.y) > deadZone;
 };
 
 // 检查指定范围内是否有僵尸
@@ -952,26 +966,6 @@ Character.prototype.showGameOverScreen = function() {
         ctx.font = '20px Arial';
         ctx.fillText('点击屏幕重新开始', canvas.width / 2, canvas.height / 2 + 50);
     }
-};
-
-// 检查是否有摇杆输入（与游戏引擎连接）
-Character.prototype.hasJoystickInput = function() {
-    if (!window.gameEngine || !window.gameEngine.joystick) {
-        return false;
-    }
-    
-    var joystick = window.gameEngine.joystick;
-    
-    // 检查摇杆是否激活且有移动输入
-    if (joystick.isActive && joystick.isDragging) {
-        var direction = joystick.getMoveDirection();
-        var deadZone = 0.1; // 死区阈值
-        
-        // 如果移动方向超过死区，认为有输入
-        return Math.abs(direction.x) > deadZone || Math.abs(direction.y) > deadZone;
-    }
-    
-    return false;
 };
 
 // 获取摇杆移动方向
