@@ -108,6 +108,14 @@ TouchJoystick.prototype.bindEvents = function() {
         
         if (touchEnded) {
             self.resetJoystick();
+            
+            // 额外保护：确保角色停止移动
+            if (window.gameEngine && window.gameEngine.characterManager) {
+                var mainChar = window.gameEngine.characterManager.getMainCharacter();
+                if (mainChar && mainChar.stopMovement) {
+                    mainChar.stopMovement();
+                }
+            }
         } else {
             console.log('触摸结束但触摸ID不匹配');
         }
@@ -186,7 +194,6 @@ TouchJoystick.prototype.updateJoystickPosition = function(x, y) {
 
 // 重置摇杆
 TouchJoystick.prototype.resetJoystick = function() {
-
     this.isDragging = false;
     this.isActive = false;
     this.touchId = null;
@@ -194,6 +201,14 @@ TouchJoystick.prototype.resetJoystick = function() {
     this.joystickY = 0;
     this.moveDirection.x = 0;
     this.moveDirection.y = 0;
+    
+    // 停止角色移动，防止滑行
+    if (window.gameEngine && window.gameEngine.characterManager) {
+        var mainChar = window.gameEngine.characterManager.getMainCharacter();
+        if (mainChar) {
+            mainChar.stopMovement();
+        }
+    }
 };
 
 // 渲染摇杆
@@ -331,11 +346,17 @@ GameEngine.prototype.setSystems = function(mapSystem, characterManager, menuSyst
     this.zombieManager = zombieManager;
     this.collisionSystem = collisionSystem;
     
-    // 初始化NavMesh导航系统（延迟初始化，确保地图系统完全就绪）
-    setTimeout(() => {
-        this.initNavigationSystem();
-        this.initDynamicObstacleManager();
-    }, 100);
+    // 同步初始化NavMesh导航系统
+    var navResult = this.initNavigationSystem();
+    var obstacleResult = this.initDynamicObstacleManager();
+    
+    // 记录初始化结果
+    if (navResult) {
+        console.log('[GameEngine] NavMesh导航系统初始化成功');
+    }
+    if (obstacleResult) {
+        console.log('[GameEngine] 动态障碍物管理器初始化成功');
+    }
     
     // 初始化触摸摇杆（确保所有系统都已加载）
     if (!this.joystick) {
@@ -363,17 +384,15 @@ GameEngine.prototype.setSystems = function(mapSystem, characterManager, menuSyst
 GameEngine.prototype.initNavigationSystem = function() {
     if (!this.mapSystem) {
         console.warn('[GameEngine] 地图系统未初始化，无法构建NavMesh');
-        return;
+        return false;
     }
     
     console.log('[GameEngine] 开始初始化NavMesh导航系统...');
     
-    // 检查地图系统是否完全初始化
+    // 同步检查地图系统是否完全初始化
     if (!this.mapSystem.buildings || this.mapSystem.buildings.length === 0) {
-        console.warn('[GameEngine] 建筑物数据未生成，等待地图系统完全初始化...');
-        // 延迟重试
-        setTimeout(() => this.initNavigationSystem(), 200);
-        return;
+        console.warn('[GameEngine] 建筑物数据未生成，地图系统未完全初始化');
+        return false;
     }
     
     // 创建导航系统实例
@@ -396,8 +415,10 @@ GameEngine.prototype.initNavigationSystem = function() {
         console.log('[GameEngine] 准备的地图数据:', mapData);
         this.navigationSystem.buildNavigationMesh(mapData);
         console.log('[GameEngine] NavMesh导航系统初始化完成');
+        return true;
     } else {
         console.warn('[GameEngine] NavigationSystem未定义，跳过NavMesh初始化');
+        return false;
     }
 };
 
@@ -407,15 +428,13 @@ GameEngine.prototype.initNavigationSystem = function() {
 GameEngine.prototype.initDynamicObstacleManager = function() {
     if (!this.mapSystem) {
         console.warn('[GameEngine] 地图系统未初始化，无法初始化动态障碍物管理器');
-        return;
+        return false;
     }
     
-    // 检查地图系统是否完全初始化
+    // 同步检查地图系统是否完全初始化
     if (!this.mapSystem.mapWidth || !this.mapSystem.mapHeight) {
-        console.warn('[GameEngine] 地图尺寸未设置，等待地图系统完全初始化...');
-        // 延迟重试
-        setTimeout(() => this.initDynamicObstacleManager(), 200);
-        return;
+        console.warn('[GameEngine] 地图尺寸未设置，地图系统未完全初始化');
+        return false;
     }
     
     console.log('[GameEngine] 开始初始化动态障碍物管理器...');
@@ -431,8 +450,10 @@ GameEngine.prototype.initDynamicObstacleManager = function() {
         this.addSampleDynamicObstacles();
         
         console.log('[GameEngine] 动态障碍物管理器初始化完成');
+        return true;
     } else {
         console.warn('[GameEngine] DynamicObstacleManager未定义，跳过动态障碍物管理器初始化');
+        return false;
     }
 };
 
@@ -479,6 +500,13 @@ GameEngine.prototype.updateJoystickMovement = function() {
     }
     
     if (!this.joystick.isActive) {
+        // 摇杆不活跃时，确保角色停止移动
+        if (this.characterManager) {
+            var mainChar = this.characterManager.getMainCharacter();
+            if (mainChar && mainChar.isMoving) {
+                mainChar.stopMovement();
+            }
+        }
         console.log('触摸摇杆未激活，状态:', this.joystick.isVisible, this.joystick.isDragging);
         return;
     }
@@ -510,7 +538,11 @@ GameEngine.prototype.updateJoystickMovement = function() {
         var result = mainChar.setMoveTarget(newX, newY);
         console.log('设置移动目标结果:', result);
     } else {
-        console.log('移动方向太小，忽略移动');
+        // 移动方向太小，停止移动
+        if (mainChar.isMoving) {
+            mainChar.stopMovement();
+        }
+        console.log('移动方向太小，停止移动');
     }
     
     // 更新状态
@@ -603,35 +635,30 @@ GameEngine.prototype.spawnZombiesForDay = function() {
         var angle = (Math.PI * 2 * i) / zombieCount; // 均匀分布
         var distance = 700 + Math.random() * 100; // 700-800px之间
         
-        var zombieX = mainChar.x + Math.cos(angle) * distance;
-        var zombieY = mainChar.y + Math.sin(angle) * distance;
-        
-        // 随机选择僵尸类型
         var zombieTypes = ['skinny', 'fat', 'fast', 'tank', 'boss'];
         var randomType = zombieTypes[Math.floor(Math.random() * zombieTypes.length)];
         
-        // 检查僵尸生成位置是否在建筑物内
+        // 计算僵尸生成位置
         var zombieX = mainChar.x + Math.cos(angle) * distance;
         var zombieY = mainChar.y + Math.sin(angle) * distance;
         
-        if (this.collisionSystem && this.collisionSystem.isRectCollidingWithBuildings) {
-            if (this.collisionSystem.isRectCollidingWithBuildings(zombieX, zombieY, 32, 32)) {
-                // 如果位置在建筑物内，寻找安全位置
-                var safePos = this.collisionSystem.generateGameSafePosition(mainChar.x, mainChar.y, 700, 800, 32, 32);
-                zombieX = safePos.x;
-                zombieY = safePos.y;
+        // 检查僵尸生成位置是否安全
+        if (this.collisionSystem && this.collisionSystem.isCircleCollidingWithBuildings) {
+            if (this.collisionSystem.isCircleCollidingWithBuildings(zombieX, zombieY, 16)) { // 16 = 32/2
+                console.log('僵尸生成位置不安全，跳过');
+                continue;
             }
         }
         
         // 检查是否与现有僵尸重叠
-        if (this.collisionSystem && this.collisionSystem.isObjectOverlappingWithList) {
+        if (this.collisionSystem && this.collisionSystem.isZombieOverlappingWithZombies) {
             var existingZombies = this.zombieManager.getAllZombies().filter(z => z.hp > 0);
             
-            if (this.collisionSystem.isObjectOverlappingWithList(zombieX, zombieY, 32, 32, existingZombies)) {
+            if (this.collisionSystem.isZombieOverlappingWithZombies(zombieX, zombieY, 16, existingZombies, 0.2)) {
                 // 如果与现有僵尸重叠，寻找不重叠的位置
                 var nonOverlapPos = this.collisionSystem.getNonOverlappingPosition(
                     mainChar.x, mainChar.y, zombieX, zombieY, 32, 32, 
-                    existingZombies, true
+                    existingZombies, true, true
                 );
                 zombieX = nonOverlapPos.x;
                 zombieY = nonOverlapPos.y;

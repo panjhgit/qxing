@@ -208,6 +208,13 @@ const ValidationUtils = {
             console.warn('无效的位置参数:', x, y);
             return false;
         }
+        
+        // 检查坐标范围是否合理
+        if (Math.abs(x) > 100000 || Math.abs(y) > 100000) {
+            console.warn('位置参数超出合理范围:', x, y);
+            return false;
+        }
+        
         return true;
     },
     
@@ -244,6 +251,24 @@ const ValidationUtils = {
         }
         
         return true;
+    },
+    
+    // 验证数组
+    validateArray: function(arr, name) {
+        if (!Array.isArray(arr)) {
+            console.warn('无效的数组:', name, arr);
+            return false;
+        }
+        return true;
+    },
+    
+    // 验证函数
+    validateFunction: function(func, name) {
+        if (typeof func !== 'function') {
+            console.warn('无效的函数:', name, func);
+            return false;
+        }
+        return true;
     }
 };
 
@@ -274,6 +299,27 @@ const PerformanceUtils = {
         var duration = this.endTimer(name);
         console.log('函数执行时间:', name, duration.toFixed(2), 'ms');
         return result;
+    },
+    
+    // 验证数值是否有效
+    isValidNumber: function(value) {
+        return typeof value === 'number' && !isNaN(value) && isFinite(value);
+    },
+    
+    // 验证时间增量
+    validateDeltaTime: function(deltaTime) {
+        if (!this.isValidNumber(deltaTime) || deltaTime <= 0) {
+            console.warn('无效的时间增量:', deltaTime);
+            return false;
+        }
+        
+        // 检查时间增量是否过大（超过1秒）
+        if (deltaTime > 1) {
+            console.warn('时间增量过大，可能影响游戏性能:', deltaTime);
+            return false;
+        }
+        
+        return true;
     }
 };
 
