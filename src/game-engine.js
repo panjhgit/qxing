@@ -766,6 +766,11 @@ GameEngine.prototype.update = function() {
         deltaTime = Math.min(deltaTime, 1/30); // 最大30fps的deltaTime
         
         this.zombieManager.updateAllZombies(characters, deltaTime);
+        
+        // 运行时重叠检测和修复（每60帧检查一次）
+        if (this.frameCount % 60 === 0) {
+            this.checkAndFixOverlappingObjects(characters);
+        }
     }
     
     // 更新动态障碍物
@@ -887,6 +892,54 @@ GameEngine.prototype.render = function() {
         if (this.menuSystem && this.menuSystem.renderMenu) {
             this.menuSystem.renderMenu();
         }
+    }
+};
+
+// 重叠检测和修复方法
+GameEngine.prototype.checkAndFixOverlappingObjects = function(characters) {
+    if (!this.zombieManager || !characters || characters.length === 0) return;
+    
+    var zombies = this.zombieManager.getAllZombies().filter(z => z.hp > 0);
+    if (zombies.length === 0) return;
+    
+    var minSafeDistance = 80; // 最小安全距离
+    var fixedCount = 0;
+    
+    // 检查僵尸与角色的重叠
+    zombies.forEach(zombie => {
+        characters.forEach(character => {
+            if (character && character.hp > 0) {
+                var distance = Math.sqrt(
+                    Math.pow(zombie.x - character.x, 2) + 
+                    Math.pow(zombie.y - character.y, 2)
+                );
+                
+                if (distance < minSafeDistance) {
+                    console.log('⚠️ 检测到重叠对象，距离:', distance, '僵尸:', zombie.id, '角色:', character.id);
+                    
+                    // 计算远离角色的新位置
+                    var angle = Math.atan2(zombie.y - character.y, zombie.x - character.x);
+                    var newX = character.x + Math.cos(angle) * minSafeDistance;
+                    var newY = character.y + Math.sin(angle) * minSafeDistance;
+                    
+                    // 更新僵尸位置
+                    zombie.x = newX;
+                    zombie.y = newY;
+                    
+                    // 更新四叉树中的位置
+                    if (this.collisionSystem && this.collisionSystem.updateDynamicObjectPosition) {
+                        this.collisionSystem.updateDynamicObjectPosition(zombie, zombie.x, zombie.y, newX, newY);
+                    }
+                    
+                    fixedCount++;
+                    console.log('✅ 已修复重叠，僵尸新位置:', newX, newY);
+                }
+            }
+        });
+    });
+    
+    if (fixedCount > 0) {
+        console.log(`🔄 运行时重叠检测完成，修复了 ${fixedCount} 个重叠对象`);
     }
 };
 

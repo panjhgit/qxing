@@ -1116,6 +1116,47 @@ var ZombieManager = {
                 }
             }
         }
+        
+        // 验证步骤3：检查是否与角色重叠（新增）
+        if (window.characterManager && window.characterManager.getAllCharacters) {
+            var characters = window.characterManager.getAllCharacters();
+            var minSafeDistance = 100; // 与角色的最小安全距离
+            
+            for (var i = 0; i < characters.length; i++) {
+                var char = characters[i];
+                if (char && char.hp > 0) {
+                    var distance = Math.sqrt(
+                        Math.pow(x - char.x, 2) + Math.pow(y - char.y, 2)
+                    );
+                    
+                    if (distance < minSafeDistance) {
+                        console.log('僵尸生成位置与角色距离过近，寻找新位置');
+                        // 计算远离角色的新位置
+                        var angle = Math.atan2(y - char.y, x - char.x);
+                        var newX = char.x + Math.cos(angle) * minSafeDistance;
+                        var newY = char.y + Math.sin(angle) * minSafeDistance;
+                        
+                        // 使用碰撞系统验证新位置
+                        if (window.collisionSystem.generateGameSafePosition) {
+                            var safePosition = window.collisionSystem.generateGameSafePosition(
+                                newX, newY, collisionConfig.SAFE_SPAWN_DISTANCE, 
+                                detectionConfig.MAX_SPAWN_SEARCH_RADIUS, zombieWidth, zombieHeight);
+                            if (safePosition) {
+                                x = safePosition.x;
+                                y = safePosition.y;
+                                console.log('找到与角色安全距离的位置:', x, y);
+                                break;
+                            }
+                        } else {
+                            x = newX;
+                            y = newY;
+                            console.log('调整到与角色安全距离的位置:', x, y);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
 
         // 验证步骤3：检查是否与人物重叠
         if (window.collisionSystem.isCharacterOverlappingWithZombies) {

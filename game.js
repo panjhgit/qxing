@@ -332,7 +332,21 @@ function createAndAddGameObjects() {
         throw new Error('僵尸管理器未找到');
     }
     
-    var testZombie = zombieManager.createZombie('skinny', 8000, 7500);
+    // 在距离主人物安全距离的位置创建僵尸，避免重叠
+    var zombieSpawnX = spawnX + 200; // 距离主人物200像素
+    var zombieSpawnY = spawnY + 200;
+    
+    // 使用碰撞系统生成僵尸的安全位置
+    if (collisionSystem && collisionSystem.generateGameSafePosition) {
+        var zombieSafePos = collisionSystem.generateGameSafePosition(zombieSpawnX, zombieSpawnY, 100, 200, 32, 32, true);
+        zombieSpawnX = zombieSafePos.x;
+        zombieSpawnY = zombieSafePos.y;
+        console.log('✅ 找到僵尸安全位置:', zombieSpawnX, zombieSpawnY);
+    } else {
+        console.warn('⚠️ 碰撞系统未准备好，使用默认僵尸位置');
+    }
+    
+    var testZombie = zombieManager.createZombie('skinny', zombieSpawnX, zombieSpawnY);
     if (testZombie) {
         console.log('✅ 初始僵尸创建成功:', testZombie.id);
         
@@ -374,6 +388,46 @@ function createAndAddGameObjects() {
                     console.log('✅ 手动添加后四叉树中的僵尸数量:', zombiesAfterAdd.length);
                 } else {
                     console.error('❌ 僵尸手动添加到四叉树失败');
+                }
+            }
+        }
+        
+        // 检查僵尸是否与主人物重叠，如果重叠则调整位置
+        var mainChar = characterManager.getMainCharacter();
+        if (mainChar && testZombie) {
+            var distance = Math.sqrt(
+                Math.pow(testZombie.x - mainChar.x, 2) + 
+                Math.pow(testZombie.y - mainChar.y, 2)
+            );
+            
+            console.log('🔍 僵尸与主人物距离检查:', {
+                zombiePos: { x: testZombie.x, y: testZombie.y },
+                mainCharPos: { x: mainChar.x, y: mainChar.y },
+                distance: distance,
+                minSafeDistance: 100
+            });
+            
+            // 如果距离小于100像素，调整僵尸位置
+            if (distance < 100) {
+                console.log('⚠️ 僵尸与主人物距离过近，调整位置');
+                var newZombieX = mainChar.x + 150;
+                var newZombieY = mainChar.y + 150;
+                
+                // 使用碰撞系统验证新位置是否安全
+                if (collisionSystem && collisionSystem.generateGameSafePosition) {
+                    var adjustedPos = collisionSystem.generateGameSafePosition(newZombieX, newZombieY, 100, 200, 32, 32, true);
+                    testZombie.x = adjustedPos.x;
+                    testZombie.y = adjustedPos.y;
+                    console.log('✅ 僵尸位置已调整到安全位置:', adjustedPos.x, adjustedPos.y);
+                } else {
+                    testZombie.x = newZombieX;
+                    testZombie.y = newZombieY;
+                    console.log('✅ 僵尸位置已调整:', newZombieX, newZombieY);
+                }
+                
+                // 更新四叉树中的位置
+                if (collisionSystem && collisionSystem.updateDynamicObjectPosition) {
+                    collisionSystem.updateDynamicObjectPosition(testZombie, testZombie.x, testZombie.y, testZombie.x, testZombie.y);
                 }
             }
         }
