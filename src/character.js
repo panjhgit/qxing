@@ -298,6 +298,11 @@ Character.prototype.setupPartnerStateMachine = function() {
         return this.isMainCharacterMoving();
     });
     
+    sm.addTransition(PARTNER_STATES.ATTACK, PARTNER_STATES.IDLE, () => {
+        // 僵尸死亡或超出范围
+        return !this.hasZombieInRange(50);
+    });
+    
     sm.addTransition(PARTNER_STATES.AVOID, PARTNER_STATES.FOLLOW, () => {
         // 避障完成且主人物仍在移动
         return this.isAvoidanceComplete() && this.isMainCharacterMoving();
@@ -306,6 +311,27 @@ Character.prototype.setupPartnerStateMachine = function() {
     sm.addTransition(PARTNER_STATES.AVOID, PARTNER_STATES.ATTACK, () => {
         // 避障完成且主人物停止且50px内有僵尸
         return this.isAvoidanceComplete() && !this.isMainCharacterMoving() && this.hasZombieInRange(50);
+    });
+    
+    // 添加死亡状态转换
+    sm.addTransition(PARTNER_STATES.INIT, PARTNER_STATES.DIE, () => {
+        return this.hp <= 0;
+    });
+    
+    sm.addTransition(PARTNER_STATES.IDLE, PARTNER_STATES.DIE, () => {
+        return this.hp <= 0;
+    });
+    
+    sm.addTransition(PARTNER_STATES.FOLLOW, PARTNER_STATES.DIE, () => {
+        return this.hp <= 0;
+    });
+    
+    sm.addTransition(PARTNER_STATES.ATTACK, PARTNER_STATES.DIE, () => {
+        return this.hp <= 0;
+    });
+    
+    sm.addTransition(PARTNER_STATES.AVOID, PARTNER_STATES.DIE, () => {
+        return this.hp <= 0;
     });
     
     // 添加状态行为
@@ -337,6 +363,12 @@ Character.prototype.setupPartnerStateMachine = function() {
         this.onEnterAvoid.bind(this),     // 进入避障
         this.onUpdateAvoid.bind(this),    // 更新避障
         this.onExitAvoid.bind(this)       // 退出避障
+    );
+    
+    sm.addBehavior(PARTNER_STATES.DIE, 
+        this.onEnterDie.bind(this),       // 进入死亡
+        this.onUpdateDie.bind(this),      // 更新死亡
+        this.onExitDie.bind(this)         // 退出死亡
     );
 };
 
@@ -415,10 +447,55 @@ Character.prototype.detectCongestion = function() {
         const angleDiff = Math.abs(angleToPartner - mainCharAngle);
         
         // 如果角度差小于45度且距离小于80px，认为拥堵
-        return angleDiff < Math.PI / 4 && distance < 80;
+        if (angleDiff < Math.PI / 4 && distance < 80) {
+            // 多伙伴协同：优先让离主人物最近的伙伴进入避障状态
+            return this.shouldEnterAvoidance(mainChar);
+        }
     }
     
     return false;
+};
+
+// 判断是否应该进入避障状态（多伙伴协同逻辑）
+Character.prototype.shouldEnterAvoidance = function(mainChar) {
+    if (!window.characterManager) return true;
+    
+    const allCharacters = window.characterManager.getAllCharacters();
+    const partners = allCharacters.filter(char => 
+        char.role !== 1 && // 不是主人物
+        char.hp > 0 && // 活着
+        char.id !== this.id // 不是自己
+    );
+    
+    if (partners.length === 0) return true; // 没有其他伙伴，直接避障
+    
+    const mathUtils = UtilsManager.getMathUtils();
+    const myDistance = mathUtils.distance(this.x, this.y, mainChar.x, mainChar.y);
+    
+    // 检查是否有其他伙伴距离主人物更近
+    for (let i = 0; i < partners.length; i++) {
+        const partner = partners[i];
+        const partnerDistance = mathUtils.distance(partner.x, partner.y, mainChar.x, mainChar.y);
+        
+        // 如果其他伙伴距离更近，且也在拥堵范围内，让它们优先避障
+        if (partnerDistance < myDistance && partnerDistance < 80) {
+            // 检查其他伙伴是否已经在避障状态
+            if (partner.stateMachine && partner.stateMachine.isInState(PARTNER_STATES.AVOID)) {
+                console.log('伙伴', this.id, '检测到其他伙伴已在避障，等待轮到自己');
+                return false; // 等待其他伙伴完成避障
+            }
+            
+            // 如果其他伙伴没有避障，让距离最近的先避障
+            if (partnerDistance < myDistance - 10) { // 10px的缓冲距离
+                console.log('伙伴', this.id, '检测到更近的伙伴，让它们先避障');
+                return false;
+            }
+        }
+    }
+    
+    // 我是最近的伙伴，或者没有其他伙伴在拥堵范围内，可以进入避障
+    console.log('伙伴', this.id, '进入避障状态，距离主人物:', myDistance);
+    return true;
 };
 
 // 检查避障是否完成
@@ -480,27 +557,72 @@ Character.prototype.onExitAttack = function(stateData) {
 // 伙伴状态行为
 Character.prototype.onEnterInit = function(stateData) {
     this.status = STATUS.IDLE;
+    this.isMoving = false;
+    this.attackCooldown = 0; // 重置攻击冷却
     console.log('伙伴进入初始状态');
 };
 
 Character.prototype.onUpdateInit = function(deltaTime, stateData) {
     // 初始状态下的行为：静止不动，渲染待机动画
     this.updateAnimation(deltaTime);
+    
+    // 检查是否应该切换到跟随状态
+    if (this.isMainCharacterNearby(20)) {
+        console.log('伙伴检测到主人物靠近，准备切换到跟随状态');
+    }
 };
 
 Character.prototype.onExitInit = function(stateData) {
     console.log('伙伴退出初始状态');
 };
 
+Character.prototype.onEnterIdle = function(stateData) {
+    this.status = STATUS.IDLE;
+    this.isMoving = false;
+    this.attackCooldown = 0; // 重置攻击冷却
+    console.log('伙伴进入待机状态');
+};
+
+Character.prototype.onUpdateIdle = function(deltaTime, stateData) {
+    // 待机状态下的行为：渲染待机动画
+    this.updateAnimation(deltaTime);
+    
+    // 检查是否有僵尸需要攻击
+    if (this.hasZombieInRange(100)) {
+        console.log('伙伴在待机状态检测到僵尸，准备攻击');
+    }
+    
+    // 检查主人物是否开始移动
+    if (this.isMainCharacterMoving()) {
+        console.log('伙伴检测到主人物移动，准备跟随');
+    }
+};
+
+Character.prototype.onExitIdle = function(stateData) {
+    console.log('伙伴退出待机状态');
+};
+
 Character.prototype.onEnterFollow = function(stateData) {
     this.status = STATUS.FOLLOW;
     this.isMoving = true;
+    this.attackCooldown = 0; // 重置攻击冷却
     console.log('伙伴进入跟随状态');
+    
+    // 计算跟随点
+    this.calculateFollowPoint();
 };
 
 Character.prototype.onUpdateFollow = function(deltaTime, stateData) {
     // 跟随状态下的行为：追逐主人物侧后方跟随点
     this.updateFollow(deltaTime);
+    
+    // 每帧重新计算跟随点（避免伙伴"绕圈追"）
+    this.calculateFollowPoint();
+    
+    // 检查是否应该避障
+    if (this.detectCongestion()) {
+        console.log('伙伴检测到拥堵，准备避障');
+    }
 };
 
 Character.prototype.onExitFollow = function(stateData) {
@@ -508,36 +630,365 @@ Character.prototype.onExitFollow = function(stateData) {
     console.log('伙伴退出跟随状态');
 };
 
+Character.prototype.onEnterAttack = function(stateData) {
+    this.status = STATUS.ATTACKING;
+    this.isMoving = false;
+    this.attackCooldown = 0; // 重置攻击冷却
+    console.log('伙伴进入攻击状态');
+    
+    // 寻找最近的僵尸作为攻击目标
+    this.findAttackTarget();
+};
+
+Character.prototype.onUpdateAttack = function(deltaTime, stateData) {
+    // 攻击状态下的行为：移动到攻击距离，触发攻击动画
+    this.updateAttack(deltaTime);
+    
+    // 检查攻击目标是否仍然有效
+    if (!this.attackTarget || this.attackTarget.hp <= 0) {
+        console.log('伙伴攻击目标无效，准备切换状态');
+        return;
+    }
+    
+    // 检查是否应该打断攻击（主人物移动）
+    if (this.isMainCharacterMoving()) {
+        console.log('主人物移动，伙伴攻击被打断');
+        return;
+    }
+};
+
+Character.prototype.onExitAttack = function(stateData) {
+    this.attackTarget = null; // 清除攻击目标
+    console.log('伙伴退出攻击状态');
+};
+
 Character.prototype.onEnterAvoid = function(stateData) {
     this.status = STATUS.AVOIDING;
+    this.isMoving = true;
     console.log('伙伴进入避障状态');
+    
+    // 计算避障策略
+    this.calculateAvoidanceStrategy();
 };
 
 Character.prototype.onUpdateAvoid = function(deltaTime, stateData) {
     // 避障状态下的行为：按避障策略为主体让路
     this.updateAvoid(deltaTime);
+    
+    // 检查避障是否完成
+    if (this.isAvoidanceComplete()) {
+        console.log('伙伴避障完成');
+    }
 };
 
 Character.prototype.onExitAvoid = function(stateData) {
     console.log('伙伴退出避障状态');
 };
 
+Character.prototype.onEnterDie = function(stateData) {
+    this.status = STATUS.DIE;
+    this.isMoving = false;
+    this.deathAnimationTime = 0; // 死亡动画计时器
+    console.log('伙伴进入死亡状态');
+    
+    // 播放死亡动画
+    this.playDeathAnimation();
+};
+
+Character.prototype.onUpdateDie = function(deltaTime, stateData) {
+    // 死亡状态下的行为：播放死亡动画
+    this.deathAnimationTime += deltaTime;
+    
+    // 死亡动画持续2秒
+    if (this.deathAnimationTime >= 2.0) {
+        console.log('伙伴死亡动画结束，准备销毁');
+        this.destroy();
+    }
+};
+
+Character.prototype.onExitDie = function(stateData) {
+    console.log('伙伴退出死亡状态');
+};
+
 // 通用的攻击更新方法
 Character.prototype.updateAttack = function(deltaTime) {
-    // 这里需要实现攻击逻辑
-    // 暂时为空，后续需要实现
+    if (!this.attackTarget || this.attackTarget.hp <= 0) {
+        return;
+    }
+    
+    // 检查攻击冷却
+    this.attackCooldown += deltaTime;
+    var attackInterval = 1.0; // 1秒攻击一次（与主人物错开）
+    
+    if (this.attackCooldown >= attackInterval) {
+        // 执行攻击
+        this.performAttack();
+        this.attackCooldown = 0;
+    }
+    
+    // 移动到攻击距离
+    this.moveToAttackRange();
 };
 
 // 通用的跟随更新方法
 Character.prototype.updateFollow = function(deltaTime) {
-    // 这里需要实现跟随逻辑
-    // 暂时为空，后续需要实现
+    if (!this.followPoint) {
+        this.calculateFollowPoint();
+        return;
+    }
+    
+    // 计算到跟随点的距离
+    var mathUtils = UtilsManager.getMathUtils();
+    var distance = mathUtils.distance(this.x, this.y, this.followPoint.x, this.followPoint.y);
+    
+    if (distance > 5) { // 5px的跟随精度
+        // 移动到跟随点
+        this.setMoveTarget(this.followPoint.x, this.followPoint.y);
+    } else {
+        // 到达跟随点，停止移动
+        this.stopMovement();
+    }
 };
 
 // 通用的避障更新方法
 Character.prototype.updateAvoid = function(deltaTime) {
-    // 这里需要实现避障逻辑
-    // 暂时为空，后续需要实现
+    if (!this.avoidanceTarget) {
+        return;
+    }
+    
+    // 移动到避障目标位置
+    var mathUtils = UtilsManager.getMathUtils();
+    var distance = mathUtils.distance(this.x, this.y, this.avoidanceTarget.x, this.avoidanceTarget.y);
+    
+    if (distance > 3) { // 3px的避障精度
+        this.setMoveTarget(this.avoidanceTarget.x, this.avoidanceTarget.y);
+    } else {
+        // 到达避障位置，停止移动
+        this.stopMovement();
+        this.avoidanceComplete = true;
+    }
+};
+
+// 计算跟随点（主人物侧后方）
+Character.prototype.calculateFollowPoint = function() {
+    if (!window.characterManager) return;
+    
+    var mainChar = window.characterManager.getMainCharacter();
+    if (!mainChar) return;
+    
+    var mathUtils = UtilsManager.getMathUtils();
+    
+    // 计算主人物移动方向
+    var mainCharDirection = 0;
+    if (mainChar.isMoving && mainChar.targetX !== mainChar.x && mainChar.targetY !== mainChar.y) {
+        mainCharDirection = mathUtils.angle(mainChar.x, mainChar.y, mainChar.targetX, mainChar.targetY);
+    }
+    
+    // 计算跟随点位置（侧后方，距离80px）
+    var followDistance = 80;
+    var followAngle = mainCharDirection + Math.PI; // 后方
+    var sideOffset = Math.PI / 4; // 45度侧方偏移
+    
+    // 根据伙伴ID选择左侧或右侧跟随
+    var sideMultiplier = (this.id % 2 === 0) ? 1 : -1;
+    var finalAngle = followAngle + (sideOffset * sideMultiplier);
+    
+    this.followPoint = {
+        x: mainChar.x + Math.cos(finalAngle) * followDistance,
+        y: mainChar.y + Math.sin(finalAngle) * followDistance
+    };
+    
+    // 确保跟随点不在建筑物内
+    if (window.collisionSystem && window.collisionSystem.isCircleCollidingWithBuildings) {
+        if (window.collisionSystem.isCircleCollidingWithBuildings(this.followPoint.x, this.followPoint.y, 16)) {
+            // 如果跟随点在建筑物内，寻找附近的安全位置
+            var safePos = this.findSafeFollowPosition(mainChar.x, mainChar.y, followDistance);
+            if (safePos) {
+                this.followPoint = safePos;
+            }
+        }
+    }
+};
+
+// 寻找安全的跟随位置
+Character.prototype.findSafeFollowPosition = function(centerX, centerY, baseDistance) {
+    var searchRadius = baseDistance;
+    var searchSteps = 8; // 8个方向
+    
+    for (var i = 0; i < searchSteps; i++) {
+        var angle = (i / searchSteps) * Math.PI * 2;
+        var testX = centerX + Math.cos(angle) * searchRadius;
+        var testY = centerY + Math.sin(angle) * searchRadius;
+        
+        if (!window.collisionSystem.isCircleCollidingWithBuildings(testX, testY, 16)) {
+            return {x: testX, y: testY};
+        }
+    }
+    
+    // 如果都找不到，返回原位置
+    return {x: centerX, y: centerY};
+};
+
+// 寻找攻击目标
+Character.prototype.findAttackTarget = function() {
+    if (!window.zombieManager) return;
+    
+    var zombies = window.zombieManager.getAllZombies().filter(z => z.hp > 0);
+    if (zombies.length === 0) return;
+    
+    var mathUtils = UtilsManager.getMathUtils();
+    var closestZombie = null;
+    var closestDistance = Infinity;
+    
+    // 寻找最近的僵尸
+    for (var i = 0; i < zombies.length; i++) {
+        var zombie = zombies[i];
+        var distance = mathUtils.distance(this.x, this.y, zombie.x, zombie.y);
+        
+        if (distance <= this.attackRange && distance < closestDistance) {
+            closestDistance = distance;
+            closestZombie = zombie;
+        }
+    }
+    
+    this.attackTarget = closestZombie;
+    
+    if (this.attackTarget) {
+        console.log('伙伴找到攻击目标:', this.attackTarget.type, '距离:', closestDistance);
+    }
+};
+
+// 移动到攻击范围
+Character.prototype.moveToAttackRange = function() {
+    if (!this.attackTarget || this.attackTarget.hp <= 0) return;
+    
+    var mathUtils = UtilsManager.getMathUtils();
+    var distance = mathUtils.distance(this.x, this.y, this.attackTarget.x, this.attackTarget.y);
+    var targetDistance = this.attackRange - 5; // 留5px缓冲
+    
+    if (distance > targetDistance) {
+        // 计算到攻击范围边缘的位置
+        var angle = mathUtils.angle(this.x, this.y, this.attackTarget.x, this.attackTarget.y);
+        var targetX = this.attackTarget.x + Math.cos(angle + Math.PI) * targetDistance;
+        var targetY = this.attackTarget.y + Math.sin(angle + Math.PI) * targetDistance;
+        
+        this.setMoveTarget(targetX, targetY);
+    } else {
+        // 在攻击范围内，停止移动
+        this.stopMovement();
+    }
+};
+
+// 执行攻击
+Character.prototype.performAttack = function() {
+    if (!this.attackTarget || this.attackTarget.hp <= 0) return;
+    
+    // 对僵尸造成伤害
+    this.attackTarget.takeDamage(this.attack);
+    
+    console.log('伙伴攻击僵尸:', this.attackTarget.type, '造成伤害:', this.attack);
+    
+    // 播放攻击动画
+    this.playAttackAnimation();
+};
+
+// 计算避障策略
+Character.prototype.calculateAvoidanceStrategy = function() {
+    if (!window.characterManager) return;
+    
+    var mainChar = window.characterManager.getMainCharacter();
+    if (!mainChar) return;
+    
+    var mathUtils = UtilsManager.getMathUtils();
+    
+    // 计算主人物移动方向
+    var mainCharDirection = 0;
+    if (mainChar.isMoving && mainChar.targetX !== mainChar.x && mainChar.targetY !== mainChar.y) {
+        mainCharDirection = mathUtils.angle(mainChar.x, mainChar.y, mainChar.targetX, mainChar.targetY);
+    }
+    
+    // 计算避障方向（垂直于主人物移动方向）
+    var avoidDirection = mainCharDirection + Math.PI / 2; // 90度垂直
+    
+    // 根据伙伴ID选择避障方向（避免所有伙伴往同一方向避障）
+    var sideMultiplier = (this.id % 2 === 0) ? 1 : -1;
+    var finalAvoidDirection = avoidDirection * sideMultiplier;
+    
+    // 计算避障目标位置（距离100px）
+    var avoidDistance = 100;
+    this.avoidanceTarget = {
+        x: this.x + Math.cos(finalAvoidDirection) * avoidDistance,
+        y: this.y + Math.sin(finalAvoidDirection) * avoidDistance
+    };
+    
+    // 确保避障目标位置安全
+    if (window.collisionSystem && window.collisionSystem.isCircleCollidingWithBuildings) {
+        if (window.collisionSystem.isCircleCollidingWithBuildings(this.avoidanceTarget.x, this.avoidanceTarget.y, 16)) {
+            // 寻找附近的安全避障位置
+            var safePos = this.findSafeAvoidancePosition(this.x, this.y, avoidDistance);
+            if (safePos) {
+                this.avoidanceTarget = safePos;
+            }
+        }
+    }
+    
+    this.avoidanceComplete = false;
+    console.log('伙伴计算避障策略，目标位置:', this.avoidanceTarget);
+};
+
+// 寻找安全的避障位置
+Character.prototype.findSafeAvoidancePosition = function(centerX, centerY, baseDistance) {
+    var searchRadius = baseDistance;
+    var searchSteps = 12; // 12个方向
+    
+    for (var i = 0; i < searchSteps; i++) {
+        var angle = (i / searchSteps) * Math.PI * 2;
+        var testX = centerX + Math.cos(angle) * searchRadius;
+        var testY = centerY + Math.sin(angle) * searchRadius;
+        
+        if (!window.collisionSystem.isCircleCollidingWithBuildings(testX, testY, 16)) {
+            return {x: testX, y: testY};
+        }
+    }
+    
+    // 如果都找不到，返回原位置
+    return {x: centerX, y: centerY};
+};
+
+// 检查避障是否完成
+Character.prototype.isAvoidanceComplete = function() {
+    return this.avoidanceComplete || false;
+};
+
+// 播放攻击动画
+Character.prototype.playAttackAnimation = function() {
+    // 设置攻击动画帧
+    this.animationFrame = 0;
+    this.animationSpeed = 0.3; // 攻击动画速度
+    
+    console.log('伙伴播放攻击动画');
+};
+
+// 播放死亡动画
+Character.prototype.playDeathAnimation = function() {
+    // 设置死亡动画帧
+    this.animationFrame = 0;
+    this.animationSpeed = 0.1; // 死亡动画速度
+    
+    console.log('伙伴播放死亡动画');
+};
+
+// 销毁角色
+Character.prototype.destroy = function() {
+    console.log('伙伴销毁:', this.role, this.id);
+    
+    // 从四叉树中移除
+    if (window.collisionSystem && window.collisionSystem.removeDynamicObject) {
+        window.collisionSystem.removeDynamicObject(this);
+    }
+    
+    // 标记为已销毁
+    this._destroyed = true;
 };
 
 // 设置移动目标 - 使用工具类
@@ -727,6 +1178,59 @@ Character.prototype.stopMovement = function() {
             animationConfig.MAX_ANIMATION_FRAMES
         );
     }
+};
+
+// 更新动画 - 使用工具类
+Character.prototype.updateAnimation = function (deltaTime) {
+    var animationUtils = UtilsManager.getAnimationUtils();
+    var animationConfig = ConfigManager.get('ANIMATION');
+    
+    // 根据状态调整动画速度
+    var baseSpeed = this.animationSpeed;
+    var adjustedSpeed = baseSpeed;
+    
+    switch (this.status) {
+        case STATUS.MOVING:
+        case STATUS.FOLLOW:
+            adjustedSpeed = baseSpeed * 1.5; // 移动状态动画更快
+            break;
+        case STATUS.ATTACKING:
+            adjustedSpeed = baseSpeed * 2.0; // 攻击状态动画最快
+            break;
+        case STATUS.AVOIDING:
+            adjustedSpeed = baseSpeed * 1.8; // 避障状态动画较快
+            break;
+        case STATUS.DIE:
+            adjustedSpeed = baseSpeed * 0.5; // 死亡状态动画较慢
+            break;
+        default:
+            adjustedSpeed = baseSpeed; // 待机状态正常速度
+    }
+    
+    // 更新动画帧
+    this.animationFrame = animationUtils.updateFrame(
+        this.animationFrame, 
+        adjustedSpeed * deltaTime, 
+        animationConfig.MAX_ANIMATION_FRAMES
+    );
+    
+    // 检查动画是否应该重置
+    if (animationUtils.shouldResetAnimation(this.animationFrame, animationConfig.MAX_ANIMATION_FRAMES)) {
+        this.animationFrame = 0;
+    }
+    
+    // 记录动画状态（用于调试）
+    if (this.frameCount % 60 === 0) { // 每秒记录一次
+        console.log('角色动画更新:', {
+            role: this.role,
+            status: this.status,
+            frame: this.animationFrame,
+            speed: adjustedSpeed,
+            deltaTime: deltaTime
+        });
+    }
+    
+    this.frameCount = (this.frameCount || 0) + 1;
 };
 
 // 获取身体颜色

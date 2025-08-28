@@ -209,6 +209,7 @@ Zombie.prototype.update = function (deltaTime, characters) {
         if (this.state !== ZOMBIE_STATE.DEAD) {
             console.log('僵尸生命值耗尽，设置死亡状态:', this.type, this.id);
             this.state = ZOMBIE_STATE.DEAD;
+            this.onEnterDead();
         }
         return;
     }
@@ -219,6 +220,9 @@ Zombie.prototype.update = function (deltaTime, characters) {
         console.error('僵尸坐标无效，跳过更新:', this.type, this.id, 'x:', this.x, 'y:', this.y);
         return;
     }
+
+    // 更新白天/夜晚状态
+    this.updateDayNightState();
 
     // 寻找目标
     this.findTarget(characters);
@@ -238,7 +242,7 @@ Zombie.prototype.update = function (deltaTime, characters) {
             this.idleBehavior(deltaTime);
             break;
         case ZOMBIE_STATE.DEAD:
-            // 死亡状态不执行任何行为
+            this.updateDead(deltaTime);
             break;
         default:
             console.warn('僵尸状态未知，重置为待机:', this.type, this.id, 'state:', this.state);
@@ -248,6 +252,84 @@ Zombie.prototype.update = function (deltaTime, characters) {
 
     // 更新动画
     this.updateAnimation(deltaTime);
+};
+
+// 更新白天/夜晚状态
+Zombie.prototype.updateDayNightState = function() {
+    // 检查游戏时间系统
+    if (window.gameEngine && window.gameEngine.getTimeInfo) {
+        var timeInfo = window.gameEngine.getTimeInfo();
+        if (timeInfo) {
+            this.isDay = timeInfo.isDay;
+            
+            // 根据白天/夜晚调整移动速度
+            if (this.isDay) {
+                this.currentMoveSpeed = this.moveSpeed; // 白天正常速度
+            } else {
+                this.currentMoveSpeed = this.moveSpeed * 1.67; // 夜晚速度提升到3m/s (180 * 1.67 ≈ 300)
+            }
+        }
+    } else {
+        this.currentMoveSpeed = this.moveSpeed; // 默认速度
+    }
+};
+
+// 进入死亡状态
+Zombie.prototype.onEnterDead = function() {
+    this.deathAnimationTime = 0; // 死亡动画计时器
+    this.deathAnimationDuration = 2.0; // 死亡动画持续2秒
+    
+    // 停止移动
+    this.isMoving = false;
+    this.targetCharacter = null;
+    
+    // 概率掉落资源
+    this.dropResources();
+    
+    console.log('僵尸进入死亡状态:', this.type, this.id);
+};
+
+// 更新死亡状态
+Zombie.prototype.updateDead = function(deltaTime) {
+    this.deathAnimationTime += deltaTime;
+    
+    // 死亡动画持续2秒后销毁
+    if (this.deathAnimationTime >= this.deathAnimationDuration) {
+        console.log('僵尸死亡动画结束，准备销毁:', this.type, this.id);
+        this.destroy();
+    }
+};
+
+// 概率掉落资源
+Zombie.prototype.dropResources = function() {
+    var dropChance = 0.3; // 30%概率掉落资源
+    
+    if (Math.random() < dropChance) {
+        var resourceType = Math.random() < 0.6 ? 'food' : 'health'; // 60%概率口粮，40%概率血包
+        
+        // 创建资源对象（这里只是标记，实际资源管理需要单独的系统）
+        this.droppedResource = {
+            type: resourceType,
+            x: this.x,
+            y: this.y,
+            value: resourceType === 'food' ? 1 : 20 // 口粮+1，血包+20
+        };
+        
+        console.log('僵尸掉落资源:', resourceType, '位置:', this.x, this.y);
+    }
+};
+
+// 销毁僵尸
+Zombie.prototype.destroy = function() {
+    console.log('僵尸销毁:', this.type, this.id);
+    
+    // 从四叉树中移除
+    if (window.collisionSystem && window.collisionSystem.destroyZombieObject) {
+        window.collisionSystem.destroyZombieObject(this);
+    }
+    
+    // 标记为已销毁
+    this._destroyed = true;
 };
 
 // 寻找目标 - 使用工具类
@@ -395,13 +477,26 @@ Zombie.prototype.attackTarget = function (deltaTime) {
         this.lastAttackTime = currentTime;
 
         console.log('僵尸攻击:', this.type, '造成伤害:', this.attack);
+        
+        // 播放攻击动画
+        this.playAttackAnimation();
     }
 
     // 检查目标是否还在攻击范围内
     var distance = mathUtils.distance(this.x, this.y, this.targetCharacter.x, this.targetCharacter.y);
     if (distance > this.attackRange) {
         this.state = ZOMBIE_STATE.CHASING;
+        console.log('僵尸目标超出攻击范围，切换到追击状态');
     }
+};
+
+// 播放攻击动画
+Zombie.prototype.playAttackAnimation = function() {
+    // 设置攻击动画帧
+    this.animationFrame = 0;
+    this.animationSpeed = 0.4; // 攻击动画速度
+    
+    console.log('僵尸播放攻击动画:', this.type, this.id);
 };
 
 // 向目标移动 - 使用工具类
@@ -432,9 +527,12 @@ Zombie.prototype.moveTowards = function (targetX, targetY, deltaTime) {
     // 计算移动方向（始终朝向目标）
     this.direction = mathUtils.angle(this.x, this.y, targetX, targetY);
     
+    // 使用当前移动速度（考虑白天/夜晚）
+    var currentSpeed = this.currentMoveSpeed || this.moveSpeed;
+    
     // 计算移动向量
     var moveVector = movementUtils.calculateMoveVector(
-        this.x, this.y, targetX, targetY, this.moveSpeed, deltaTime
+        this.x, this.y, targetX, targetY, currentSpeed, deltaTime
     );
 
     // 验证移动向量
@@ -442,28 +540,15 @@ Zombie.prototype.moveTowards = function (targetX, targetY, deltaTime) {
         console.error('僵尸移动向量无效:', {
             zombieType: this.type, zombieId: this.id,
             fromX: this.x, fromY: this.y, toX: targetX, toY: targetY,
-            moveSpeed: this.moveSpeed, deltaTime: deltaTime,
-            moveVector: moveVector,
-            moveVectorType: typeof moveVector,
-            moveVectorKeys: moveVector ? Object.keys(moveVector) : 'null'
-        });
-        return;
-    }
-
-    // 额外验证：检查移动向量的数值范围
-    if (Math.abs(moveVector.x) > 1000 || Math.abs(moveVector.y) > 1000) {
-        console.error('僵尸移动向量数值异常:', {
-            zombieType: this.type, zombieId: this.id,
-            moveVector: moveVector,
-            moveSpeed: this.moveSpeed,
-            deltaTime: deltaTime
+            moveSpeed: currentSpeed, deltaTime: deltaTime,
+            moveVector: moveVector
         });
         return;
     }
 
     if (moveVector.distance > 0) {
         console.log('僵尸', this.type, '移动计算:', '从', this.x, this.y, '到', 
-                   this.x + moveVector.x, this.y + moveVector.y, '移动向量:', moveVector, '距离目标:', distanceToTarget);
+                   this.x + moveVector.x, this.y + moveVector.y, '移动向量:', moveVector, '距离目标:', distanceToTarget, '当前速度:', currentSpeed);
 
         // 获取所有僵尸和人物列表（排除自己）
         var allZombies = [];
@@ -685,10 +770,10 @@ Zombie.prototype.idleBehavior = function (deltaTime) {
         }
     }
     
-    // 随机游荡
-    if (Math.random() < 0.01) { // 1%概率改变方向
+    // 随机游荡（模拟"徘徊"）
+    if (Math.random() < 0.005) { // 0.5%概率改变方向
         this.direction = Math.random() * Math.PI * 2;
-        var targetDistance = collisionConfig.SAFE_SPAWN_DISTANCE;
+        var targetDistance = 50 + Math.random() * 100; // 50-150px随机距离
         this.targetX = this.x + Math.cos(this.direction) * targetDistance;
         this.targetY = this.y + Math.sin(this.direction) * targetDistance;
 
@@ -723,7 +808,39 @@ Zombie.prototype.idleBehavior = function (deltaTime) {
         }
 
         this.state = ZOMBIE_STATE.WALKING;
+        console.log('僵尸开始随机游荡，目标位置:', this.targetX, this.targetY);
     }
+};
+
+// 计算新的游荡目标
+Zombie.prototype.calculateNewTarget = function() {
+    var attempts = 0;
+    var maxAttempts = 10;
+    
+    while (attempts < maxAttempts) {
+        this.direction = Math.random() * Math.PI * 2;
+        var targetDistance = 50 + Math.random() * 100;
+        this.targetX = this.x + Math.cos(this.direction) * targetDistance;
+        this.targetY = this.y + Math.sin(this.direction) * targetDistance;
+        
+        // 检查新位置是否安全
+        if (window.collisionSystem && window.collisionSystem.isCircleCollidingWithBuildings) {
+            if (!window.collisionSystem.isCircleCollidingWithBuildings(this.targetX, this.targetY, this.radius)) {
+                console.log('僵尸找到安全的游荡目标:', this.targetX, this.targetY);
+                return;
+            }
+        } else {
+            // 如果无法检查碰撞，直接使用
+            return;
+        }
+        
+        attempts++;
+    }
+    
+    // 如果找不到安全位置，保持当前位置
+    this.targetX = this.x;
+    this.targetY = this.y;
+    console.log('僵尸无法找到安全的游荡目标，保持当前位置');
 };
 
 // 更新动画 - 使用工具类
@@ -794,7 +911,11 @@ Zombie.prototype.takeDamage = function (damage) {
 
 // 渲染僵尸
 Zombie.prototype.render = function (ctx, cameraX, cameraY) {
-    if (this.hp <= 0) return;
+    if (this.hp <= 0) {
+        // 死亡状态：只渲染死亡动画和资源掉落
+        this.renderDead(ctx, cameraX, cameraY);
+        return;
+    }
 
     // 计算屏幕坐标
     var screenX = ctx.canvas.width / 2 + (this.x - cameraX) * 0.6;
@@ -835,11 +956,149 @@ Zombie.prototype.render = function (ctx, cameraX, cameraY) {
     // 绘制血条
     this.drawHealthBar(ctx, screenX, bodyY - 10);
 
-    // 绘制状态指示器 - 改为圆形
-    if (this.state === ZOMBIE_STATE.CHASING) {
-        ctx.fillStyle = '#FF0000';
+    // 绘制状态指示器
+    this.drawStateIndicator(ctx, screenX, bodyY - 7.5);
+    
+    // 绘制白天/夜晚状态指示
+    this.drawDayNightIndicator(ctx, screenX, bodyY - 15);
+};
+
+// 渲染死亡状态的僵尸
+Zombie.prototype.renderDead = function(ctx, cameraX, cameraY) {
+    // 计算屏幕坐标
+    var screenX = ctx.canvas.width / 2 + (this.x - cameraX) * 0.6;
+    var screenY = ctx.canvas.height / 2 + (this.y - cameraY) * 0.6;
+
+    // 检查是否在屏幕范围内
+    if (screenX < -100 || screenX > ctx.canvas.width + 100 || screenY < -100 || screenY > ctx.canvas.height + 100) {
+        return;
+    }
+
+    // 死亡动画：逐渐变透明
+    var alpha = Math.max(0, 1 - (this.deathAnimationTime / this.deathAnimationDuration));
+    ctx.globalAlpha = alpha;
+
+    // 绘制死亡状态的僵尸（灰色）
+    var bodyY = screenY - this.size / 2;
+
+    // 身体 - 死亡状态为灰色
+    ctx.fillStyle = '#808080';
+    ctx.beginPath();
+    ctx.arc(screenX, bodyY + this.size / 2, this.size / 2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 头部 - 死亡状态为深灰色
+    ctx.fillStyle = '#404040';
+    ctx.beginPath();
+    ctx.arc(screenX, bodyY + this.size / 6, this.size / 3, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 绘制死亡图标
+    ctx.font = Math.floor(this.size / 2) + 'px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#000';
+    ctx.fillText('💀', screenX, bodyY + this.size / 2);
+
+    // 恢复透明度
+    ctx.globalAlpha = 1.0;
+
+    // 渲染掉落的资源
+    if (this.droppedResource) {
+        this.renderDroppedResource(ctx, screenX, screenY);
+    }
+};
+
+// 渲染掉落的资源
+Zombie.prototype.renderDroppedResource = function(ctx, screenX, screenY) {
+    var resourceY = screenY + this.size + 10;
+    
+    // 资源图标
+    var icon = this.droppedResource.type === 'food' ? '🍖' : '❤️';
+    var color = this.droppedResource.type === 'food' ? '#FFD700' : '#FF0000';
+    
+    ctx.font = '16px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = color;
+    ctx.fillText(icon, screenX, resourceY);
+    
+    // 资源价值
+    ctx.font = '12px Arial';
+    ctx.fillStyle = '#FFFFFF';
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 1;
+    ctx.strokeText('+' + this.droppedResource.value, screenX, resourceY + 15);
+    ctx.fillText('+' + this.droppedResource.value, screenX, resourceY + 15);
+};
+
+// 绘制状态指示器
+Zombie.prototype.drawStateIndicator = function(ctx, x, y) {
+    var indicatorSize = 4;
+    
+    switch (this.state) {
+        case ZOMBIE_STATE.CHASING:
+            ctx.fillStyle = '#FF0000'; // 红色：追击
+            break;
+        case ZOMBIE_STATE.ATTACKING:
+            ctx.fillStyle = '#FF6600'; // 橙色：攻击
+            break;
+        case ZOMBIE_STATE.WALKING:
+            ctx.fillStyle = '#FFFF00'; // 黄色：移动
+            break;
+        case ZOMBIE_STATE.IDLE:
+            ctx.fillStyle = '#00FF00'; // 绿色：待机
+            break;
+        default:
+            ctx.fillStyle = '#FFFFFF'; // 白色：未知状态
+    }
+    
+    ctx.beginPath();
+    ctx.arc(x, y, indicatorSize, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // 状态指示器边框
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+};
+
+// 绘制白天/夜晚状态指示
+Zombie.prototype.drawDayNightIndicator = function(ctx, x, y) {
+    if (this.isDay === undefined) return;
+ // 白天/夜晚状态指示器
+    var indicatorSize = 3;
+    
+    if (this.isDay) {
+        // 白天：太阳图标
+        ctx.fillStyle = '#FFD700';
         ctx.beginPath();
-        ctx.arc(screenX, bodyY - 7.5, 4, 0, Math.PI * 2);
+        ctx.arc(x - 8, y, indicatorSize, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // 太阳光芒
+        ctx.strokeStyle = '#FFD700';
+        ctx.lineWidth = 1;
+        for (var i = 0; i < 8; i++) {
+            var angle = (i / 8) * Math.PI * 2;
+            var startX = x - 8 + Math.cos(angle) * (indicatorSize + 2);
+            var startY = y + Math.sin(angle) * (indicatorSize + 2);
+            var endX = x - 8 + Math.cos(angle) * (indicatorSize + 5);
+            var endY = y + Math.sin(angle) * (indicatorSize + 5);
+            ctx.beginPath();
+            ctx.moveTo(startX, startY);
+            ctx.lineTo(endX, endY);
+            ctx.stroke();
+        }
+    } else {
+        // 夜晚：月亮图标
+        ctx.fillStyle = '#C0C0C0';
+        ctx.beginPath();
+        ctx.arc(x - 8, y, indicatorSize, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // 月亮阴影
+        ctx.fillStyle = '#000000';
+        ctx.beginPath();
+        ctx.arc(x - 8 + 1, y - 1, indicatorSize - 1, 0, Math.PI * 2);
         ctx.fill();
     }
 };
