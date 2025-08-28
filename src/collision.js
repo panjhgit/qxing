@@ -829,7 +829,11 @@ var CollisionSystem = {
         // 优先检查明确的类型标识
         if (object.type) {
             if (typeof object.type === 'string') {
-                if (object.type.includes('zombie')) return 'zombie';
+                // 僵尸类型识别 - 现在只需要检查type === 'zombie'
+                if (object.type === 'zombie') {
+                    return 'zombie';
+                }
+                
                 if (object.type.includes('character') || object.type.includes('player')) return 'character';
                 if (object.type.includes('item')) return 'item';
                 if (object.type.includes('building')) return 'building';
@@ -859,6 +863,13 @@ var CollisionSystem = {
             // 有生命值系统的对象
             if (object.isZombie === true) return 'zombie';
             if (object.isPlayer === true || object.isCharacter === true) return 'character';
+        }
+
+        // 检查僵尸特有的属性组合
+        if (object.icon === '🧟‍♂️' || 
+            (object.state && ['idle', 'walking', 'attacking', 'dead', 'chasing'].includes(object.state) && 
+             object.hp !== undefined && object.moveSpeed !== undefined)) {
+            return 'zombie';
         }
 
         return 'unknown';
@@ -1093,6 +1104,18 @@ var CollisionSystem = {
     
     // 创建僵尸对象
     createZombieObject: function (zombie) {
+        console.log('CollisionSystem.createZombieObject: 开始创建僵尸对象');
+        console.log('僵尸对象详情:', {
+            id: zombie.id,
+            type: zombie.type,
+            x: zombie.x,
+            y: zombie.y,
+            hp: zombie.hp,
+            state: zombie.state,
+            icon: zombie.icon,
+            hasQuadTreeId: !!zombie._quadTreeId
+        });
+        
         if (!zombie || !zombie.id) {
             console.error('创建僵尸对象失败: 僵尸对象无效');
             return null;
@@ -1101,12 +1124,27 @@ var CollisionSystem = {
             console.warn('僵尸已在四叉树中:', zombie._quadTreeId);
             return zombie;
         }
+        
+        console.log('CollisionSystem.createZombieObject: 调用addDynamicObject');
         var result = this.addDynamicObject(zombie);
+        console.log('CollisionSystem.createZombieObject: addDynamicObject结果:', result);
+        
         if (result) {
-            console.log('僵尸对象已创建并添加到四叉树:', zombie.type, zombie.id);
+            console.log('僵尸对象已创建并添加到四叉树:', zombie.zombieType, zombie.id);
+            console.log('添加后的僵尸对象:', {
+                id: zombie.id,
+                type: zombie.type,
+                zombieType: zombie.zombieType,
+                x: zombie.x,
+                y: zombie.y,
+                hasQuadTreeId: !!zombie._quadTreeId,
+                quadTreeId: zombie._quadTreeId,
+                quadTreeType: zombie._quadTreeType
+            });
             return zombie;
         } else {
-            console.error('僵尸对象创建失败:', zombie.type, zombie.id);
+            console.error('僵尸对象创建失败:', zombie.zombieType, zombie.id);
+            console.error('失败原因: addDynamicObject返回false');
             return null;
         }
     },
@@ -1155,10 +1193,10 @@ var CollisionSystem = {
         }
         var result = this.removeDynamicObject(zombie);
         if (result) {
-            console.log('僵尸对象已从四叉树销毁:', zombie.type, zombie.id);
+            console.log('僵尸对象已从四叉树销毁:', zombie.zombieType, zombie.id);
             return true;
         } else {
-            console.error('僵尸对象销毁失败:', zombie.type, zombie.id);
+            console.error('僵尸对象销毁失败:', zombie.zombieType, zombie.id);
             return false;
         }
     },
@@ -1171,10 +1209,10 @@ var CollisionSystem = {
         }
         var result = this.updateDynamicObjectPosition(zombie, oldX, oldY, newX, newY);
         if (result) {
-            console.log('僵尸位置已更新:', zombie.type, zombie.id, '从', oldX, oldY, '到', newX, newY);
+            console.log('僵尸位置已更新:', zombie.zombieType, zombie.id, '从', oldX, oldY, '到', newX, newY);
             return true;
         } else {
-            console.error('僵尸位置更新失败:', zombie.type, zombie.id);
+            console.error('僵尸位置更新失败:', zombie.zombieType, zombie.id);
             return false;
         }
     },
@@ -1210,6 +1248,7 @@ var CollisionSystem = {
                 console.log(`CollisionSystem.getAllZombies: 对象 ${index}:`, {
                     id: obj.id,
                     type: obj.type,
+                    zombieType: obj.zombieType,
                     role: obj.role,
                     x: obj.x,
                     y: obj.y,
@@ -1219,24 +1258,12 @@ var CollisionSystem = {
             });
         }
         
+        // 简化的僵尸识别逻辑 - 现在只需要检查type === 'zombie'
         var zombies = allObjects.filter(function(obj) {
-            var isZombie = obj && obj.type && (
-                obj.type === 'skinny' || 
-                obj.type === 'fat' || 
-                obj.type === 'boss' || 
-                obj.type === 'fast' || 
-                obj.type === 'tank' ||
-                (obj.hp !== undefined && obj.moveSpeed !== undefined && obj.icon === '🧟‍♂️')
-            );
+            var isZombie = obj && obj.type === 'zombie';
             
-            if (obj && obj.type) {
-                console.log(`CollisionSystem.getAllZombies: 检查对象 ${obj.id}:`, {
-                    type: obj.type,
-                    isZombie: isZombie,
-                    hasHp: obj.hp !== undefined,
-                    hasMoveSpeed: obj.moveSpeed !== undefined,
-                    icon: obj.icon
-                });
+            if (isZombie) {
+                console.log(`CollisionSystem.getAllZombies: 识别为僵尸 - 类型: ${obj.type}, 具体类型: ${obj.zombieType}, ID: ${obj.id}`);
             }
             
             return isZombie;
@@ -1279,22 +1306,16 @@ var CollisionSystem = {
         var count = 0;
         
         if (type === 'zombie') {
-            // 僵尸的特殊处理
+            // 僵尸的特殊处理 - 现在只需要检查type === 'zombie'
             count = allObjects.filter(function(obj) {
-                return obj && obj.type && (
-                    obj.type === 'skinny' || 
-                    obj.type === 'fat' || 
-                    obj.type === 'boss' || 
-                    obj.type === 'fast' || 
-                    obj.type === 'tank' ||
-                    // 或者检查是否有僵尸特有的属性
-                    (obj.hp !== undefined && obj.moveSpeed !== undefined && obj.icon === '🧟‍♂️')
-                );
+                return obj && obj.type === 'zombie';
             }).length;
+            
+            console.log('CollisionSystem.getDynamicObjectCountByType: 僵尸数量:', count);
         } else {
-            // 其他类型的处理
+            // 其他类型的对象计数
             count = allObjects.filter(function(obj) {
-                return obj && obj.type && obj.type.includes(type);
+                return obj && obj.type === type;
             }).length;
         }
 
@@ -1432,13 +1453,6 @@ var CollisionSystem = {
         return false;
     },
 
-
-    // 检测两个矩形是否相交
-    rectsIntersect: function (rect1, rect2) {
-        return !(rect1.right <= rect2.left || rect1.left >= rect2.right || rect1.bottom <= rect2.top || rect1.top >= rect2.bottom);
-    },
-
-
     // 检测两个圆形对象是否重叠（用于人物和僵尸的动态碰撞检测）
     isCirclesOverlapping: function (obj1X, obj1Y, obj1Radius, obj2X, obj2Y, obj2Radius, safetyMargin = 0.1) {
         // 计算两个圆心之间的距离
@@ -1566,7 +1580,7 @@ var CollisionSystem = {
 
         if (!currentMap || !currentMap.matrix || !currentMap.config) {
             console.warn('无法获取矩阵地图数据，使用传统方法');
-            return this.generateGameSafePosition(centerX, centerY, minDistance, maxDistance, objectWidth, objectHeight);
+            return this.generateSafePosition(centerX, centerY, minDistance, maxDistance, objectWidth, objectHeight);
         }
 
         var matrix = currentMap.matrix;
@@ -1595,7 +1609,7 @@ var CollisionSystem = {
 
         if (walkableCells.length === 0) {
             console.warn('没有找到可通行的单元格，使用传统方法');
-            return this.generateGameSafePosition(centerX, centerY, minDistance, maxDistance, objectWidth, objectHeight);
+            return this.generateSafePosition(centerX, centerY, minDistance, maxDistance, objectWidth, objectHeight);
         }
 
         // 按距离排序，找到合适的生成位置
@@ -1624,7 +1638,7 @@ var CollisionSystem = {
         }
 
         console.warn('矩阵方法失败，使用传统方法');
-        return this.generateGameSafePosition(centerX, centerY, minDistance, maxDistance, objectWidth, objectHeight);
+        return this.generateSafePosition(centerX, centerY, minDistance, maxDistance, objectWidth, objectHeight);
     },
 
     // 游戏中的安全位置生成（已优化，使用统一方法）
@@ -2162,6 +2176,71 @@ var CollisionSystem = {
         }
 
         return null;
+    },
+
+    // 范围查询 - 获取指定范围内的所有对象（性能优化）
+    queryRange: function(centerX, centerY, radius) {
+        if (!this.dynamicQuadTree) {
+            console.warn('动态四叉树未初始化，无法进行范围查询');
+            return [];
+        }
+        
+        var results = [];
+        var searchArea = {
+            x: centerX - radius,
+            y: centerY - radius,
+            width: radius * 2,
+            height: radius * 2
+        };
+        
+        // 使用四叉树进行范围查询
+        this.queryQuadTreeRange(this.dynamicQuadTree, searchArea, results);
+        
+        return results;
+    },
+    
+    // 递归查询四叉树范围（性能优化）
+    queryQuadTreeRange: function(node, searchArea, results) {
+        if (!node) return;
+        
+        // 检查节点是否与搜索区域相交
+        if (!this.rectsIntersect(node.bounds, searchArea)) {
+            return;
+        }
+        
+        // 如果是叶子节点，检查其中的对象
+        if (node.objects && node.objects.length > 0) {
+            for (var i = 0; i < node.objects.length; i++) {
+                var obj = node.objects[i];
+                if (obj && obj.x !== undefined && obj.y !== undefined) {
+                    // 计算对象到中心的距离
+                    var distance = Math.sqrt(
+                        Math.pow(obj.x - (searchArea.x + searchArea.width / 2), 2) + 
+                        Math.pow(obj.y - (searchArea.y + searchArea.height / 2), 2)
+                    );
+                    
+                    // 如果在范围内，添加到结果
+                    if (distance <= searchArea.width / 2) {
+                        results.push(obj);
+                    }
+                }
+            }
+        }
+        
+        // 递归查询子节点
+        if (node.children) {
+            for (var i = 0; i < node.children.length; i++) {
+                this.queryQuadTreeRange(node.children[i], searchArea, results);
+            }
+        }
+    },
+    
+    // 检查两个矩形是否相交（性能优化）
+    rectsIntersect: function(rect1, rect2) {
+        return !(rect1.x + rect1.width < rect2.x || 
+                rect2.x + rect2.width < rect1.x || 
+                rect1.y + rect1.height < rect2.y || 
+                rect2.y + rect2.height < rect1.y);
     },
 
 };

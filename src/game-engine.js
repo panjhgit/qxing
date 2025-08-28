@@ -296,6 +296,8 @@ var GameEngine = function(canvas, ctx) {
         day: 1,              // 当前天数
         isDay: true,         // 是否为白天
         dayTime: 0,          // 当前时段计时器（0-30秒）
+        currentTime: 0,      // 当前时间（秒）
+        dayDuration: 30,     // 一天的长度（秒）
         food: 5              // 食物数量
     };
     
@@ -304,6 +306,82 @@ var GameEngine = function(canvas, ctx) {
     
     // 时间系统初始化
     this.lastUpdateTime = performance.now();
+    
+    // 性能监控和自动优化系统
+    this.performanceMonitor = {
+        frameCount: 0,
+        lastFPS: 60,
+        fpsHistory: [],
+        lastOptimizationTime: 0,
+        
+        // 监控帧率
+        updateFPS: function(deltaTime) {
+            this.frameCount++;
+            if (this.frameCount % 60 === 0) { // 每60帧计算一次FPS
+                var currentFPS = Math.round(60 / deltaTime);
+                this.lastFPS = currentFPS;
+                this.fpsHistory.push(currentFPS);
+                
+                // 保持最近100帧的历史
+                if (this.fpsHistory.length > 100) {
+                    this.fpsHistory.shift();
+                }
+                
+                // 检查性能并自动优化
+                this.checkPerformance();
+            }
+        },
+        
+        // 检查性能并自动优化
+        checkPerformance: function() {
+            var currentTime = Date.now();
+            if (currentTime - this.lastOptimizationTime < 5000) return; // 5秒内不重复优化
+            
+            var avgFPS = this.fpsHistory.reduce((a, b) => a + b, 0) / this.fpsHistory.length;
+            
+            if (avgFPS < 30) { // FPS过低，执行优化
+                console.log('性能监控：FPS过低(' + avgFPS + ')，执行自动优化');
+                this.optimizePerformance();
+                this.lastOptimizationTime = currentTime;
+            }
+        },
+        
+        // 自动性能优化
+        optimizePerformance: function() {
+            if (!window.zombieManager) return;
+            
+            var zombies = window.zombieManager.getAllZombies().filter(z => z.hp > 0);
+            
+            // 如果僵尸数量过多，减少一些
+            if (zombies.length > 40) {
+                var excessZombies = zombies.length - 30;
+                console.log('性能优化：移除', excessZombies, '个僵尸');
+                
+                // 移除最远的僵尸
+                var mainChar = window.characterManager ? window.characterManager.getMainCharacter() : null;
+                if (mainChar) {
+                    zombies.sort((a, b) => {
+                        var distA = Math.sqrt(Math.pow(a.x - mainChar.x, 2) + Math.pow(a.y - mainChar.y, 2));
+                        var distB = Math.sqrt(Math.pow(b.x - mainChar.x, 2) + Math.pow(b.y - mainChar.y, 2));
+                        return distB - distA; // 远的在前
+                    });
+                    
+                    // 移除最远的僵尸
+                    for (var i = 0; i < Math.min(excessZombies, 10); i++) {
+                        if (zombies[i]) {
+                            zombies[i].hp = 0; // 标记为死亡
+                        }
+                    }
+                }
+            }
+            
+            // 强制垃圾回收（如果可用）
+            if (window.gc) {
+                window.gc();
+                console.log('性能优化：执行垃圾回收');
+            }
+        }
+    };
     
     // 初始化
     this.init();
@@ -597,36 +675,30 @@ GameEngine.prototype.renderJoystick = function() {
 
 // 更新计时系统
 GameEngine.prototype.updateTimeSystem = function() {
-    if (this.gameState !== 'playing') return;
+    // 更新游戏时间
+    this.timeSystem.currentTime += 1/60; // 每帧增加时间（假设60帧=1秒）
     
-    // 每帧增加时间（假设60帧=1秒）
-    this.timeSystem.dayTime += 1/60;
-    
-    // 每30秒切换一次白天/夜晚
-    if (this.timeSystem.dayTime >= 30) {
-        this.timeSystem.dayTime = 0;
+    // 检查是否过了一天
+    if (this.timeSystem.currentTime >= this.timeSystem.dayDuration) {
+        this.timeSystem.currentTime = 0;
+        this.timeSystem.day++;
+        console.log('新的一天开始，当前天数:', this.timeSystem.day);
         
-        if (this.timeSystem.isDay) {
-            // 白天变夜晚
-            this.timeSystem.isDay = false;
-        } else {
-            // 夜晚变白天，天数+1
-            this.timeSystem.isDay = true;
-            this.timeSystem.day++;
-            
-            // 减少食物（每人消耗1个）
-            var teamSize = this.getTeamSize();
-            this.timeSystem.food = Math.max(0, this.timeSystem.food - teamSize);
-        }
+        // 每天开始时刷新僵尸
+        this.spawnZombiesForDay();
     }
     
-    // 每10秒刷新一次僵尸（不管地图中有没有僵尸都继续刷新）
-    if (this.frameCount % 600 === 0) { // 600帧 = 10秒 (60fps)
-        if (this.zombieManager && this.characterManager) {
-            console.log('GameEngine: 定时刷新僵尸，当前帧数:', this.frameCount);
-            this.spawnZombiesForDay();
-        }
+    // 每5秒刷新30个僵尸（性能优化版本）
+    if (this.frameCount % 300 === 0) { // 300帧 = 5秒 (60fps)
+        this.spawnZombiesForDay();
     }
+    
+    // 更新白天/夜晚状态
+    var dayProgress = this.timeSystem.currentTime / this.timeSystem.dayDuration;
+    this.timeSystem.isDay = dayProgress < 0.5;
+    
+    // 帧数计数
+    this.frameCount++;
 };
 
 // 获取团队人数
@@ -648,92 +720,47 @@ GameEngine.prototype.getTimeInfo = function() {
     };
 };
 
-// 定时刷新僵尸（每10秒调用一次）
+// 定时刷新僵尸（每5秒调用一次）
 GameEngine.prototype.spawnZombiesForDay = function() {
-    if (!this.zombieManager || !this.characterManager) return;
-    
-    var mainChar = this.characterManager.getMainCharacter();
-    if (!mainChar) return;
-    
-    // 控制单次刷新的僵尸数量，避免一次性生成过多
-    var baseZombieCount = 3; // 基础刷新数量
-    var maxZombieCount = 8;  // 单次最大刷新数量
-    
-    // 根据天数增加僵尸数量，但有上限
-    var zombieCount = Math.min(baseZombieCount + Math.floor(this.timeSystem.day / 2), maxZombieCount);
-    
-    console.log('GameEngine: 开始刷新僵尸，数量:', zombieCount, '天数:', this.timeSystem.day);
-    
-    // 记录刷新前的僵尸数量
-    var zombiesBefore = this.zombieManager.getAllZombies().filter(z => z.hp > 0);
-    console.log('GameEngine: 刷新前活跃僵尸数量:', zombiesBefore.length);
-    
-    // 生成僵尸
-    for (var i = 0; i < zombieCount; i++) {
-        // 在距离主人物700px的位置随机生成
-        var angle = (Math.PI * 2 * i) / zombieCount; // 均匀分布
-        var distance = 700 + Math.random() * 100; // 700-800px之间
-        
-        var zombieTypes = ['skinny', 'fat', 'fast', 'tank', 'boss'];
-        var randomType = zombieTypes[Math.floor(Math.random() * zombieTypes.length)];
-        
-        // 计算僵尸生成位置
-        var zombieX = mainChar.x + Math.cos(angle) * distance;
-        var zombieY = mainChar.y + Math.sin(angle) * distance;
-        
-        // 检查僵尸生成位置是否安全
-        if (this.collisionSystem && this.collisionSystem.isCircleCollidingWithBuildings) {
-            if (this.collisionSystem.isCircleCollidingWithBuildings(zombieX, zombieY, 16)) { // 16 = 32/2
-                console.log('僵尸生成位置不安全，跳过');
-                continue;
-            }
-        }
-        
-        // 检查是否与现有僵尸重叠
-        if (this.collisionSystem && this.collisionSystem.isZombieOverlappingWithZombies) {
-            var existingZombies = this.zombieManager.getAllZombies().filter(z => z.hp > 0);
-            
-            if (this.collisionSystem.isZombieOverlappingWithZombies(zombieX, zombieY, 16, existingZombies, null)) {
-                // 如果与现有僵尸重叠，寻找不重叠的位置
-                var nonOverlapPos = this.collisionSystem.getNonOverlappingPosition(
-                    mainChar.x, mainChar.y, zombieX, zombieY, 32, 32, 
-                    existingZombies, true, true
-                );
-                zombieX = nonOverlapPos.x;
-                zombieY = nonOverlapPos.y;
-                console.log('僵尸刷新位置调整，避免重叠:', zombieX, zombieY);
-            }
-        }
-        
-        // 创建僵尸
-        console.log('GameEngine: 开始创建僵尸，类型:', randomType, '位置:', zombieX, zombieY);
-        var createdZombie = this.zombieManager.createZombie(randomType, zombieX, zombieY);
-        
-        if (createdZombie) {
-            console.log('GameEngine: 僵尸创建成功:', {
-                id: createdZombie.id,
-                type: createdZombie.type,
-                x: createdZombie.x,
-                y: createdZombie.y,
-                hp: createdZombie.hp,
-                hasQuadTreeId: !!createdZombie._quadTreeId,
-                quadTreeId: createdZombie._quadTreeId
-            });
-            
-            // 验证僵尸是否在四叉树中
-            if (createdZombie._quadTreeId) {
-                console.log('GameEngine: 僵尸已正确添加到四叉树:', createdZombie._quadTreeId);
-            } else {
-                console.error('GameEngine: 僵尸未添加到四叉树！');
-            }
-        } else {
-            console.error('GameEngine: 僵尸创建失败');
-        }
+    if (!this.zombieManager || !this.characterManager) {
+        console.log('GameEngine: 僵尸管理器或角色管理器未初始化，跳过僵尸刷新');
+        return;
     }
     
-    // 输出当前僵尸总数和四叉树状态
+    var mainChar = this.characterManager.getMainCharacter();
+    if (!mainChar) {
+        console.log('GameEngine: 主人物未找到，跳过僵尸刷新');
+        return;
+    }
+    
+    console.log('GameEngine: 开始定时刷新僵尸，当前帧数:', this.frameCount, '主人物位置:', mainChar.x, mainChar.y);
+    
+    // 获取当前僵尸数量
     var currentZombies = this.zombieManager.getAllZombies().filter(z => z.hp > 0);
-    console.log('GameEngine: 僵尸刷新完成，当前活跃僵尸总数:', currentZombies.length);
+    console.log('GameEngine: 刷新前活跃僵尸数量:', currentZombies.length);
+    
+    // 每5秒刷新30个僵尸（性能优化：分批创建）
+    var targetZombieCount = 30;
+    var zombiesToCreate = Math.max(0, targetZombieCount - currentZombies.length);
+    
+    if (zombiesToCreate > 0) {
+        console.log('GameEngine: 需要创建', zombiesToCreate, '个僵尸，在人物700px范围内');
+        
+        // 分批创建僵尸，避免一次性创建过多导致卡顿
+        var batchSize = 5; // 每批创建5个
+        var batches = Math.ceil(zombiesToCreate / batchSize);
+        
+        for (var batch = 0; batch < batches; batch++) {
+            var currentBatchSize = Math.min(batchSize, zombiesToCreate - batch * batchSize);
+            
+            // 使用setTimeout分批创建，避免阻塞主线程
+            setTimeout(() => {
+                this.createZombieBatch(currentBatchSize, mainChar);
+            }, batch * 50); // 每批间隔50ms
+        }
+    } else {
+        console.log('GameEngine: 僵尸数量已足够，无需创建新僵尸');
+    }
     
     // 验证四叉树中的僵尸数量
     if (this.collisionSystem && this.collisionSystem.getDynamicObjectCountByType) {
@@ -744,12 +771,150 @@ GameEngine.prototype.spawnZombiesForDay = function() {
             console.warn('GameEngine: 僵尸数量不匹配！管理器:', currentZombies.length, '四叉树:', quadTreeZombieCount);
         }
     }
+},
+
+// 分批创建僵尸（性能优化）- 在人物700px范围内生成
+GameEngine.prototype.createZombieBatch = function(batchSize, mainChar) {
+    console.log('GameEngine: 创建僵尸批次，数量:', batchSize, '在人物位置:', mainChar.x, mainChar.y, '700px范围内');
+    
+    var createdZombies = [];
+    var maxAttempts = 50; // 每个僵尸最多尝试50次找位置
+    
+    for (var i = 0; i < batchSize; i++) {
+        var zombieCreated = false;
+        var attempts = 0;
+        
+        while (!zombieCreated && attempts < maxAttempts) {
+            attempts++;
+            
+            // 在距离主人物700px的位置随机生成
+            var angle = (Math.PI * 2 * i) / batchSize + Math.random() * 0.5; // 均匀分布 + 随机偏移
+            var distance = 700 + Math.random() * 100; // 700-800px之间
+            
+            // 使用ZOMBIE_TYPE枚举，确保类型一致性
+            var zombieTypes = ['skinny', 'fat', 'fast', 'tank', 'boss'];
+            var randomType = zombieTypes[Math.floor(Math.random() * zombieTypes.length)];
+            
+            // 计算僵尸生成位置
+            var zombieX = mainChar.x + Math.cos(angle) * distance;
+            var zombieY = mainChar.y + Math.sin(angle) * distance;
+            
+            // 检查位置是否有效
+            if (this.isValidZombieSpawnPosition(zombieX, zombieY, mainChar, createdZombies)) {
+                console.log('GameEngine: 找到有效位置，生成僵尸', i + 1, '类型:', randomType, '位置:', zombieX, zombieY, '距离:', distance, '尝试次数:', attempts);
+                
+                // 创建僵尸（指定位置和类型）
+                var createdZombie = this.zombieManager.createZombie(randomType, zombieX, zombieY);
+                
+                if (createdZombie) {
+                    createdZombies.push(createdZombie);
+                    zombieCreated = true;
+                    
+                    console.log('GameEngine: 僵尸创建成功:', {
+                        id: createdZombie.id,
+                        type: createdZombie.type,
+                        zombieType: createdZombie.zombieType,
+                        x: createdZombie.x,
+                        y: createdZombie.y,
+                        hp: createdZombie.hp,
+                        hasQuadTreeId: !!createdZombie._quadTreeId,
+                        quadTreeId: createdZombie._quadTreeId,
+                        distanceFromMain: Math.sqrt(Math.pow(createdZombie.x - mainChar.x, 2) + Math.pow(createdZombie.y - mainChar.y, 2))
+                    });
+                    
+                    // 验证僵尸是否在四叉树中
+                    if (createdZombie._quadTreeId) {
+                        console.log('GameEngine: 僵尸已正确添加到四叉树:', createdZombie._quadTreeId);
+                    } else {
+                        console.error('GameEngine: 僵尸未添加到四叉树！');
+                    }
+                } else {
+                    console.error('GameEngine: 僵尸创建失败');
+                }
+            } else {
+                // 如果位置无效，尝试在附近找新位置
+                if (attempts % 10 === 0) {
+                    // 每10次尝试，稍微调整角度和距离
+                    angle += Math.PI / 4; // 旋转45度
+                    distance += (Math.random() - 0.5) * 50; // 随机调整距离
+                }
+            }
+        }
+        
+        if (!zombieCreated) {
+            console.warn('GameEngine: 僵尸', i + 1, '无法找到有效位置，跳过创建');
+        }
+    }
+    
+    var finalZombieCount = this.zombieManager.getAllZombies().filter(z => z.hp > 0).length;
+    console.log('GameEngine: 批次创建完成，成功创建:', createdZombies.length, '个僵尸，当前总僵尸数:', finalZombieCount);
+    
+    // 验证新创建的僵尸是否都在700px范围内
+    var allZombies = this.zombieManager.getAllZombies().filter(z => z.hp > 0);
+    var zombiesInRange = allZombies.filter(z => {
+        var distance = Math.sqrt(Math.pow(z.x - mainChar.x, 2) + Math.pow(z.y - mainChar.y, 2));
+        return distance >= 700 && distance <= 800;
+    });
+    console.log('GameEngine: 700px范围内的僵尸数量:', zombiesInRange.length);
+};
+
+// 检查僵尸生成位置是否有效
+GameEngine.prototype.isValidZombieSpawnPosition = function(x, y, mainChar, existingZombies) {
+    // 1. 检查是否在有效范围内
+    var distanceFromMain = Math.sqrt(Math.pow(x - mainChar.x, 2) + Math.pow(y - mainChar.y, 2));
+    if (distanceFromMain < 700 || distanceFromMain > 800) {
+        return false;
+    }
+    
+    // 2. 检查是否与建筑物碰撞
+    if (this.collisionSystem && this.collisionSystem.isCircleCollidingWithBuildings) {
+        if (this.collisionSystem.isCircleCollidingWithBuildings(x, y, 20)) { // 20px半径，避免太靠近建筑物
+            return false;
+        }
+    }
+    
+    // 3. 检查是否与现有僵尸重叠
+    if (existingZombies && existingZombies.length > 0) {
+        for (var i = 0; i < existingZombies.length; i++) {
+            var existingZombie = existingZombies[i];
+            var distance = Math.sqrt(Math.pow(x - existingZombie.x, 2) + Math.pow(y - existingZombie.y, 2));
+            if (distance < 40) { // 僵尸之间至少间隔40px
+                return false;
+            }
+        }
+    }
+    
+    // 4. 检查是否与地图边界冲突
+    if (this.mapSystem && this.mapSystem.getMapBounds) {
+        var bounds = this.mapSystem.getMapBounds();
+        if (bounds) {
+            if (x < bounds.minX + 50 || x > bounds.maxX - 50 || 
+                y < bounds.minY + 50 || y > bounds.maxY - 50) {
+                return false;
+            }
+        }
+    }
+    
+    // 5. 检查是否在安全区域（避免生成在玩家出生点附近）
+    var safeDistance = 100;
+    if (distanceFromMain < safeDistance) {
+        return false;
+    }
+    
+    return true;
 };
 
 // 游戏循环更新
 GameEngine.prototype.update = function() {
     // 增加帧计数器
     this.frameCount++;
+    
+    // 性能监控更新
+    if (this.performanceMonitor) {
+        var currentTime = performance.now();
+        var deltaTime = (currentTime - this.lastUpdateTime) / 1000;
+        this.performanceMonitor.updateFPS(deltaTime);
+    }
     
     // 更新触摸摇杆控制的角色移动
     this.updateJoystickMovement();

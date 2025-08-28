@@ -39,7 +39,6 @@ function initGame() {
 
     gameEngine = new GameEngine(canvas, ctx);
 
-
     // 初始化菜单系统
     menuSystem = Object.create(menuPrototype);
     menuSystem.canvas = canvas;
@@ -53,13 +52,11 @@ function initGame() {
     eventSystem.init(canvas, 'home');
     eventSystem.bindTouchEvents();
 
-    // 更新全局变量
+    // 更新全局变量 - 只设置已初始化的系统
     window.eventSystem = eventSystem;
-    // 更新全局变量
     window.gameEngine = gameEngine;
-    window.mapSystem = mapSystem;
-    window.characterManager = characterManager;
-
+    // 注意：mapSystem 和 characterManager 此时还是 null，需要在地图系统初始化完成后设置
+    
     console.log('游戏初始化完成');
 }
 
@@ -82,7 +79,6 @@ window.onGameStateChange = function (newState) {
             initMapSystem();
         }
     }
-
 };
 
 // 初始化地图系统
@@ -103,8 +99,21 @@ function initMapSystem() {
         
         // 第二步：等待地图数据完全加载
         console.log('⏳ 步骤2: 等待地图数据完全加载');
-        waitForMapDataLoaded();
+        waitForMapDataLoaded(() => {
+            // 地图数据加载完成后继续后续步骤
+            continueMapSystemInit();
+        });
         
+    } catch (error) {
+        console.error('❌ 地图系统初始化失败:', error);
+        // 直接抛出错误，快速定位问题
+        throw new Error(`地图系统初始化失败: ${error.message}`);
+    }
+}
+
+// 继续地图系统初始化的后续步骤
+function continueMapSystemInit() {
+    try {
         // 第三步：创建地图渲染器
         console.log('🎨 步骤3: 创建地图渲染器');
         mapSystem = new MapRenderer(canvas, ctx);
@@ -138,8 +147,20 @@ function initMapSystem() {
         
         // 第六步：初始化碰撞检测系统（确保地图数据已加载）
         console.log('🔍 步骤6: 初始化碰撞检测系统');
-        initCollisionSystemWithVerification();
+        initCollisionSystemWithVerification(() => {
+            // 碰撞系统初始化完成后继续后续步骤
+            continueAfterCollisionInit(zombieManager);
+        });
         
+    } catch (error) {
+        console.error('❌ 地图系统后续初始化失败:', error);
+        throw error;
+    }
+}
+
+// 碰撞系统初始化完成后继续
+function continueAfterCollisionInit(zombieManager) {
+    try {
         // 第七步：创建游戏对象并添加到四叉树
         console.log('🎯 步骤7: 创建游戏对象并添加到四叉树');
         createAndAddGameObjects();
@@ -182,39 +203,41 @@ function initMapSystem() {
         console.log('🎉 地图系统初始化完成！所有资源已加载，游戏可以开始！');
         
     } catch (error) {
-        console.error('❌ 地图系统初始化失败:', error);
-        // 直接抛出错误，快速定位问题
-        throw new Error(`地图系统初始化失败: ${error.message}`);
+        console.error('❌ 地图系统后续步骤失败:', error);
+        throw error;
     }
 }
 
-// 等待地图数据完全加载
-function waitForMapDataLoaded() {
+// 等待地图数据完全加载 - 使用异步回调方式
+function waitForMapDataLoaded(callback) {
     console.log('⏳ 等待地图数据加载...');
     let attempts = 0;
     const maxAttempts = 100; // 最多等待10秒
     
-    while (attempts < maxAttempts) {
+    function checkMapData() {
         if (MapManager.currentMap && MapManager.currentMap.isLoaded) {
             console.log('✅ 地图数据加载完成');
+            callback(); // 调用回调函数继续后续步骤
             return;
         }
         
         attempts++;
+        if (attempts >= maxAttempts) {
+            console.error('❌ 地图数据加载超时');
+            throw new Error('地图数据加载超时');
+        }
+        
         console.log(`⏳ 等待地图数据加载... (${attempts}/${maxAttempts})`);
         
-        // 使用同步等待（阻塞）
-        const startTime = Date.now();
-        while (Date.now() - startTime < 100) {
-            // 等待100ms
-        }
+        // 使用setTimeout异步等待，不阻塞主线程
+        setTimeout(checkMapData, 100);
     }
     
-    throw new Error('地图数据加载超时');
+    checkMapData();
 }
 
 // 初始化碰撞检测系统并验证
-function initCollisionSystemWithVerification() {
+function initCollisionSystemWithVerification(callback) {
     console.log('🔍 初始化碰撞检测系统...');
     
     // 创建碰撞检测系统
@@ -235,36 +258,39 @@ function initCollisionSystemWithVerification() {
     
     // 等待四叉树数据加载完成
     console.log('⏳ 等待四叉树数据加载...');
-    waitForQuadTreeDataLoaded();
+    waitForQuadTreeDataLoaded(callback);
 }
 
-// 等待四叉树数据加载完成
-function waitForQuadTreeDataLoaded() {
+// 等待四叉树数据加载完成 - 使用异步回调方式
+function waitForQuadTreeDataLoaded(callback) {
     console.log('⏳ 等待四叉树数据加载...');
     let attempts = 0;
     const maxAttempts = 100; // 最多等待10秒
     
-    while (attempts < maxAttempts) {
+    function checkQuadTreeData() {
         // 检查静态四叉树是否有建筑物数据
         if (collisionSystem.staticQuadTree) {
             const buildings = collisionSystem.staticQuadTree.getAllObjects();
             if (buildings && buildings.length > 0) {
                 console.log(`✅ 静态四叉树数据加载完成，建筑物数量: ${buildings.length}`);
+                callback(); // 调用回调函数继续后续步骤
                 return;
             }
         }
         
         attempts++;
+        if (attempts >= maxAttempts) {
+            console.error('❌ 四叉树数据加载超时');
+            throw new Error('四叉树数据加载超时');
+        }
+        
         console.log(`⏳ 等待四叉树数据加载... (${attempts}/${maxAttempts})`);
         
-        // 使用同步等待（阻塞）
-        const startTime = Date.now();
-        while (Date.now() - startTime < 100) {
-            // 等待100ms
-        }
+        // 使用setTimeout异步等待，不阻塞主线程
+        setTimeout(checkQuadTreeData, 100);
     }
     
-    throw new Error('四叉树数据加载超时');
+    checkQuadTreeData();
 }
 
 // 创建游戏对象并添加到四叉树
@@ -500,7 +526,7 @@ function verifyQuadTreeDataIntegrity() {
             }
             
             // 检查是否包含僵尸
-            const zombies = dynamicObjects.filter(obj => obj.type && ['skinny', 'fat', 'boss', 'fast', 'tank'].includes(obj.type));
+            const zombies = dynamicObjects.filter(obj => obj.type === 'zombie');
             if (zombies.length > 0) {
                 console.log(`✅ 僵尸在动态四叉树中验证通过，数量: ${zombies.length}`);
             } else {
@@ -603,8 +629,8 @@ function gameLoop() {
     // 同步检查游戏引擎状态
     if (!gameEngine) {
         console.warn('游戏引擎未初始化');
-        // 使用同步方式重试，而不是递归调用
-        setTimeout(() => gameLoop(), 16); // 16ms = 60fps
+        // 使用setTimeout异步重试，而不是递归调用
+        setTimeout(() => gameLoop(), 100); // 100ms后重试
         return;
     }
 
@@ -619,8 +645,12 @@ function gameLoop() {
             }
         } else if (gameEngine.gameState === 'playing') {
             // 使用游戏引擎的更新和渲染方法
-            gameEngine.update();
-            gameEngine.render();
+            if (gameEngine.update && gameEngine.render) {
+                gameEngine.update();
+                gameEngine.render();
+            } else {
+                console.error('游戏引擎的update或render方法不存在');
+            }
         } else if (gameEngine.gameState === 'menu') {
             // 调用src/menu.js中的renderMenu方法
             if (menuSystem && menuSystem.renderMenu) {
@@ -631,6 +661,20 @@ function gameLoop() {
         }
     } catch (error) {
         console.error('游戏循环执行错误:', error);
+        // 添加错误恢复机制
+        if (error.message && error.message.includes('地图系统初始化失败')) {
+            console.log('尝试重新初始化地图系统...');
+            // 延迟重试，避免无限循环
+            setTimeout(() => {
+                if (gameEngine.gameState === 'playing' && !mapSystem) {
+                    try {
+                        initMapSystem();
+                    } catch (retryError) {
+                        console.error('地图系统重新初始化失败:', retryError);
+                    }
+                }
+            }, 1000);
+        }
     }
 
     // 继续下一帧
@@ -638,9 +682,29 @@ function gameLoop() {
 }
 
 function startGame() {
-    initGame();
-    gameLoop();
+    try {
+        console.log('🚀 开始启动游戏...');
+        initGame();
+        gameLoop();
+        console.log('✅ 游戏启动成功');
+    } catch (error) {
+        console.error('❌ 游戏启动失败:', error);
+        // 尝试重新启动
+        console.log('🔄 尝试重新启动游戏...');
+        setTimeout(() => {
+            try {
+                startGame();
+            } catch (retryError) {
+                console.error('❌ 游戏重新启动失败:', retryError);
+                // 显示错误信息给用户
+                if (typeof window !== 'undefined' && window.alert) {
+                    window.alert('游戏启动失败，请刷新页面重试');
+                }
+            }
+        }, 2000);
+    }
 }
 
+// 启动游戏
 startGame();
 
