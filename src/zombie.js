@@ -640,14 +640,14 @@ Zombie.prototype.isPositionSafe = function(x, y, allZombies, allCharacters) {
     
     // 检查僵尸重叠
     if (window.collisionSystem.isZombieOverlappingWithZombies) {
-        if (window.collisionSystem.isZombieOverlappingWithZombies(x, y, this.radius, allZombies, 0.2)) {
+        if (window.collisionSystem.isZombieOverlappingWithZombies(x, y, this.radius, allZombies, null)) {
             return false;
         }
     }
     
     // 检查人物重叠
     if (window.collisionSystem.isCharacterOverlappingWithZombies) {
-        if (window.collisionSystem.isCharacterOverlappingWithZombies(x, y, this.radius, allCharacters, 0.2)) {
+        if (window.collisionSystem.isCharacterOverlappingWithZombies(x, y, this.radius, allCharacters, null)) {
             return false;
         }
     }
@@ -710,10 +710,10 @@ Zombie.prototype.idleBehavior = function (deltaTime) {
                 window.collisionSystem.isCircleCollidingWithBuildings(this.targetX, this.targetY, this.radius);
             
             var zombieOverlap = window.collisionSystem.isZombieOverlappingWithZombies && 
-                window.collisionSystem.isZombieOverlappingWithZombies(this.targetX, this.targetY, this.radius, allZombies, 0.2);
+                window.collisionSystem.isZombieOverlappingWithZombies(this.targetX, this.targetY, this.radius, allZombies, null);
             
             var characterOverlap = window.collisionSystem.isCharacterOverlappingWithZombies && 
-                window.collisionSystem.isCharacterOverlappingWithZombies(this.targetX, this.targetY, this.radius, allCharacters, 0.2);
+                window.collisionSystem.isCharacterOverlappingWithZombies(this.targetX, this.targetY, this.radius, allCharacters, null);
             
             if (buildingCollision || zombieOverlap || characterOverlap) {
                 console.log('僵尸目标位置不安全，重新计算路径');
@@ -1202,13 +1202,13 @@ var ZombieManager = {
             // 检查僵尸重叠
             var zombieOverlap = false;
             if (window.collisionSystem.isZombieOverlappingWithZombies) {
-                zombieOverlap = window.collisionSystem.isZombieOverlappingWithZombies(testX, testY, width/2, null, 0.1);
+                zombieOverlap = window.collisionSystem.isZombieOverlappingWithZombies(testX, testY, width/2, null, null);
             }
 
             // 检查人物重叠
             var characterOverlap = false;
             if (window.collisionSystem.isCharacterOverlappingWithZombies) {
-                characterOverlap = window.collisionSystem.isCharacterOverlappingWithZombies(testX, testY, width/2, null, 0.1);
+                characterOverlap = window.collisionSystem.isCharacterOverlappingWithZombies(testX, testY, width/2, null, null);
             }
 
             // 如果位置安全，返回

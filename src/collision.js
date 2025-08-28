@@ -1485,7 +1485,12 @@ var CollisionSystem = {
     },
 
     // 检测僵尸与僵尸列表的重叠（专门优化）
-    isZombieOverlappingWithZombies: function (zombieX, zombieY, zombieRadius, zombieList, safetyMargin = 0.1) {
+    isZombieOverlappingWithZombies: function (zombieX, zombieY, zombieRadius, zombieList, safetyMargin = null) {
+        // 如果没有指定安全边距，使用配置中的默认值
+        if (safetyMargin === null) {
+            var config = window.ConfigManager ? window.ConfigManager.get('COLLISION.COLLISION_MARGINS.ZOMBIE_TO_ZOMBIE') : 1.5;
+            safetyMargin = config || 1.5;
+        }
         if (!zombieList || zombieList.length === 0) {
             return false;
         }
@@ -1506,7 +1511,12 @@ var CollisionSystem = {
     },
 
     // 检测人物与僵尸列表的重叠（专门优化）
-    isCharacterOverlappingWithZombies: function (characterX, characterY, characterRadius, zombieList, safetyMargin = 0.1) {
+    isCharacterOverlappingWithZombies: function (characterX, characterY, characterRadius, zombieList, safetyMargin = null) {
+        // 如果没有指定安全边距，使用配置中的默认值
+        if (safetyMargin === null) {
+            var config = window.ConfigManager ? window.ConfigManager.get('COLLISION.COLLISION_MARGINS.ZOMBIE_TO_CHARACTER') : 1.5;
+            safetyMargin = config || 1.5;
+        }
         if (!zombieList || zombieList.length === 0) {
             return false;
         }

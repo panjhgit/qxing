@@ -32,7 +32,16 @@ const GAME_CONFIG = {
         DEFAULT_SAFE_DISTANCE: 30,      // 默认安全距离
         BUILDING_COLLISION_MARGIN: 10,  // 建筑物碰撞边距
         OBJECT_OVERLAP_MARGIN: 20,      // 对象重叠边距
-        PATH_VALIDATION_STEPS: 10       // 路径验证步数
+        PATH_VALIDATION_STEPS: 10,      // 路径验证步数
+        MIN_MOVE_DISTANCE: 1,           // 最小移动距离
+        
+        // 新增：碰撞间距配置
+        COLLISION_MARGINS: {
+            BUILDING: 1.1,              // 建筑物碰撞：1.1倍半径（额外10%空间）
+            ZOMBIE_TO_ZOMBIE: 1.5,      // 僵尸间重叠：1.5倍半径（50%额外空间）
+            ZOMBIE_TO_CHARACTER: 1.5,   // 僵尸与角色重叠：1.5倍半径（50%额外空间）
+            CHARACTER_TO_CHARACTER: 1.3  // 角色间重叠：1.3倍半径（30%额外空间）
+        }
     },
 
     // 攻击系统配置
