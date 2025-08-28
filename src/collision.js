@@ -674,7 +674,7 @@ var CollisionSystem = {
         }
 
         // 检查对象是否已经在四叉树中
-        if (object._quadTreeId) {
+        if (object._quadTreeId !== undefined) {
             console.warn('对象已在四叉树中:', object._quadTreeId);
             return true;
         }
@@ -706,12 +706,10 @@ var CollisionSystem = {
         console.log('四叉树insert结果:', result);
         
         if (result) {
-            // 为对象添加四叉树标识和类型信息
-            object._quadTreeId = 'obj_' + Date.now() + '_' + Math.random();
+            // 使用简单的数字ID，提高性能
+            object._quadTreeId = this._getNextObjectId();
             object._quadTreeType = objectType;
             object._quadTreeAddedTime = Date.now();
-            
-
             
             console.log('动态对象已添加到四叉树:', object._quadTreeId, object._quadTreeType, object);
 
@@ -752,6 +750,11 @@ var CollisionSystem = {
             // 清除四叉树标识
             var quadTreeId = object._quadTreeId;
             var objectId = object.id;
+
+            // 回收ID到池中
+            if (quadTreeId !== undefined) {
+                this._recycleId(quadTreeId);
+            }
 
             delete object._quadTreeId;
             delete object._quadTreeType;
@@ -2022,9 +2025,26 @@ var CollisionSystem = {
 
     // 获取下一个对象ID
     _getNextObjectId: function () {
-        // 使用递增计数器确保ID唯一性
+        // 优先使用回收的ID
+        if (this._recycledIds && this._recycledIds.length > 0) {
+            return this._recycledIds.pop();
+        }
+        
+        // 如果没有回收的ID，使用递增计数器
         this._objectIdCounter = (this._objectIdCounter || 0) + 1;
         return this._objectIdCounter;
+    },
+
+    // 回收ID到池中
+    _recycleId: function (id) {
+        if (!this._recycledIds) {
+            this._recycledIds = [];
+        }
+        
+        // 限制回收池大小，避免内存泄漏
+        if (this._recycledIds.length < 1000) {
+            this._recycledIds.push(id);
+        }
     },
 
     // 检测圆形是否与建筑物碰撞（用于人物和僵尸的静态碰撞检测）
@@ -2317,6 +2337,55 @@ var CollisionSystem = {
         
         console.log('对象类型统计:', typeStats);
         console.log('==================');
+    },
+
+    // 获取四叉树性能统计
+    getPerformanceStats: function() {
+        var stats = {
+            staticQuadTree: {
+                objectCount: this.staticQuadTree ? this.staticQuadTree.getAllObjects().length : 0,
+                depth: this.staticQuadTree ? this.staticQuadTree.getMaxDepth() : 0
+            },
+            dynamicQuadTree: {
+                objectCount: this.dynamicQuadTree ? this.dynamicQuadTree.getAllObjects().length : 0,
+                depth: this.dynamicQuadTree ? this.dynamicQuadTree.getMaxDepth() : 0
+            },
+            idManagement: {
+                nextId: this._objectIdCounter || 0,
+                recycledIdsCount: this._recycledIds ? this._recycledIds.length : 0,
+                recycledIdsMaxSize: 1000
+            },
+            objectTypes: {
+                character: this.getDynamicObjectCountByType('character') || 0,
+                zombie: this.getDynamicObjectCountByType('zombie') || 0,
+                other: this.getDynamicObjectCountByType('other') || 0
+            }
+        };
+        
+        return stats;
+    },
+
+    // 性能优化建议
+    getPerformanceRecommendations: function() {
+        var recommendations = [];
+        var stats = this.getPerformanceStats();
+        
+        // 检查四叉树深度
+        if (stats.dynamicQuadTree.depth > 8) {
+            recommendations.push('动态四叉树深度过高(' + stats.dynamicQuadTree.depth + ')，考虑调整maxDepth参数');
+        }
+        
+        // 检查对象数量
+        if (stats.dynamicQuadTree.objectCount > 1000) {
+            recommendations.push('动态对象数量过多(' + stats.dynamicQuadTree.objectCount + ')，考虑清理无效对象');
+        }
+        
+        // 检查ID回收效率
+        if (stats.idManagement.recycledIdsCount < 10 && stats.idManagement.nextId > 1000) {
+            recommendations.push('ID回收效率低，建议检查对象生命周期管理');
+        }
+        
+        return recommendations;
     },
 
 };

@@ -1004,6 +1004,25 @@ GameEngine.prototype.update = function() {
     // 每300帧（5秒）输出一次系统状态
     if (this.frameCount % 300 === 0) {
         this.logSystemStatus();
+        
+        // 添加四叉树性能监控
+        if (this.collisionSystem && this.collisionSystem.getPerformanceStats) {
+            var perfStats = this.collisionSystem.getPerformanceStats();
+            var recommendations = this.collisionSystem.getPerformanceRecommendations();
+            
+            console.log('=== 四叉树性能统计 ===');
+            console.log('静态四叉树:', perfStats.staticQuadTree);
+            console.log('动态四叉树:', perfStats.dynamicQuadTree);
+            console.log('ID管理:', perfStats.idManagement);
+            console.log('对象类型分布:', perfStats.objectTypes);
+            
+            if (recommendations.length > 0) {
+                console.log('=== 性能优化建议 ===');
+                recommendations.forEach(function(rec, index) {
+                    console.log((index + 1) + '. ' + rec);
+                });
+            }
+        }
     }
 },
 
