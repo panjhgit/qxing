@@ -207,17 +207,18 @@ Character.prototype.initializeStateMachine = function() {
 Character.prototype.setupMainCharacterStateMachine = function() {
     const sm = this.stateMachine;
     
-    // 添加状态转换规则
+    // 添加状态转换规则 - 移动优先级最高
     sm.addTransition(MAIN_CHARACTER_STATES.IDLE, MAIN_CHARACTER_STATES.MOVE, () => {
-        // 摇杆有输入（触摸偏移 > 死区）
+        // 摇杆有输入（触摸偏移 > 死区）→ 立即进入移动状态
         return this.hasJoystickInput();
     });
     
     sm.addTransition(MAIN_CHARACTER_STATES.IDLE, MAIN_CHARACTER_STATES.ATTACK, () => {
-        // 100px 内有僵尸
-        return this.hasZombieInRange(100);
+        // 100px 内有僵尸且无摇杆输入
+        return !this.hasJoystickInput() && this.hasZombieInRange(100);
     });
     
+    // 移动状态：摇杆输入消失时才退出
     sm.addTransition(MAIN_CHARACTER_STATES.MOVE, MAIN_CHARACTER_STATES.IDLE, () => {
         // 摇杆输入消失且无僵尸
         return !this.hasJoystickInput() && !this.hasZombieInRange(50);
@@ -228,14 +229,28 @@ Character.prototype.setupMainCharacterStateMachine = function() {
         return !this.hasJoystickInput() && this.hasZombieInRange(50);
     });
     
+    // 攻击状态：摇杆有输入时立即打断攻击
     sm.addTransition(MAIN_CHARACTER_STATES.ATTACK, MAIN_CHARACTER_STATES.MOVE, () => {
-        // 摇杆有输入（打断攻击）
+        // 摇杆有输入（立即打断攻击，移动优先级最高）
         return this.hasJoystickInput();
     });
     
     sm.addTransition(MAIN_CHARACTER_STATES.ATTACK, MAIN_CHARACTER_STATES.IDLE, () => {
-        // 无僵尸或僵尸超出范围
-        return !this.hasZombieInRange(50);
+        // 无僵尸或僵尸超出范围，且无摇杆输入
+        return !this.hasJoystickInput() && !this.hasZombieInRange(50);
+    });
+    
+    // 添加死亡状态转换（所有状态都可以进入死亡）
+    sm.addTransition(MAIN_CHARACTER_STATES.IDLE, MAIN_CHARACTER_STATES.DIE, () => {
+        return this.hp <= 0;
+    });
+    
+    sm.addTransition(MAIN_CHARACTER_STATES.MOVE, MAIN_CHARACTER_STATES.DIE, () => {
+        return this.hp <= 0;
+    });
+    
+    sm.addTransition(MAIN_CHARACTER_STATES.ATTACK, MAIN_CHARACTER_STATES.DIE, () => {
+        return this.hp <= 0;
     });
     
     // 添加状态行为
@@ -255,6 +270,12 @@ Character.prototype.setupMainCharacterStateMachine = function() {
         this.onEnterAttack.bind(this),    // 进入攻击
         this.onUpdateAttack.bind(this),   // 更新攻击
         this.onExitAttack.bind(this)      // 退出攻击
+    );
+    
+    sm.addBehavior(MAIN_CHARACTER_STATES.DIE, 
+        this.onEnterDie.bind(this),       // 进入死亡
+        this.onUpdateDie.bind(this),      // 更新死亡
+        this.onExitDie.bind(this)         // 退出死亡
     );
 };
 
@@ -511,12 +532,23 @@ Character.prototype.isAvoidanceComplete = function() {
 Character.prototype.onEnterIdle = function(stateData) {
     this.status = STATUS.IDLE;
     this.isMoving = false;
+    this.attackCooldown = 0; // 重置攻击冷却
     console.log('主人物进入待机状态');
 };
 
 Character.prototype.onUpdateIdle = function(deltaTime, stateData) {
     // 待机状态下的行为：渲染待机动画
     this.updateAnimation(deltaTime);
+    
+    // 检查是否有僵尸需要攻击
+    if (this.hasZombieInRange(100)) {
+        console.log('主人物在待机状态检测到僵尸，准备攻击');
+    }
+    
+    // 检查是否有摇杆输入
+    if (this.hasJoystickInput()) {
+        console.log('主人物检测到摇杆输入，准备移动');
+    }
 };
 
 Character.prototype.onExitIdle = function(stateData) {
@@ -526,13 +558,18 @@ Character.prototype.onExitIdle = function(stateData) {
 Character.prototype.onEnterMove = function(stateData) {
     this.status = STATUS.MOVING;
     this.isMoving = true;
+    this.attackCooldown = 0; // 重置攻击冷却
     console.log('主人物进入移动状态');
 };
 
 Character.prototype.onUpdateMove = function(deltaTime, stateData) {
-    // 移动状态下的行为：处理移动逻辑
-    // 调用原有的移动更新方法
+    // 移动状态下的行为：处理移动逻辑（优先级最高）
     this.updateMovement(deltaTime);
+    
+    // 移动中若攻击范围内有僵尸，播放攻击动画但不停止移动
+    if (this.hasZombieInRange(50)) {
+        this.playAttackAnimationWhileMoving(deltaTime);
+    }
 };
 
 Character.prototype.onExitMove = function(stateData) {
@@ -542,99 +579,9 @@ Character.prototype.onExitMove = function(stateData) {
 
 Character.prototype.onEnterAttack = function(stateData) {
     this.status = STATUS.ATTACKING;
+    this.isMoving = false;
+    this.attackCooldown = 0; // 重置攻击冷却
     console.log('主人物进入攻击状态');
-};
-
-Character.prototype.onUpdateAttack = function(deltaTime, stateData) {
-    // 攻击状态下的行为：移动到攻击距离，触发攻击动画
-    this.updateAttack(deltaTime);
-};
-
-Character.prototype.onExitAttack = function(stateData) {
-    console.log('主人物退出攻击状态');
-};
-
-// 伙伴状态行为
-Character.prototype.onEnterInit = function(stateData) {
-    this.status = STATUS.IDLE;
-    this.isMoving = false;
-    this.attackCooldown = 0; // 重置攻击冷却
-    console.log('伙伴进入初始状态');
-};
-
-Character.prototype.onUpdateInit = function(deltaTime, stateData) {
-    // 初始状态下的行为：静止不动，渲染待机动画
-    this.updateAnimation(deltaTime);
-    
-    // 检查是否应该切换到跟随状态
-    if (this.isMainCharacterNearby(20)) {
-        console.log('伙伴检测到主人物靠近，准备切换到跟随状态');
-    }
-};
-
-Character.prototype.onExitInit = function(stateData) {
-    console.log('伙伴退出初始状态');
-};
-
-Character.prototype.onEnterIdle = function(stateData) {
-    this.status = STATUS.IDLE;
-    this.isMoving = false;
-    this.attackCooldown = 0; // 重置攻击冷却
-    console.log('伙伴进入待机状态');
-};
-
-Character.prototype.onUpdateIdle = function(deltaTime, stateData) {
-    // 待机状态下的行为：渲染待机动画
-    this.updateAnimation(deltaTime);
-    
-    // 检查是否有僵尸需要攻击
-    if (this.hasZombieInRange(100)) {
-        console.log('伙伴在待机状态检测到僵尸，准备攻击');
-    }
-    
-    // 检查主人物是否开始移动
-    if (this.isMainCharacterMoving()) {
-        console.log('伙伴检测到主人物移动，准备跟随');
-    }
-};
-
-Character.prototype.onExitIdle = function(stateData) {
-    console.log('伙伴退出待机状态');
-};
-
-Character.prototype.onEnterFollow = function(stateData) {
-    this.status = STATUS.FOLLOW;
-    this.isMoving = true;
-    this.attackCooldown = 0; // 重置攻击冷却
-    console.log('伙伴进入跟随状态');
-    
-    // 计算跟随点
-    this.calculateFollowPoint();
-};
-
-Character.prototype.onUpdateFollow = function(deltaTime, stateData) {
-    // 跟随状态下的行为：追逐主人物侧后方跟随点
-    this.updateFollow(deltaTime);
-    
-    // 每帧重新计算跟随点（避免伙伴"绕圈追"）
-    this.calculateFollowPoint();
-    
-    // 检查是否应该避障
-    if (this.detectCongestion()) {
-        console.log('伙伴检测到拥堵，准备避障');
-    }
-};
-
-Character.prototype.onExitFollow = function(stateData) {
-    this.isMoving = false;
-    console.log('伙伴退出跟随状态');
-};
-
-Character.prototype.onEnterAttack = function(stateData) {
-    this.status = STATUS.ATTACKING;
-    this.isMoving = false;
-    this.attackCooldown = 0; // 重置攻击冷却
-    console.log('伙伴进入攻击状态');
     
     // 寻找最近的僵尸作为攻击目标
     this.findAttackTarget();
@@ -646,68 +593,47 @@ Character.prototype.onUpdateAttack = function(deltaTime, stateData) {
     
     // 检查攻击目标是否仍然有效
     if (!this.attackTarget || this.attackTarget.hp <= 0) {
-        console.log('伙伴攻击目标无效，准备切换状态');
+        console.log('主人物攻击目标无效，准备切换状态');
         return;
     }
     
-    // 检查是否应该打断攻击（主人物移动）
-    if (this.isMainCharacterMoving()) {
-        console.log('主人物移动，伙伴攻击被打断');
+    // 检查是否应该打断攻击（摇杆有输入）
+    if (this.hasJoystickInput()) {
+        console.log('摇杆有输入，主人物攻击被打断');
         return;
     }
 };
 
 Character.prototype.onExitAttack = function(stateData) {
     this.attackTarget = null; // 清除攻击目标
-    console.log('伙伴退出攻击状态');
-};
-
-Character.prototype.onEnterAvoid = function(stateData) {
-    this.status = STATUS.AVOIDING;
-    this.isMoving = true;
-    console.log('伙伴进入避障状态');
-    
-    // 计算避障策略
-    this.calculateAvoidanceStrategy();
-};
-
-Character.prototype.onUpdateAvoid = function(deltaTime, stateData) {
-    // 避障状态下的行为：按避障策略为主体让路
-    this.updateAvoid(deltaTime);
-    
-    // 检查避障是否完成
-    if (this.isAvoidanceComplete()) {
-        console.log('伙伴避障完成');
-    }
-};
-
-Character.prototype.onExitAvoid = function(stateData) {
-    console.log('伙伴退出避障状态');
+    console.log('主人物退出攻击状态');
 };
 
 Character.prototype.onEnterDie = function(stateData) {
     this.status = STATUS.DIE;
     this.isMoving = false;
     this.deathAnimationTime = 0; // 死亡动画计时器
-    console.log('伙伴进入死亡状态');
+    console.log('主人物进入死亡状态，游戏结束');
     
     // 播放死亡动画
     this.playDeathAnimation();
+    
+    // 游戏结束处理
+    this.handleGameOver();
 };
 
 Character.prototype.onUpdateDie = function(deltaTime, stateData) {
     // 死亡状态下的行为：播放死亡动画
     this.deathAnimationTime += deltaTime;
     
-    // 死亡动画持续2秒
-    if (this.deathAnimationTime >= 2.0) {
-        console.log('伙伴死亡动画结束，准备销毁');
-        this.destroy();
+    // 死亡动画持续3秒
+    if (this.deathAnimationTime >= 3.0) {
+        console.log('主人物死亡动画结束');
     }
 };
 
 Character.prototype.onExitDie = function(stateData) {
-    console.log('伙伴退出死亡状态');
+    console.log('主人物退出死亡状态');
 };
 
 // 通用的攻击更新方法
@@ -718,7 +644,7 @@ Character.prototype.updateAttack = function(deltaTime) {
     
     // 检查攻击冷却
     this.attackCooldown += deltaTime;
-    var attackInterval = 1.0; // 1秒攻击一次（与主人物错开）
+    var attackInterval = 1.0; // 1秒攻击一次
     
     if (this.attackCooldown >= attackInterval) {
         // 执行攻击
@@ -726,7 +652,7 @@ Character.prototype.updateAttack = function(deltaTime) {
         this.attackCooldown = 0;
     }
     
-    // 移动到攻击距离
+    // 移动到攻击距离（如果不在攻击范围内）
     this.moveToAttackRange();
 };
 
@@ -829,7 +755,7 @@ Character.prototype.findSafeFollowPosition = function(centerX, centerY, baseDist
     return {x: centerX, y: centerY};
 };
 
-// 寻找攻击目标
+// 寻找攻击目标（主人物专用）
 Character.prototype.findAttackTarget = function() {
     if (!window.zombieManager) return;
     
@@ -854,11 +780,11 @@ Character.prototype.findAttackTarget = function() {
     this.attackTarget = closestZombie;
     
     if (this.attackTarget) {
-        console.log('伙伴找到攻击目标:', this.attackTarget.type, '距离:', closestDistance);
+        console.log('主人物找到攻击目标:', this.attackTarget.type, '距离:', closestDistance);
     }
 };
 
-// 移动到攻击范围
+// 移动到攻击范围（主人物专用）
 Character.prototype.moveToAttackRange = function() {
     if (!this.attackTarget || this.attackTarget.hp <= 0) return;
     
@@ -879,17 +805,122 @@ Character.prototype.moveToAttackRange = function() {
     }
 };
 
-// 执行攻击
+// 执行攻击（主人物专用）
 Character.prototype.performAttack = function() {
     if (!this.attackTarget || this.attackTarget.hp <= 0) return;
     
     // 对僵尸造成伤害
     this.attackTarget.takeDamage(this.attack);
     
-    console.log('伙伴攻击僵尸:', this.attackTarget.type, '造成伤害:', this.attack);
+    console.log('主人物攻击僵尸:', this.attackTarget.type, '造成伤害:', this.attack);
     
     // 播放攻击动画
     this.playAttackAnimation();
+};
+
+// 移动中攻击（不停止移动）
+Character.prototype.playAttackAnimationWhileMoving = function(deltaTime) {
+    // 检查攻击冷却
+    this.attackCooldown += deltaTime;
+    var attackInterval = 0.8; // 0.8秒攻击一次（比静止攻击稍快）
+    
+    if (this.attackCooldown >= attackInterval) {
+        // 执行攻击（不停止移动）
+        this.performAttackWhileMoving();
+        this.attackCooldown = 0;
+    }
+    
+    // 播放攻击动画（不停止移动）
+    this.playAttackAnimation();
+};
+
+// 移动中执行攻击
+Character.prototype.performAttackWhileMoving = function() {
+    // 寻找最近的僵尸作为攻击目标
+    if (!this.attackTarget) {
+        this.findAttackTarget();
+    }
+    
+    if (this.attackTarget && this.attackTarget.hp > 0) {
+        // 对僵尸造成伤害
+        this.attackTarget.takeDamage(this.attack);
+        console.log('主人物移动中攻击僵尸:', this.attackTarget.type, '造成伤害:', this.attack);
+    }
+};
+
+// 游戏结束处理
+Character.prototype.handleGameOver = function() {
+    console.log('主人物死亡，游戏结束');
+    
+    // 通知游戏引擎游戏结束
+    if (window.gameEngine && window.gameEngine.setGameState) {
+        window.gameEngine.setGameState('gameOver');
+    }
+    
+    // 显示游戏结束界面
+    this.showGameOverScreen();
+};
+
+// 显示游戏结束界面
+Character.prototype.showGameOverScreen = function() {
+    // 这里可以添加游戏结束界面的显示逻辑
+    console.log('显示游戏结束界面');
+    
+    // 示例：在画布上显示游戏结束文字
+    if (window.gameEngine && window.gameEngine.ctx) {
+        var ctx = window.gameEngine.ctx;
+        var canvas = window.gameEngine.canvas;
+        
+        // 半透明黑色背景
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // 游戏结束文字
+        ctx.fillStyle = '#FF0000';
+        ctx.font = '48px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('游戏结束', canvas.width / 2, canvas.height / 2 - 50);
+        
+        // 死亡原因
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = '24px Arial';
+        ctx.fillText('主人物已死亡', canvas.width / 2, canvas.height / 2);
+        
+        // 重新开始提示
+        ctx.fillStyle = '#FFFF00';
+        ctx.font = '20px Arial';
+        ctx.fillText('点击屏幕重新开始', canvas.width / 2, canvas.height / 2 + 50);
+    }
+};
+
+// 检查是否有摇杆输入（与游戏引擎连接）
+Character.prototype.hasJoystickInput = function() {
+    if (!window.gameEngine || !window.gameEngine.joystick) {
+        return false;
+    }
+    
+    var joystick = window.gameEngine.joystick;
+    
+    // 检查摇杆是否激活且有移动输入
+    if (joystick.isActive && joystick.isDragging) {
+        var direction = joystick.getMoveDirection();
+        var deadZone = 0.1; // 死区阈值
+        
+        // 如果移动方向超过死区，认为有输入
+        return Math.abs(direction.x) > deadZone || Math.abs(direction.y) > deadZone;
+    }
+    
+    return false;
+};
+
+// 获取摇杆移动方向
+Character.prototype.getJoystickDirection = function() {
+    if (!window.gameEngine || !window.gameEngine.joystick) {
+        return { x: 0, y: 0 };
+    }
+    
+    var joystick = window.gameEngine.joystick;
+    return joystick.getMoveDirection();
 };
 
 // 计算避障策略
@@ -966,7 +997,7 @@ Character.prototype.playAttackAnimation = function() {
     this.animationFrame = 0;
     this.animationSpeed = 0.3; // 攻击动画速度
     
-    console.log('伙伴播放攻击动画');
+    console.log('主人物播放攻击动画');
 };
 
 // 播放死亡动画
@@ -975,7 +1006,7 @@ Character.prototype.playDeathAnimation = function() {
     this.animationFrame = 0;
     this.animationSpeed = 0.1; // 死亡动画速度
     
-    console.log('伙伴播放死亡动画');
+    console.log('主人物播放死亡动画');
 };
 
 // 销毁角色
@@ -1039,10 +1070,7 @@ Character.prototype.stopMovement = function() {
 
     // 更新移动 - 使用工具类，优化平滑移动
     Character.prototype.updateMovement = function (deltaTime = 1/60) {
-        // 更新状态机
-        if (this.stateMachine) {
-            this.stateMachine.update(deltaTime);
-        }
+        // 注意：状态机应该在外部更新，这里只处理移动逻辑
         
         if (!this.isMoving) {
             console.log('人物不在移动状态:', this.status, this.isMoving);
@@ -1057,60 +1085,85 @@ Character.prototype.stopMovement = function() {
         var moveVector = movementUtils.calculateMoveVector(
             this.x, this.y, this.targetX, this.targetY, this.moveSpeed, deltaTime
         );
-    
-    console.log('移动向量计算:', '当前位置:', this.x, this.y, '目标位置:', this.targetX, this.targetY, '移动向量:', moveVector, 'deltaTime:', deltaTime);
-    
-    // 检查是否到达目标 - 修复过早停止移动的问题
-    if (moveVector.reached) {
-        // 到达目标位置，但也要检查碰撞
-        if (window.collisionSystem && window.collisionSystem.getCircleSafeMovePosition) {
-            var finalMove = window.collisionSystem.getCircleSafeMovePosition(
-                this.x, this.y, this.targetX, this.targetY, this.radius
-            );
-            if (finalMove) {
-                this.x = finalMove.x;
-                this.y = finalMove.y;
+
+        console.log('移动向量计算:', '当前位置:', this.x, this.y, '目标位置:', this.targetX, this.targetY, '移动向量:', moveVector, 'deltaTime:', deltaTime);
+        
+        // 检查是否到达目标 - 修复过早停止移动的问题
+        if (moveVector.reached) {
+            // 到达目标位置，但也要检查碰撞
+            if (window.collisionSystem && window.collisionSystem.getCircleSafeMovePosition) {
+                var finalMove = window.collisionSystem.getCircleSafeMovePosition(
+                    this.x, this.y, this.targetX, this.targetY, this.radius
+                );
+                if (finalMove) {
+                    this.x = finalMove.x;
+                    this.y = finalMove.y;
+                }
+            } else {
+                console.warn('碰撞系统不可用，角色停止移动');
+                this.status = STATUS.BLOCKED;
+                return;
             }
-        } else {
-            console.warn('碰撞系统不可用，角色停止移动');
-            this.status = STATUS.BLOCKED;
+            this.isMoving = false;
+            this.status = STATUS.IDLE;
+            console.log('角色到达目标位置，停止移动');
             return;
         }
-        this.isMoving = false;
-        this.status = STATUS.IDLE;
-        console.log('角色到达目标位置，停止移动');
-        return;
-    }
-    
-    // 检查移动距离是否过小（只有在移动距离确实很小时才停止）
-    if (moveVector.distance < (collisionConfig.MIN_MOVE_DISTANCE || 1)) {
-        console.log('移动距离过小，停止移动:', moveVector.distance);
-        this.isMoving = false;
-        this.status = STATUS.IDLE;
-        return;
-    }
-
-    // 直接使用计算好的移动向量（已经是基于时间的匀速移动）
-    var newX = this.x + moveVector.x;
-    var newY = this.y + moveVector.y;
-
-    // 使用新的简洁碰撞检测系统
-    if (window.collisionSystem && window.collisionSystem.getCircleSafeMovePosition) {
-        // 首先检查建筑物碰撞
-        var buildingSafePos = window.collisionSystem.getCircleSafeMovePosition(
-            this.x, this.y, newX, newY, this.radius
-        );
         
-        if (buildingSafePos) {
-            // 建筑物碰撞检测通过，现在检查是否与僵尸重叠
-            if (window.collisionSystem.isCharacterOverlappingWithZombies && window.zombieManager) {
-                var allZombies = window.zombieManager.getAllZombies().filter(z => z.hp > 0);
-                
-                var zombieOverlap = window.collisionSystem.isCharacterOverlappingWithZombies(
-                    buildingSafePos.x, buildingSafePos.y, this.radius, allZombies, 0.1
-                );
-                
-                if (!zombieOverlap) {
+        // 检查移动距离是否过小（只有在移动距离确实很小时才停止）
+        if (moveVector.distance < (collisionConfig.MIN_MOVE_DISTANCE || 1)) {
+            console.log('移动距离过小，停止移动:', moveVector.distance);
+            this.isMoving = false;
+            this.status = STATUS.IDLE;
+            return;
+        }
+
+        // 直接使用计算好的移动向量（已经是基于时间的匀速移动）
+        var newX = this.x + moveVector.x;
+        var newY = this.y + moveVector.y;
+
+        // 使用新的简洁碰撞检测系统
+        if (window.collisionSystem && window.collisionSystem.getCircleSafeMovePosition) {
+            // 首先检查建筑物碰撞
+            var buildingSafePos = window.collisionSystem.getCircleSafeMovePosition(
+                this.x, this.y, newX, newY, this.radius
+            );
+            
+            if (buildingSafePos) {
+                // 建筑物碰撞检测通过，现在检查是否与僵尸重叠
+                if (window.collisionSystem.isCharacterOverlappingWithZombies && window.zombieManager) {
+                    var allZombies = window.zombieManager.getAllZombies().filter(z => z.hp > 0);
+                    
+                    var zombieOverlap = window.collisionSystem.isCharacterOverlappingWithZombies(
+                        buildingSafePos.x, buildingSafePos.y, this.radius, allZombies, 0.1
+                    );
+                    
+                    if (!zombieOverlap) {
+                        // 移动安全，更新位置
+                        var oldX = this.x, oldY = this.y;
+                        this.x = buildingSafePos.x;
+                        this.y = buildingSafePos.y;
+                        this.status = STATUS.MOVING;
+                        
+                        // 通过四叉树更新位置
+                        if (window.collisionSystem && window.collisionSystem.updateCharacterPosition) {
+                            window.collisionSystem.updateCharacterPosition(this, oldX, oldY, this.x, this.y);
+                        } else if (window.collisionSystem && window.collisionSystem.updateDynamicObjectPosition) {
+                            // 兼容旧版本
+                            window.collisionSystem.updateDynamicObjectPosition(this, oldX, oldY, this.x, this.y);
+                        }
+                        
+                        // 记录移动类型（用于调试）
+                        if (buildingSafePos.type && buildingSafePos.type.startsWith('slide')) {
+                            console.log('角色墙体滑动:', buildingSafePos.type, '位置:', buildingSafePos.x.toFixed(2), buildingSafePos.y.toFixed(2));
+                        }
+                    } else {
+                        // 与僵尸重叠，停止移动
+                        this.status = STATUS.BLOCKED;
+                        console.log('角色移动被僵尸阻挡');
+                        return;
+                    }
+                } else {
                     // 移动安全，更新位置
                     var oldX = this.x, oldY = this.y;
                     this.x = buildingSafePos.x;
@@ -1122,63 +1175,38 @@ Character.prototype.stopMovement = function() {
                         window.collisionSystem.updateCharacterPosition(this, oldX, oldY, this.x, this.y);
                     } else if (window.collisionSystem && window.collisionSystem.updateDynamicObjectPosition) {
                         // 兼容旧版本
-                        window.collisionSystem.updateDynamicObjectPosition(this, oldX, oldY, this.x, this.y);
+                        window.collisionSystem.updateCharacterPosition(this, oldX, oldY, this.x, this.y);
                     }
                     
                     // 记录移动类型（用于调试）
                     if (buildingSafePos.type && buildingSafePos.type.startsWith('slide')) {
                         console.log('角色墙体滑动:', buildingSafePos.type, '位置:', buildingSafePos.x.toFixed(2), buildingSafePos.y.toFixed(2));
                     }
-                } else {
-                    // 与僵尸重叠，停止移动
-                    this.status = STATUS.BLOCKED;
-                    console.log('角色移动被僵尸阻挡');
-                    return;
                 }
             } else {
-                // 移动安全，更新位置
-                var oldX = this.x, oldY = this.y;
-                this.x = buildingSafePos.x;
-                this.y = buildingSafePos.y;
-                this.status = STATUS.MOVING;
-                
-                // 通过四叉树更新位置
-                if (window.collisionSystem && window.collisionSystem.updateCharacterPosition) {
-                    window.collisionSystem.updateCharacterPosition(this, oldX, oldY, this.x, this.y);
-                } else if (window.collisionSystem && window.collisionSystem.updateDynamicObjectPosition) {
-                    // 兼容旧版本
-                    window.collisionSystem.updateDynamicObjectPosition(this, oldX, oldY, this.x, this.y);
-                }
-                
-                // 记录移动类型（用于调试）
-                if (buildingSafePos.type && buildingSafePos.type.startsWith('slide')) {
-                    console.log('角色墙体滑动:', buildingSafePos.type, '位置:', buildingSafePos.x.toFixed(2), buildingSafePos.y.toFixed(2));
-                }
+                // 移动被阻挡，保持原位置
+                this.status = STATUS.BLOCKED;
+                console.log('角色移动被建筑物阻挡');
+                return;
             }
         } else {
-            // 移动被阻挡，保持原位置
+            console.warn('碰撞系统不可用，角色停止移动');
             this.status = STATUS.BLOCKED;
-            console.log('角色移动被建筑物阻挡');
             return;
         }
-    } else {
-        console.warn('碰撞系统不可用，角色停止移动');
-        this.status = STATUS.BLOCKED;
-        return;
-    }
 
-    // 使用动画工具更新动画帧 - 优化动画更新频率
-    if (this.isMoving) {
-        var animationConfig = ConfigManager.get('ANIMATION');
-        // 根据移动状态调整动画速度
-        var adjustedSpeed = this.isMoving ? this.animationSpeed * 1.5 : this.animationSpeed;
-        this.animationFrame = animationUtils.updateFrame(
-            this.animationFrame, 
-            adjustedSpeed, 
-            animationConfig.MAX_ANIMATION_FRAMES
-        );
-    }
-};
+        // 使用动画工具更新动画帧 - 优化动画更新频率
+        if (this.isMoving) {
+            var animationConfig = ConfigManager.get('ANIMATION');
+            // 根据移动状态调整动画速度
+            var adjustedSpeed = this.isMoving ? this.animationSpeed * 1.5 : this.animationSpeed;
+            this.animationFrame = animationUtils.updateFrame(
+                this.animationFrame, 
+                adjustedSpeed, 
+                animationConfig.MAX_ANIMATION_FRAMES
+            );
+        }
+    };
 
 // 更新动画 - 使用工具类
 Character.prototype.updateAnimation = function (deltaTime) {
@@ -1412,10 +1440,24 @@ var CharacterManager = {
         
         characters.forEach(char => {
             try {
-                if (char && typeof char.updateMovement === 'function') {
-                    char.updateMovement(deltaTime);
+                if (char && char.hp > 0) {
+                    if (char.role === 1) {
+                        // 主人物：使用专用更新方法
+                        if (typeof char.updateMainCharacter === 'function') {
+                            char.updateMainCharacter(deltaTime);
+                        } else {
+                            console.warn('主人物缺少updateMainCharacter方法:', char);
+                        }
+                    } else {
+                        // 伙伴：使用通用更新方法
+                        if (typeof char.updateMovement === 'function') {
+                            char.updateMovement(deltaTime);
+                        } else {
+                            console.warn('伙伴缺少updateMovement方法:', char);
+                        }
+                    }
                 } else {
-                    console.warn('角色缺少updateMovement方法:', char);
+                    console.warn('角色无效或已死亡:', char);
                 }
             } catch (error) {
                 console.error('更新角色时发生错误:', error, char);
@@ -1435,3 +1477,124 @@ export {ROLE, WEAPON, STATUS, CHARACTER_ID};
 // 导出角色管理器和角色类
 export {CharacterManager};
 export default Character;
+
+// 主人物专用更新方法
+Character.prototype.updateMainCharacter = function(deltaTime) {
+    // 首先检查摇杆输入并设置移动目标（优先级最高）
+    this.checkJoystickInput();
+    
+    // 然后更新状态机
+    if (this.stateMachine) {
+        this.stateMachine.update(deltaTime);
+    }
+    
+    // 每60帧打印一次调试信息（约1秒一次）
+    if (this.frameCount === undefined) this.frameCount = 0;
+    this.frameCount++;
+    if (this.frameCount % 60 === 0) {
+        this.debugMainCharacterState();
+    }
+    
+    // 根据当前状态执行相应行为
+    switch (this.stateMachine.currentState) {
+        case MAIN_CHARACTER_STATES.IDLE:
+            // 待机状态：渲染待机动画
+            this.updateAnimation(deltaTime);
+            break;
+            
+        case MAIN_CHARACTER_STATES.MOVE:
+            // 移动状态：处理移动逻辑
+            this.updateMovement(deltaTime);
+            this.updateAnimation(deltaTime);
+            break;
+            
+        case MAIN_CHARACTER_STATES.ATTACK:
+            // 攻击状态：处理攻击逻辑
+            this.updateAttack(deltaTime);
+            this.updateAnimation(deltaTime);
+            break;
+            
+        case MAIN_CHARACTER_STATES.DIE:
+            // 死亡状态：播放死亡动画
+            this.updateAnimation(deltaTime);
+            break;
+            
+        default:
+            console.warn('主人物未知状态:', this.stateMachine.currentState);
+            break;
+    }
+};
+
+// 检查摇杆输入并设置移动目标
+Character.prototype.checkJoystickInput = function() {
+    if (!this.hasJoystickInput()) {
+        return;
+    }
+    
+    var direction = this.getJoystickDirection();
+    var deadZone = 0.1;
+    
+    // 检查是否超过死区
+    if (Math.abs(direction.x) > deadZone || Math.abs(direction.y) > deadZone) {
+        // 计算移动目标位置
+        var moveDistance = 100; // 每次移动100px
+        var targetX = this.x + direction.x * moveDistance;
+        var targetY = this.y + direction.y * moveDistance;
+        
+        console.log('主人物摇杆输入检测到，设置移动目标:', {
+            from: { x: this.x, y: this.y },
+            to: { x: targetX, y: targetY },
+            direction: direction
+        });
+        
+        // 设置移动目标并激活移动状态
+        this.setMoveTarget(targetX, targetY);
+        this.isMoving = true;
+        this.status = STATUS.MOVING;
+        
+        // 强制状态机切换到移动状态（如果当前不是移动状态）
+        if (this.stateMachine && this.stateMachine.currentState !== MAIN_CHARACTER_STATES.MOVE) {
+            console.log('强制切换到移动状态');
+            this.stateMachine.forceState(MAIN_CHARACTER_STATES.MOVE);
+        }
+    }
+};
+
+// 调试方法：打印主人物状态信息
+Character.prototype.debugMainCharacterState = function() {
+    if (this.role !== ROLE.MAIN) return;
+    
+    console.log('=== 主人物状态调试信息 ===');
+    console.log('角色ID:', this.id);
+    console.log('位置:', { x: this.x, y: this.y });
+    console.log('状态:', this.status);
+    console.log('是否移动:', this.isMoving);
+    console.log('目标位置:', { x: this.targetX, y: this.targetY });
+    console.log('血量:', this.hp);
+    
+    if (this.stateMachine) {
+        var stateInfo = this.stateMachine.getStateInfo();
+        console.log('状态机信息:', stateInfo);
+    } else {
+        console.log('状态机: 未初始化');
+    }
+    
+    // 检查摇杆状态
+    if (window.gameEngine && window.gameEngine.joystick) {
+        var joystick = window.gameEngine.joystick;
+        console.log('摇杆状态:', {
+            isActive: joystick.isActive,
+            isDragging: joystick.isDragging,
+            isVisible: joystick.isVisible,
+            direction: joystick.getMoveDirection(),
+            position: { x: joystick.joystickX, y: joystick.joystickY }
+        });
+    } else {
+        console.log('摇杆: 未初始化');
+    }
+    
+    // 检查摇杆输入
+    console.log('摇杆输入检测:', this.hasJoystickInput());
+    console.log('摇杆方向:', this.getJoystickDirection());
+    console.log('========================');
+};
