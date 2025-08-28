@@ -2,10 +2,10 @@
  * 僵尸模块 - 重构版本 (zombie.js)
  *
  * 重构内容：
- * - 使用ConfigManager统一管理配置
- * - 使用UtilsManager提供工具函数
- * - 消除重复的硬编码值
- * - 提高代码复用性和维护性
+ * - 四叉树成为僵尸管理的核心
+ * - ZombieManager只负责游戏逻辑
+ * - 对象的创建、删除、位置更新都通过四叉树进行
+ * - 确保数据的一致性和系统的可靠性
  */
 
 import ConfigManager from './config.js';
@@ -471,8 +471,11 @@ Zombie.prototype.moveTowards = function (targetX, targetY, deltaTime) {
             this.x = finalPosition.x;
             this.y = finalPosition.y;
 
-            // 更新四叉树中的位置
-            if (window.collisionSystem && window.collisionSystem.updateDynamicObjectPosition) {
+            // 通过四叉树更新位置
+            if (window.collisionSystem && window.collisionSystem.updateZombiePosition) {
+                window.collisionSystem.updateZombiePosition(this, oldX, oldY, this.x, this.y);
+            } else if (window.collisionSystem && window.collisionSystem.updateDynamicObjectPosition) {
+                // 兼容旧版本
                 window.collisionSystem.updateDynamicObjectPosition(this, oldX, oldY, this.x, this.y);
             }
             
@@ -568,7 +571,11 @@ Zombie.prototype.tryCircumventObstacle = function(targetX, targetY, allZombies, 
                 this.x = offsetX;
                 this.y = offsetY;
                 
-                if (window.collisionSystem && window.collisionSystem.updateDynamicObjectPosition) {
+                // 通过四叉树更新位置
+                if (window.collisionSystem && window.collisionSystem.updateZombiePosition) {
+                    window.collisionSystem.updateZombiePosition(this, oldX, oldY, this.x, this.y);
+                } else if (window.collisionSystem && window.collisionSystem.updateDynamicObjectPosition) {
+                    // 兼容旧版本
                     window.collisionSystem.updateDynamicObjectPosition(this, oldX, oldY, this.x, this.y);
                 }
                 
@@ -838,18 +845,24 @@ Zombie.prototype.drawHealthBar = function (ctx, x, y) {
     ctx.strokeRect(x - barWidth / 2, y, barWidth, barHeight);
 };
 
-// 僵尸管理器
+// 僵尸管理器 - 重构版本：只负责游戏逻辑，四叉树负责对象管理
 var ZombieManager = {
-    zombies: [], 
     maxZombies: ConfigManager.get('PERFORMANCE.MAX_ZOMBIES'),
     difficulty: 1,
 
-    // 创建僵尸
+    // 创建僵尸 - 通过四叉树管理
     createZombie: function (type, x, y) {
         var validationUtils = UtilsManager.getValidationUtils();
         var performanceUtils = UtilsManager.getPerformanceUtils();
         
-        if (this.zombies.length >= this.maxZombies) {
+        // 检查四叉树中的僵尸数量
+        if (!window.collisionSystem) {
+            console.error('碰撞系统未初始化，无法创建僵尸');
+            return null;
+        }
+
+        var currentZombieCount = window.collisionSystem.getDynamicObjectCountByType('zombie');
+        if (currentZombieCount >= this.maxZombies) {
             console.warn('僵尸数量已达上限:', this.maxZombies);
             return null;
         }
@@ -876,21 +889,23 @@ var ZombieManager = {
             
             console.log('僵尸创建成功:', zombie.type, zombie.id, 'hp:', zombie.hp, 'maxHp:', zombie.maxHp, '位置:', x, y);
             
-            this.zombies.push(zombie);
-
-            // 将僵尸添加到碰撞系统的动态四叉树
-            if (window.collisionSystem && window.collisionSystem.addDynamicObject) {
-                var added = window.collisionSystem.addDynamicObject(zombie);
-                if (added) {
-                    console.log('僵尸已添加到碰撞系统动态四叉树:', zombie.type, zombie.id);
+            // 通过四叉树创建僵尸（四叉树负责对象管理）
+            console.log('ZombieManager.createZombie: 准备通过四叉树创建僵尸');
+            
+            if (window.collisionSystem.createZombieObject) {
+                console.log('ZombieManager.createZombie: 调用四叉树createZombieObject方法');
+                var createdZombie = window.collisionSystem.createZombieObject(zombie);
+                if (createdZombie) {
+                    console.log('ZombieManager.createZombie: 四叉树创建僵尸成功:', zombie.type, zombie.id);
+                    return createdZombie;
                 } else {
-                    console.warn('僵尸添加到碰撞系统失败:', zombie.type, zombie.id);
+                    console.error('ZombieManager.createZombie: 四叉树创建僵尸失败:', zombie.type, zombie.id);
+                    return null;
                 }
             } else {
-                console.warn('碰撞系统不可用，无法添加僵尸');
+                console.error('ZombieManager.createZombie: 四叉树不支持僵尸对象创建，可用方法:', Object.keys(window.collisionSystem));
+                return null;
             }
-            
-            return zombie;
         }.bind(this));
     },
 
@@ -930,141 +945,87 @@ var ZombieManager = {
         }
 
         // 验证步骤2：检查是否与现有僵尸重叠
-        var existingZombies = this.zombies.filter(z => z.hp > 0);
-        if (existingZombies.length > 0) {
-            if (window.collisionSystem && window.collisionSystem.isZombieOverlappingWithZombies) {
-                var zombieOverlap = window.collisionSystem.isZombieOverlappingWithZombies(x, y, zombieWidth/2, existingZombies, 0.2);
-                if (zombieOverlap) {
-                    console.log('僵尸生成位置与现有僵尸重叠，寻找新位置');
-                    var safePosition = this.findNonOverlappingPosition(x, y, zombieWidth, zombieHeight, existingZombies);
-                    if (safePosition) {
-                        x = safePosition.x;
-                        y = safePosition.y;
-                    } else {
-                        console.warn('无法找到不与僵尸重叠的位置');
-                        return null;
-                    }
+        if (window.collisionSystem.isZombieOverlappingWithZombies) {
+            var zombieOverlap = window.collisionSystem.isZombieOverlappingWithZombies(x, y, zombieWidth/2, null, 0.2);
+            if (zombieOverlap) {
+                console.log('僵尸生成位置与现有僵尸重叠，寻找新位置');
+                var safePosition = this.findNonOverlappingPosition(x, y, zombieWidth, zombieHeight);
+                if (safePosition) {
+                    x = safePosition.x;
+                    y = safePosition.y;
+                } else {
+                    console.warn('无法找到不重叠的安全位置');
+                    return null;
                 }
-            } else {
-                console.warn('碰撞系统不支持僵尸重叠检测，跳过重叠检查');
             }
         }
 
         // 验证步骤3：检查是否与人物重叠
-        if (window.characterManager && window.characterManager.getAllCharacters) {
-            var allCharacters = window.characterManager.getAllCharacters();
-            if (allCharacters && allCharacters.length > 0) {
-                if (window.collisionSystem && window.collisionSystem.isCharacterOverlappingWithZombies) {
-                    var characterOverlap = window.collisionSystem.isCharacterOverlappingWithZombies(x, y, zombieWidth/2, allCharacters, 0.2);
-                    if (characterOverlap) {
-                        console.log('僵尸生成位置与人物重叠，寻找远离人物的位置');
-                        var safePosition = this.findCharacterSafePosition(x, y, zombieWidth, zombieHeight, allCharacters);
-                        if (safePosition) {
-                            x = safePosition.x;
-                            y = safePosition.y;
-                        } else {
-                            console.warn('无法找到远离人物的安全位置');
-                            return null;
-                        }
-                    }
+        if (window.collisionSystem.isCharacterOverlappingWithZombies) {
+            var characterOverlap = window.collisionSystem.isCharacterOverlappingWithZombies(x, y, zombieWidth/2, null, 0.2);
+            if (characterOverlap) {
+                console.log('僵尸生成位置与人物重叠，寻找新位置');
+                var safePosition = this.findNonOverlappingPosition(x, y, zombieWidth, zombieHeight);
+                if (safePosition) {
+                    x = safePosition.x;
+                    y = safePosition.y;
                 } else {
-                    console.warn('碰撞系统不支持人物僵尸重叠检测，跳过重叠检查');
+                    console.warn('无法找到不重叠的安全位置');
+                    return null;
                 }
             }
         }
 
-        // 验证步骤4：最终安全检查
-        if (window.collisionSystem.isCircleCollidingWithBuildings && 
-            window.collisionSystem.isCircleCollidingWithBuildings(x, y, zombieWidth/2)) {
-            console.warn('最终位置仍在建筑物内，生成失败');
-            return null;
-        }
-
-        console.log('僵尸生成位置验证完成:', x, y, '类型:', zombieType);
         return {x: x, y: y};
     },
 
-    // 寻找不与僵尸重叠的位置（使用新的专门优化方法）
-    findNonOverlappingPosition: function (centerX, centerY, width, height, zombies) {
-        var searchRadius = 100;
-        var searchStep = 20;
-        var maxAttempts = 50;
-
-        for (var attempt = 0; attempt < maxAttempts; attempt++) {
-            var angle = (attempt * Math.PI * 2) / maxAttempts;
-            var distance = searchRadius + (attempt % 5) * searchStep;
-
-            var testX = centerX + Math.cos(angle) * distance;
-            var testY = centerY + Math.sin(angle) * distance;
-
-            // 使用新的专门优化方法检查位置是否安全
-            var zombieOverlap = false;
-            var buildingCollision = false;
-            
-            if (window.collisionSystem && window.collisionSystem.isZombieOverlappingWithZombies) {
-                zombieOverlap = window.collisionSystem.isZombieOverlappingWithZombies(testX, testY, width/2, zombies, 0.1);
-            } else {
-                console.warn('碰撞系统不支持僵尸重叠检测');
-                return null;
-            }
-            
-            if (window.collisionSystem && window.collisionSystem.isCircleCollidingWithBuildings) {
-                buildingCollision = window.collisionSystem.isCircleCollidingWithBuildings(testX, testY, width/2);
-            }
-            
-            if (!zombieOverlap && !buildingCollision) {
-                return {x: testX, y: testY};
-            }
+    // 寻找不重叠的位置
+    findNonOverlappingPosition: function (baseX, baseY, width, height) {
+        if (!window.collisionSystem) {
+            return {x: baseX, y: baseY};
         }
 
-        return null;
-    },
-
-    // 寻找远离人物的安全位置（使用新的专门优化方法）
-    findCharacterSafePosition: function (centerX, centerY, width, height, characters) {
         var searchRadius = 200;
-        var searchStep = 30;
-        var maxAttempts = 60;
+        var maxAttempts = 20;
+        var attempt = 0;
 
-        for (var attempt = 0; attempt < maxAttempts; attempt++) {
-            var angle = (attempt * Math.PI * 2) / maxAttempts;
-            var distance = searchRadius + (attempt % 6) * searchStep;
+        while (attempt < maxAttempts) {
+            var angle = (attempt * 137.5) * Math.PI / 180; // 黄金角螺旋
+            var distance = searchRadius * (attempt / maxAttempts);
+            var testX = baseX + Math.cos(angle) * distance;
+            var testY = baseY + Math.sin(angle) * distance;
 
-            var testX = centerX + Math.cos(angle) * distance;
-            var testY = centerY + Math.sin(angle) * distance;
-
-            // 使用新的专门优化方法检查位置是否安全
-            var characterOverlap = false;
-            var zombieOverlap = false;
+            // 检查建筑物碰撞
             var buildingCollision = false;
-            
-            if (window.collisionSystem && window.collisionSystem.isCharacterOverlappingWithZombies) {
-                characterOverlap = window.collisionSystem.isCharacterOverlappingWithZombies(testX, testY, width/2, characters, 0.1);
-            } else {
-                console.warn('碰撞系统不支持人物僵尸重叠检测');
-                return null;
-            }
-            
-            if (window.collisionSystem && window.collisionSystem.isZombieOverlappingWithZombies) {
-                zombieOverlap = window.collisionSystem.isZombieOverlappingWithZombies(testX, testY, width/2, this.zombies.filter(z => z.hp > 0), 0.1);
-            } else {
-                console.warn('碰撞系统不支持僵尸重叠检测');
-                return null;
-            }
-            
-            if (window.collisionSystem && window.collisionSystem.isCircleCollidingWithBuildings) {
+            if (window.collisionSystem.isCircleCollidingWithBuildings) {
                 buildingCollision = window.collisionSystem.isCircleCollidingWithBuildings(testX, testY, width/2);
             }
-            
-            if (!characterOverlap && !zombieOverlap && !buildingCollision) {
+
+            // 检查僵尸重叠
+            var zombieOverlap = false;
+            if (window.collisionSystem.isZombieOverlappingWithZombies) {
+                zombieOverlap = window.collisionSystem.isZombieOverlappingWithZombies(testX, testY, width/2, null, 0.1);
+            }
+
+            // 检查人物重叠
+            var characterOverlap = false;
+            if (window.collisionSystem.isCharacterOverlappingWithZombies) {
+                characterOverlap = window.collisionSystem.isCharacterOverlappingWithZombies(testX, testY, width/2, null, 0.1);
+            }
+
+            // 如果位置安全，返回
+            if (!buildingCollision && !zombieOverlap && !characterOverlap) {
                 return {x: testX, y: testY};
             }
+
+            attempt++;
         }
 
-        return null;
+        console.warn('无法找到不重叠的位置，使用原始位置');
+        return {x: baseX, y: baseY};
     },
 
-    // 更新所有僵尸
+    // 更新所有僵尸 - 通过四叉树获取僵尸列表
     updateAllZombies: function (characters, deltaTime) {
         var performanceUtils = UtilsManager.getPerformanceUtils();
         
@@ -1078,14 +1039,23 @@ var ZombieManager = {
             console.error('时间增量无效:', deltaTime);
             return;
         }
+
+        // 从四叉树获取所有僵尸
+        var zombies = [];
+        if (window.collisionSystem && window.collisionSystem.getAllZombies) {
+            zombies = window.collisionSystem.getAllZombies();
+        } else {
+            console.warn('无法从四叉树获取僵尸列表');
+            return;
+        }
         
-        console.log('更新僵尸，数量:', this.zombies.length, '角色数量:', characters.length);
+        console.log('更新僵尸，数量:', zombies.length, '角色数量:', characters.length);
 
         // 使用性能工具测量更新时间
         performanceUtils.startTimer('updateAllZombies');
 
         // 更新僵尸
-        this.zombies.forEach((zombie, index) => {
+        zombies.forEach((zombie, index) => {
             // 检查僵尸对象有效性
             if (!zombie || typeof zombie !== 'object') {
                 console.error('发现无效僵尸对象:', zombie, '索引:', index);
@@ -1115,33 +1085,25 @@ var ZombieManager = {
             }
         });
 
-        // 清理死亡僵尸，并从碰撞系统中移除（增加调试信息）
-        var deadZombies = this.zombies.filter(zombie => zombie.hp <= 0 || zombie.state === ZOMBIE_STATE.DEAD);
+        // 清理死亡僵尸 - 通过四叉树管理
+        var deadZombies = zombies.filter(zombie => zombie.hp <= 0 || zombie.state === ZOMBIE_STATE.DEAD);
         if (deadZombies.length > 0) {
             console.log('发现死亡僵尸，数量:', deadZombies.length);
             deadZombies.forEach(zombie => {
                 console.log('死亡僵尸详情:', zombie.type, zombie.id, 'hp:', zombie.hp, 'maxHp:', zombie.maxHp, 'state:', zombie.state);
                 
-                if (window.collisionSystem && window.collisionSystem.removeDynamicObject) {
+                // 通过四叉树销毁僵尸对象
+                if (window.collisionSystem && window.collisionSystem.destroyZombieObject) {
                     try {
-                        window.collisionSystem.removeDynamicObject(zombie);
-                        console.log('死亡僵尸已从碰撞系统移除:', zombie.type, zombie.id);
+                        window.collisionSystem.destroyZombieObject(zombie);
+                        console.log('死亡僵尸已通过四叉树销毁:', zombie.type, zombie.id);
                     } catch (error) {
-                        console.error('从碰撞系统移除僵尸失败:', zombie.type, zombie.id, '错误:', error);
+                        console.error('四叉树销毁僵尸失败:', zombie.type, zombie.id, '错误:', error);
                     }
+                } else {
+                    console.error('四叉树不支持僵尸对象销毁');
                 }
             });
-        }
-
-        // 记录清理前的僵尸数量
-        var beforeCleanup = this.zombies.length;
-        
-        // 只移除真正死亡的僵尸（hp <= 0 或状态为DEAD）
-        this.zombies = this.zombies.filter(zombie => zombie.hp > 0 && zombie.state !== ZOMBIE_STATE.DEAD);
-        
-        var afterCleanup = this.zombies.length;
-        if (beforeCleanup !== afterCleanup) {
-            console.log('僵尸清理完成:', beforeCleanup, '->', afterCleanup, '移除:', beforeCleanup - afterCleanup);
         }
         
         var updateTime = performanceUtils.endTimer('updateAllZombies');
@@ -1150,9 +1112,58 @@ var ZombieManager = {
         }
     },
 
-    // 获取所有僵尸
+    // 获取所有僵尸 - 从四叉树获取
     getAllZombies: function () {
-        return this.zombies;
+        console.log('ZombieManager.getAllZombies: 开始获取僵尸列表');
+        
+        if (!window.collisionSystem) {
+            console.warn('ZombieManager.getAllZombies: 碰撞系统未初始化');
+            return [];
+        }
+        
+        if (!window.collisionSystem.getAllZombies) {
+            console.warn('ZombieManager.getAllZombies: 四叉树不支持getAllZombies方法');
+            return [];
+        }
+        
+        var zombies = window.collisionSystem.getAllZombies();
+        console.log('ZombieManager.getAllZombies: 从四叉树获取到僵尸数量:', zombies.length);
+        
+        if (zombies.length > 0) {
+            zombies.forEach((zombie, index) => {
+                console.log(`ZombieManager.getAllZombies: 僵尸 ${index}:`, {
+                    id: zombie.id,
+                    type: zombie.type,
+                    x: zombie.x,
+                    y: zombie.y,
+                    hp: zombie.hp,
+                    state: zombie.state
+                });
+            });
+        }
+        
+        return zombies;
+    },
+
+    // 获取僵尸数量 - 从四叉树获取
+    getZombieCount: function () {
+        if (window.collisionSystem && window.collisionSystem.getDynamicObjectCountByType) {
+            return window.collisionSystem.getDynamicObjectCountByType('zombie');
+        } else {
+            console.warn('无法从四叉树获取僵尸数量');
+            return 0;
+        }
+    },
+
+    // 设置难度
+    setDifficulty: function (difficulty) {
+        this.difficulty = difficulty;
+        console.log('僵尸难度已设置为:', difficulty);
+    },
+
+    // 获取当前难度
+    getDifficulty: function () {
+        return this.difficulty;
     }
 };
 

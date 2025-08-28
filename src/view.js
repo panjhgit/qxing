@@ -362,13 +362,36 @@ ViewSystem.prototype.renderCharacter = function(character, worldX, worldY) {
 
 // 渲染僵尸（带摄像机变换）
 ViewSystem.prototype.renderZombies = function(zombieManager) {
-    if (!zombieManager) return;
+    if (!zombieManager) {
+        console.warn('renderZombies: zombieManager 为空');
+        return;
+    }
     
     var zombies = zombieManager.getAllZombies();
-    zombies.forEach(zombie => {
+    console.log('renderZombies: 获取到僵尸数量:', zombies.length);
+    
+    if (zombies.length === 0) {
+        console.log('renderZombies: 没有僵尸需要渲染');
+        return;
+    }
+    
+    zombies.forEach((zombie, index) => {
+        console.log(`renderZombies: 僵尸 ${index}:`, {
+            id: zombie.id,
+            type: zombie.type,
+            x: zombie.x,
+            y: zombie.y,
+            size: zombie.size,
+            hp: zombie.hp,
+            state: zombie.state
+        });
+        
         if (this.camera.isInView(zombie.x, zombie.y, zombie.size, zombie.size)) {
             var screenPos = this.camera.worldToScreen(zombie.x, zombie.y);
+            console.log(`renderZombies: 僵尸 ${index} 在视野内，屏幕位置:`, screenPos);
             this.renderZombie(zombie, screenPos.x, screenPos.y);
+        } else {
+            console.log(`renderZombies: 僵尸 ${index} 不在视野内`);
         }
     });
 };

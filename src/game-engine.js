@@ -364,6 +364,18 @@ GameEngine.prototype.setSystems = function(mapSystem, characterManager, menuSyst
         console.log('触摸摇杆初始化完成');
     }
     
+    // 测试僵尸创建
+    console.log('GameEngine: 测试僵尸创建...');
+    var testZombie = zombieManager.createZombie('skinny', 8000, 7500);
+    if (testZombie) {
+        console.log('GameEngine: 测试僵尸创建成功:', testZombie);
+        // 检查僵尸是否在四叉树中
+        var zombies = zombieManager.getAllZombies();
+        console.log('GameEngine: 四叉树中的僵尸数量:', zombies.length);
+    } else {
+        console.error('GameEngine: 测试僵尸创建失败');
+    }
+    
     // 初始化视觉系统
     if (this.viewSystem && mapSystem) {
         this.viewSystem.init(mapSystem.mapWidth, mapSystem.mapHeight);
@@ -667,7 +679,20 @@ GameEngine.prototype.spawnZombiesForDay = function() {
         }
         
         // 创建僵尸
-        this.zombieManager.createZombie(randomType, zombieX, zombieY);
+        console.log('GameEngine: 开始创建僵尸，类型:', randomType, '位置:', zombieX, zombieY);
+        var createdZombie = this.zombieManager.createZombie(randomType, zombieX, zombieY);
+        
+        if (createdZombie) {
+            console.log('GameEngine: 僵尸创建成功:', {
+                id: createdZombie.id,
+                type: createdZombie.type,
+                x: createdZombie.x,
+                y: createdZombie.y,
+                hp: createdZombie.hp
+            });
+        } else {
+            console.error('GameEngine: 僵尸创建失败');
+        }
     }
 };
 

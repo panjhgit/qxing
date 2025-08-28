@@ -181,6 +181,25 @@ QuadTreeNode.prototype.remove = function (object) {
     return false;
 };
 
+// 获取所有对象
+QuadTreeNode.prototype.getAllObjects = function () {
+    var allObjects = [];
+    
+    // 添加当前节点的对象
+    allObjects = allObjects.concat(this.objects);
+    
+    // 递归获取子节点的对象
+    if (this.isDivided) {
+        for (var i = 0; i < this.children.length; i++) {
+            var child = this.children[i];
+            var childObjects = child.getAllObjects();
+            allObjects = allObjects.concat(childObjects);
+        }
+    }
+    
+    return allObjects;
+};
+
 // 四叉树碰撞检测系统
 var CollisionSystem = {
     // 四叉树实例
@@ -1025,6 +1044,158 @@ var CollisionSystem = {
         }
 
         return result;
+    },
+
+    // ==================== 僵尸专用管理方法 ====================
+    
+    // 创建僵尸对象
+    createZombieObject: function (zombie) {
+        if (!zombie || !zombie.id) {
+            console.error('创建僵尸对象失败: 僵尸对象无效');
+            return null;
+        }
+
+        // 检查僵尸是否已经在四叉树中
+        if (zombie._quadTreeId) {
+            console.warn('僵尸已在四叉树中:', zombie._quadTreeId);
+            return zombie;
+        }
+
+        // 添加到动态四叉树
+        var result = this.addDynamicObject(zombie);
+        if (result) {
+            console.log('僵尸对象已创建并添加到四叉树:', zombie.type, zombie.id);
+            return zombie;
+        } else {
+            console.error('僵尸对象创建失败:', zombie.type, zombie.id);
+            return null;
+        }
+    },
+
+    // 销毁僵尸对象
+    destroyZombieObject: function (zombie) {
+        if (!zombie || !zombie.id) {
+            console.error('销毁僵尸对象失败: 僵尸对象无效');
+            return false;
+        }
+
+        // 从动态四叉树移除
+        var result = this.removeDynamicObject(zombie);
+        if (result) {
+            console.log('僵尸对象已销毁并从四叉树移除:', zombie.type, zombie.id);
+            return true;
+        } else {
+            console.error('僵尸对象销毁失败:', zombie.type, zombie.id);
+            return false;
+        }
+    },
+
+    // 更新僵尸位置
+    updateZombiePosition: function (zombie, oldX, oldY, newX, newY) {
+        if (!zombie || !zombie.id) {
+            console.error('更新僵尸位置失败: 僵尸对象无效');
+            return false;
+        }
+
+        // 验证新位置的有效性
+        if (newX === undefined || newY === undefined) {
+            console.warn('更新僵尸位置失败: 新位置无效', {oldX, oldY, newX, newY});
+            return false;
+        }
+
+        // 使用通用的动态对象位置更新方法
+        var result = this.updateDynamicObjectPosition(zombie, oldX, oldY, newX, newY);
+        if (result) {
+            console.log('僵尸位置已更新:', zombie.type, zombie.id, '从', oldX, oldY, '到', newX, newY);
+        }
+        return result;
+    },
+
+    // 获取所有僵尸
+    getAllZombies: function () {
+        console.log('CollisionSystem.getAllZombies: 开始获取僵尸列表');
+        
+        if (!this.dynamicQuadTree) {
+            console.warn('CollisionSystem.getAllZombies: 动态四叉树未初始化');
+            return [];
+        }
+
+        console.log('CollisionSystem.getAllZombies: 动态四叉树已初始化，开始获取所有对象');
+        var allObjects = this.dynamicQuadTree.getAllObjects();
+        console.log('CollisionSystem.getAllZombies: 从四叉树获取到所有对象数量:', allObjects.length);
+        
+        if (allObjects.length > 0) {
+            allObjects.forEach((obj, index) => {
+                console.log(`CollisionSystem.getAllZombies: 对象 ${index}:`, {
+                    id: obj.id,
+                    type: obj.type,
+                    x: obj.x,
+                    y: obj.y
+                });
+            });
+        }
+        
+        var zombies = allObjects.filter(function(obj) {
+            // 僵尸的类型字段是具体的类型（如 'skinny', 'fat', 'boss'），不是 'zombie'
+            // 我们需要通过其他方式识别僵尸对象
+            return obj && obj.type && (
+                obj.type === 'skinny' || 
+                obj.type === 'fat' || 
+                obj.type === 'boss' || 
+                obj.type === 'fast' || 
+                obj.type === 'tank' ||
+                // 或者检查是否有僵尸特有的属性
+                (obj.hp !== undefined && obj.moveSpeed !== undefined && obj.icon === '🧟‍♂️')
+            );
+        });
+        
+        console.log('CollisionSystem.getAllZombies: 过滤后的僵尸数量:', zombies.length);
+        
+        if (zombies.length > 0) {
+            zombies.forEach((zombie, index) => {
+                console.log(`CollisionSystem.getAllZombies: 僵尸 ${index}:`, {
+                    id: zombie.id,
+                    type: zombie.type,
+                    x: zombie.x,
+                    y: zombie.y
+                });
+            });
+        }
+
+        return zombies;
+    },
+
+    // 获取指定类型的动态对象数量
+    getDynamicObjectCountByType: function (type) {
+        if (!this.dynamicQuadTree) {
+            console.warn('动态四叉树未初始化');
+            return 0;
+        }
+
+        var allObjects = this.dynamicQuadTree.getAllObjects();
+        var count = 0;
+        
+        if (type === 'zombie') {
+            // 僵尸的特殊处理
+            count = allObjects.filter(function(obj) {
+                return obj && obj.type && (
+                    obj.type === 'skinny' || 
+                    obj.type === 'fat' || 
+                    obj.type === 'boss' || 
+                    obj.type === 'fast' || 
+                    obj.type === 'tank' ||
+                    // 或者检查是否有僵尸特有的属性
+                    (obj.hp !== undefined && obj.moveSpeed !== undefined && obj.icon === '🧟‍♂️')
+                );
+            }).length;
+        } else {
+            // 其他类型的处理
+            count = allObjects.filter(function(obj) {
+                return obj && obj.type && obj.type.includes(type);
+            }).length;
+        }
+
+        return count;
     },
 
     // 检测点是否在建筑物内
