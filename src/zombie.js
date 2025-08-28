@@ -333,160 +333,124 @@ Zombie.prototype.destroy = function() {
 };
 
 // 寻找目标 - 使用工具类
-Zombie.prototype.findTarget = function (characters) {
-    var mathUtils = UtilsManager.getMathUtils();
-    var validationUtils = UtilsManager.getValidationUtils();
+Zombie.prototype.findTarget = function(characters) {
+    // 首先检查当前目标是否仍然有效
+    if (!this.isTargetValid()) {
+        // 目标无效，寻找新的目标
+        this.findNearestEnemy();
+    }
     
-    // 寻找主人物作为目标
-    var mainCharacter = null;
-    characters.forEach(character => {
-        if (validationUtils.validateObject(character, ['hp', 'role']) && 
-            character.hp > 0 && character.role === 1) { // 主人物
-            mainCharacter = character;
-        }
-    });
-
-    if (mainCharacter) {
-        // 验证主人物坐标
-        if (!mathUtils.isValidNumber(mainCharacter.x) || !mathUtils.isValidNumber(mainCharacter.y)) {
-            console.error('主人物坐标无效:', mainCharacter.x, mainCharacter.y);
-            return;
-        }
-        
-        var distance = mathUtils.distance(this.x, this.y, mainCharacter.x, mainCharacter.y);
-
-        // 在700px范围内始终追逐主人物
-        if (distance <= 700) {
-            this.targetCharacter = mainCharacter;
-            this.targetX = mainCharacter.x;
-            this.targetY = mainCharacter.y;
-
-            if (distance <= this.attackRange) {
-                this.state = ZOMBIE_STATE.ATTACKING;
-            } else {
-                this.state = ZOMBIE_STATE.CHASING;
-            }
-
-            console.log('僵尸', this.type, '发现主人物，距离:', distance, '状态:', this.state, '目标位置:', this.targetX, this.targetY);
-            return;
-        }
+    // 如果没有目标，尝试寻找新目标
+    if (!this.targetCharacter) {
+        this.findNearestEnemy();
     }
-
-    // 如果没有主人物目标，寻找其他角色
-    if (this.targetCharacter && this.targetCharacter.hp > 0) {
-        // 验证目标角色坐标
-        if (!mathUtils.isValidNumber(this.targetCharacter.x) || !mathUtils.isValidNumber(this.targetCharacter.y)) {
-            console.error('目标角色坐标无效:', this.targetCharacter.x, this.targetCharacter.y);
-            this.targetCharacter = null;
-            return;
-        }
-        
-        var distance = mathUtils.distance(this.x, this.y, this.targetCharacter.x, this.targetCharacter.y);
-        if (distance <= this.detectionRange) {
-            return; // 已有目标且在范围内
-        }
-    }
-
-    // 寻找新目标
-    this.targetCharacter = null;
-    var closestDistance = Infinity;
-
-    characters.forEach(character => {
-        if (validationUtils.validateObject(character, ['hp', 'role']) && 
-            character.hp > 0 && character.role !== 1) { // 不攻击主人物
-            
-            // 验证角色坐标
-            if (!mathUtils.isValidNumber(character.x) || !mathUtils.isValidNumber(character.y)) {
-                console.error('角色坐标无效:', character.x, character.y);
-                return;
-            }
-            
-            var distance = mathUtils.distance(this.x, this.y, character.x, character.y);
-            if (distance <= this.detectionRange && distance < closestDistance) {
-                closestDistance = distance;
-                this.targetCharacter = character;
-            }
-        }
-    });
-
+    
+    // 根据目标距离决定状态
     if (this.targetCharacter) {
-        this.state = ZOMBIE_STATE.CHASING;
-        this.targetX = this.targetCharacter.x;
-        this.targetY = this.targetCharacter.y;
-        console.log('僵尸', this.type, '设置新目标:', this.targetCharacter.role, '目标位置:', this.targetX, this.targetY);
+        var mathUtils = UtilsManager.getMathUtils();
+        var distance = mathUtils.distance(this.x, this.y, this.targetCharacter.x, this.targetCharacter.y);
+        
+        if (distance <= this.attackRange) {
+            // 在攻击范围内，切换到攻击状态
+            if (this.state !== ZOMBIE_STATE.ATTACKING) {
+                this.state = ZOMBIE_STATE.ATTACKING;
+                console.log('僵尸', this.id, '切换到攻击状态，目标距离:', distance);
+            }
+        } else if (distance <= this.detectionRange) {
+            // 在检测范围内，切换到追逐状态
+            if (this.state !== ZOMBIE_STATE.CHASING) {
+                this.state = ZOMBIE_STATE.CHASING;
+                console.log('僵尸', this.id, '切换到追逐状态，目标距离:', distance);
+            }
+        } else {
+            // 超出检测范围，切换到待机状态
+            if (this.state !== ZOMBIE_STATE.IDLE) {
+                this.state = ZOMBIE_STATE.IDLE;
+                console.log('僵尸', this.id, '切换到待机状态，目标超出检测范围');
+            }
+        }
     } else {
-        // 如果没有找到目标，设置默认目标位置（当前位置附近）
-        this.targetX = this.x + (Math.random() - 0.5) * 100;
-        this.targetY = this.y + (Math.random() - 0.5) * 100;
-        this.state = ZOMBIE_STATE.IDLE;
-        console.log('僵尸', this.type, '没有找到目标，设置随机目标位置:', this.targetX, this.targetY);
+        // 没有目标，切换到待机状态
+        if (this.state !== ZOMBIE_STATE.IDLE) {
+            this.state = ZOMBIE_STATE.IDLE;
+            console.log('僵尸', this.id, '没有目标，切换到待机状态');
+        }
     }
 };
 
 // 追击目标 - 使用工具类
 Zombie.prototype.chaseTarget = function (deltaTime) {
-    if (!this.targetCharacter || this.targetCharacter.hp <= 0) {
-        this.state = ZOMBIE_STATE.IDLE;
-        return;
+    // 检查目标是否仍然有效
+    if (!this.isTargetValid()) {
+        // 目标无效，重新寻找目标
+        this.findNearestEnemy();
+        
+        if (!this.targetCharacter) {
+            this.state = ZOMBIE_STATE.IDLE;
+            return;
+        }
     }
-
-    // 验证目标角色坐标
-    var mathUtils = UtilsManager.getMathUtils();
-    if (!mathUtils.isValidNumber(this.targetCharacter.x) || !mathUtils.isValidNumber(this.targetCharacter.y)) {
-        console.error('追击目标坐标无效:', this.targetCharacter.x, this.targetCharacter.y);
-        this.state = ZOMBIE_STATE.IDLE;
-        return;
-    }
-
+    
     // 更新目标位置
     this.targetX = this.targetCharacter.x;
     this.targetY = this.targetCharacter.y;
 
+    var mathUtils = UtilsManager.getMathUtils();
     var distance = mathUtils.distance(this.x, this.y, this.targetCharacter.x, this.targetCharacter.y);
-
+    
     if (distance <= this.attackRange) {
+        // 进入攻击范围，切换到攻击状态
         this.state = ZOMBIE_STATE.ATTACKING;
+        console.log('僵尸', this.id, '进入攻击范围，切换到攻击状态');
         return;
     }
-
-    console.log('僵尸', this.type, '追击中，距离目标:', distance, '移动速度:', this.moveSpeed, '目标位置:', this.targetX, this.targetY);
-
-    // 移动向目标
+    
+    if (distance > this.detectionRange) {
+        // 超出检测范围，切换到待机状态
+        this.state = ZOMBIE_STATE.IDLE;
+        console.log('僵尸', this.id, '目标超出检测范围，切换到待机状态');
+        return;
+    }
+    
+    // 继续追逐目标
     this.moveTowards(this.targetX, this.targetY, deltaTime);
 };
 
 // 攻击目标
 Zombie.prototype.attackTarget = function (deltaTime) {
-    if (!this.targetCharacter || this.targetCharacter.hp <= 0) {
-        this.state = ZOMBIE_STATE.IDLE;
-        return;
+    // 检查目标是否仍然有效
+    if (!this.isTargetValid()) {
+        // 目标无效，重新寻找目标
+        this.findNearestEnemy();
+        
+        if (!this.targetCharacter) {
+            this.state = ZOMBIE_STATE.IDLE;
+            return;
+        }
     }
-
-    // 验证目标角色坐标
+    
+    // 检查目标是否还在攻击范围内
     var mathUtils = UtilsManager.getMathUtils();
-    if (!mathUtils.isValidNumber(this.targetCharacter.x) || !mathUtils.isValidNumber(this.targetCharacter.y)) {
-        console.error('攻击目标坐标无效:', this.targetCharacter.x, this.targetCharacter.y);
-        this.state = ZOMBIE_STATE.IDLE;
+    var distance = mathUtils.distance(this.x, this.y, this.targetCharacter.x, this.targetCharacter.y);
+    
+    if (distance > this.attackRange) {
+        // 目标超出攻击范围，切换到追击状态
+        this.state = ZOMBIE_STATE.CHASING;
+        console.log('僵尸', this.id, '目标超出攻击范围，切换到追击状态');
         return;
     }
-
+    
+    // 执行攻击
     var currentTime = Date.now();
     if (currentTime - this.lastAttackTime >= this.attackCooldown) {
-        // 执行攻击
+        // 对目标造成伤害
         this.targetCharacter.takeDamage(this.attack);
         this.lastAttackTime = currentTime;
 
-        console.log('僵尸攻击:', this.type, '造成伤害:', this.attack);
+        console.log('僵尸', this.id, '攻击目标:', this.targetCharacter.role === 1 ? '主人物' : '伙伴', '造成伤害:', this.attack);
         
         // 播放攻击动画
         this.playAttackAnimation();
-    }
-
-    // 检查目标是否还在攻击范围内
-    var distance = mathUtils.distance(this.x, this.y, this.targetCharacter.x, this.targetCharacter.y);
-    if (distance > this.attackRange) {
-        this.state = ZOMBIE_STATE.CHASING;
-        console.log('僵尸目标超出攻击范围，切换到追击状态');
     }
 };
 
@@ -1643,6 +1607,81 @@ var ZombieManager = {
     getDifficulty: function () {
         return this.difficulty;
     }
+};
+
+// 寻找最近的敌人（角色或伙伴）
+Zombie.prototype.findNearestEnemy = function() {
+    if (!window.characterManager) return;
+    
+    var allCharacters = window.characterManager.getAllCharacters().filter(c => c.hp > 0);
+    if (allCharacters.length === 0) return;
+    
+    var mathUtils = UtilsManager.getMathUtils();
+    var nearestEnemy = null;
+    var nearestDistance = Infinity;
+    
+    // 寻找最近的敌人
+    for (var i = 0; i < allCharacters.length; i++) {
+        var character = allCharacters[i];
+        var distance = mathUtils.distance(this.x, this.y, character.x, character.y);
+        
+        // 优先选择主人物，其次是伙伴
+        var priority = character.role === 1 ? 0 : 1; // 主人物优先级更高
+        
+        if (distance <= this.detectionRange && 
+            (distance < nearestDistance || (distance === nearestDistance && priority < (nearestEnemy ? (nearestEnemy.role === 1 ? 0 : 1) : 1)))) {
+            nearestDistance = distance;
+            nearestEnemy = character;
+        }
+    }
+    
+    // 如果当前目标无效或不是最近的，更新目标
+    if (!this.targetCharacter || 
+        this.targetCharacter.hp <= 0 || 
+        this.targetCharacter !== nearestEnemy) {
+        
+        this.targetCharacter = nearestEnemy;
+        
+        if (this.targetCharacter) {
+            this.targetX = this.targetCharacter.x;
+            this.targetY = this.targetCharacter.y;
+            console.log('僵尸', this.id, '更新目标:', this.targetCharacter.role === 1 ? '主人物' : '伙伴', '距离:', nearestDistance);
+        } else {
+            console.log('僵尸', this.id, '没有找到有效的目标');
+        }
+    }
+};
+
+// 检查当前目标是否仍然有效
+Zombie.prototype.isTargetValid = function() {
+    if (!this.targetCharacter) return false;
+    
+    // 检查目标是否还活着
+    if (this.targetCharacter.hp <= 0) {
+        console.log('僵尸', this.id, '目标已死亡，清除目标');
+        this.targetCharacter = null;
+        this.targetX = this.x;
+        this.targetY = this.y;
+        return false;
+    }
+    
+    // 检查目标是否在检测范围内
+    var mathUtils = UtilsManager.getMathUtils();
+    var distance = mathUtils.distance(this.x, this.y, this.targetCharacter.x, this.targetCharacter.y);
+    
+    if (distance > this.detectionRange) {
+        console.log('僵尸', this.id, '目标超出检测范围，距离:', distance, '检测范围:', this.detectionRange);
+        this.targetCharacter = null;
+        this.targetX = this.x;
+        this.targetY = this.y;
+        return false;
+    }
+    
+    // 更新目标位置
+    this.targetX = this.targetCharacter.x;
+    this.targetY = this.targetCharacter.y;
+    
+    return true;
 };
 
 // 导出枚举和类

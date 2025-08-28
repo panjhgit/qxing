@@ -638,6 +638,18 @@ Character.prototype.onExitDie = function(stateData) {
 
 // 通用的攻击更新方法
 Character.prototype.updateAttack = function(deltaTime) {
+    // 首先检查当前攻击目标是否仍然有效
+    if (!this.isAttackTargetValid()) {
+        // 目标无效，重新寻找目标
+        this.findAttackTarget();
+        
+        // 如果仍然没有有效目标，退出攻击状态
+        if (!this.attackTarget) {
+            console.log('主人物没有有效的攻击目标，退出攻击状态');
+            return;
+        }
+    }
+    
     if (!this.attackTarget || this.attackTarget.hp <= 0) {
         return;
     }
@@ -760,7 +772,11 @@ Character.prototype.findAttackTarget = function() {
     if (!window.zombieManager) return;
     
     var zombies = window.zombieManager.getAllZombies().filter(z => z.hp > 0);
-    if (zombies.length === 0) return;
+    if (zombies.length === 0) {
+        // 没有僵尸时清除攻击目标
+        this.attackTarget = null;
+        return;
+    }
     
     var mathUtils = UtilsManager.getMathUtils();
     var closestZombie = null;
@@ -777,11 +793,50 @@ Character.prototype.findAttackTarget = function() {
         }
     }
     
-    this.attackTarget = closestZombie;
-    
-    if (this.attackTarget) {
-        console.log('主人物找到攻击目标:', this.attackTarget.type, '距离:', closestDistance);
+    // 如果当前目标无效或不是最近的，更新目标
+    if (!this.attackTarget || 
+        this.attackTarget.hp <= 0 || 
+        this.attackTarget !== closestZombie) {
+        
+        this.attackTarget = closestZombie;
+        
+        if (this.attackTarget) {
+            console.log('主人物更新攻击目标:', this.attackTarget.type, '距离:', closestDistance);
+        } else {
+            console.log('主人物没有找到有效的攻击目标');
+        }
     }
+};
+
+// 检查当前攻击目标是否仍然有效
+Character.prototype.isAttackTargetValid = function() {
+    if (!this.attackTarget) return false;
+    
+    // 检查目标是否还活着
+    if (this.attackTarget.hp <= 0) {
+        console.log('主人物攻击目标已死亡，清除目标');
+        this.attackTarget = null;
+        return false;
+    }
+    
+    // 检查目标是否在攻击范围内
+    var mathUtils = UtilsManager.getMathUtils();
+    var distance = mathUtils.distance(this.x, this.y, this.attackTarget.x, this.attackTarget.y);
+    
+    if (distance > this.attackRange) {
+        console.log('主人物攻击目标超出范围，距离:', distance, '攻击范围:', this.attackRange);
+        this.attackTarget = null;
+        return false;
+    }
+    
+    return true;
+};
+
+// 强制重新选择攻击目标
+Character.prototype.forceRetarget = function() {
+    console.log('主人物强制重新选择攻击目标');
+    this.attackTarget = null;
+    this.findAttackTarget();
 };
 
 // 移动到攻击范围（主人物专用）
@@ -836,7 +891,13 @@ Character.prototype.playAttackAnimationWhileMoving = function(deltaTime) {
 
 // 移动中执行攻击
 Character.prototype.performAttackWhileMoving = function() {
-    // 寻找最近的僵尸作为攻击目标
+    // 检查当前攻击目标是否仍然有效
+    if (!this.isAttackTargetValid()) {
+        // 目标无效，重新寻找目标
+        this.findAttackTarget();
+    }
+    
+    // 如果没有攻击目标，寻找新的目标
     if (!this.attackTarget) {
         this.findAttackTarget();
     }
@@ -1597,4 +1658,69 @@ Character.prototype.debugMainCharacterState = function() {
     console.log('摇杆输入检测:', this.hasJoystickInput());
     console.log('摇杆方向:', this.getJoystickDirection());
     console.log('========================');
+};
+
+// 伙伴寻找攻击目标
+Character.prototype.findPartnerAttackTarget = function() {
+    if (!window.zombieManager) return;
+    
+    var zombies = window.zombieManager.getAllZombies().filter(z => z.hp > 0);
+    if (zombies.length === 0) {
+        // 没有僵尸时清除攻击目标
+        this.attackTarget = null;
+        return;
+    }
+    
+    var mathUtils = UtilsManager.getMathUtils();
+    var closestZombie = null;
+    var closestDistance = Infinity;
+    
+    // 寻找最近的僵尸
+    for (var i = 0; i < zombies.length; i++) {
+        var zombie = zombies[i];
+        var distance = mathUtils.distance(this.x, this.y, zombie.x, zombie.y);
+        
+        if (distance <= this.attackRange && distance < closestDistance) {
+            closestDistance = distance;
+            closestZombie = zombie;
+        }
+    }
+    
+    // 如果当前目标无效或不是最近的，更新目标
+    if (!this.attackTarget || 
+        this.attackTarget.hp <= 0 || 
+        this.attackTarget !== closestZombie) {
+        
+        this.attackTarget = closestZombie;
+        
+        if (this.attackTarget) {
+            console.log('伙伴', this.id, '更新攻击目标:', this.attackTarget.type, '距离:', closestDistance);
+        } else {
+            console.log('伙伴', this.id, '没有找到有效的攻击目标');
+        }
+    }
+};
+
+// 伙伴检查当前攻击目标是否仍然有效
+Character.prototype.isPartnerAttackTargetValid = function() {
+    if (!this.attackTarget) return false;
+    
+    // 检查目标是否还活着
+    if (this.attackTarget.hp <= 0) {
+        console.log('伙伴', this.id, '攻击目标已死亡，清除目标');
+        this.attackTarget = null;
+        return false;
+    }
+    
+    // 检查目标是否在攻击范围内
+    var mathUtils = UtilsManager.getMathUtils();
+    var distance = mathUtils.distance(this.x, this.y, this.attackTarget.x, this.attackTarget.y);
+    
+    if (distance > this.attackRange) {
+        console.log('伙伴', this.id, '攻击目标超出范围，距离:', distance, '攻击范围:', this.attackRange);
+        this.attackTarget = null;
+        return false;
+    }
+    
+    return true;
 };
