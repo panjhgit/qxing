@@ -386,19 +386,42 @@ ViewSystem.prototype.renderZombies = function(zombieManager) {
             state: zombie.state
         });
         
+        // 检查僵尸是否在视野内
         if (this.camera.isInView(zombie.x, zombie.y, zombie.size, zombie.size)) {
             var screenPos = this.camera.worldToScreen(zombie.x, zombie.y);
             console.log(`renderZombies: 僵尸 ${index} 在视野内，屏幕位置:`, screenPos);
             this.renderZombie(zombie, screenPos.x, screenPos.y);
         } else {
-            console.log(`renderZombies: 僵尸 ${index} 不在视野内`);
+            console.log(`renderZombies: 僵尸 ${index} 不在视野内，世界位置:`, zombie.x, zombie.y);
         }
     });
 };
 
 // 渲染单个僵尸
 ViewSystem.prototype.renderZombie = function(zombie, screenX, screenY) {
-    if (zombie.hp <= 0) return;
+    // 添加调试信息
+    console.log('renderZombie: 开始渲染僵尸:', {
+        id: zombie.id,
+        type: zombie.type,
+        hp: zombie.hp,
+        maxHp: zombie.maxHp,
+        state: zombie.state,
+        x: zombie.x,
+        y: zombie.y,
+        screenX: screenX,
+        screenY: screenY,
+        size: zombie.size
+    });
+    
+    if (zombie.hp <= 0) {
+        console.log('renderZombie: 僵尸生命值为0，跳过渲染');
+        return;
+    }
+    
+    if (!zombie.size || zombie.size <= 0) {
+        console.warn('renderZombie: 僵尸尺寸无效:', zombie.size);
+        zombie.size = 32; // 使用默认尺寸
+    }
     
     // 绘制阴影 - 改为椭圆形阴影
     this.ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
@@ -410,7 +433,7 @@ ViewSystem.prototype.renderZombie = function(zombie, screenX, screenY) {
     var bodyY = screenY - zombie.size/2;
     
     // 身体 - 改为圆形
-    this.ctx.fillStyle = zombie.color;
+    this.ctx.fillStyle = zombie.color || '#8B4513';
     this.ctx.beginPath();
     this.ctx.arc(screenX, bodyY + zombie.size/2, zombie.size/2, 0, Math.PI * 2);
     this.ctx.fill();
@@ -425,7 +448,7 @@ ViewSystem.prototype.renderZombie = function(zombie, screenX, screenY) {
     this.ctx.font = Math.floor(zombie.size/2) + 'px Arial';
     this.ctx.textAlign = 'center';
     this.ctx.fillStyle = '#000';
-    this.ctx.fillText(zombie.icon, screenX, bodyY + zombie.size/2);
+    this.ctx.fillText(zombie.icon || '🧟‍♂️', screenX, bodyY + zombie.size/2);
     
     // 绘制血条
     this.drawZombieHealthBar(zombie, screenX, bodyY - 10);
@@ -437,6 +460,8 @@ ViewSystem.prototype.renderZombie = function(zombie, screenX, screenY) {
         this.ctx.arc(screenX, bodyY - 7.5, 4, 0, Math.PI * 2);
         this.ctx.fill();
     }
+    
+    console.log('renderZombie: 僵尸渲染完成');
 };
 
 // 绘制僵尸血条

@@ -336,6 +336,48 @@ function createAndAddGameObjects() {
     if (testZombie) {
         console.log('✅ 初始僵尸创建成功:', testZombie.id);
         
+        // 验证僵尸属性
+        console.log('🔍 僵尸属性验证:');
+        console.log('- 生命值:', testZombie.hp, '最大生命值:', testZombie.maxHp);
+        console.log('- 位置:', testZombie.x, testZombie.y);
+        console.log('- 状态:', testZombie.state);
+        console.log('- 尺寸:', testZombie.size);
+        console.log('- 目标位置:', testZombie.targetX, testZombie.targetY);
+        console.log('- 四叉树ID:', testZombie._quadTreeId);
+        
+        // 检查僵尸是否在四叉树中
+        var zombies = zombieManager.getAllZombies();
+        console.log('✅ 四叉树中的僵尸数量:', zombies.length);
+        
+        // 验证僵尸在四叉树中的状态
+        if (zombies.length > 0) {
+            zombies.forEach((zombie, index) => {
+                console.log(`🔍 四叉树僵尸 ${index}:`, {
+                    id: zombie.id,
+                    type: zombie.type,
+                    hp: zombie.hp,
+                    state: zombie.state,
+                    x: zombie.x,
+                    y: zombie.y,
+                    hasQuadTreeId: !!zombie._quadTreeId
+                });
+            });
+        } else {
+            console.error('❌ 僵尸创建成功但未在四叉树中找到，手动添加到四叉树');
+            // 手动添加到四叉树
+            if (collisionSystem && collisionSystem.addDynamicObject) {
+                var added = collisionSystem.addDynamicObject(testZombie);
+                if (added) {
+                    console.log('✅ 僵尸已手动添加到四叉树');
+                    // 重新检查
+                    var zombiesAfterAdd = zombieManager.getAllZombies();
+                    console.log('✅ 手动添加后四叉树中的僵尸数量:', zombiesAfterAdd.length);
+                } else {
+                    console.error('❌ 僵尸手动添加到四叉树失败');
+                }
+            }
+        }
+        
         // 确保僵尸能找到主人物目标
         var mainChar = characterManager.getMainCharacter();
         if (mainChar && testZombie.findTarget) {
@@ -362,10 +404,6 @@ function createAndAddGameObjects() {
                 mainCharRole: mainChar ? mainChar.role : 'N/A'
             });
         }
-        
-        // 检查僵尸是否在四叉树中
-        var zombies = zombieManager.getAllZombies();
-        console.log('✅ 四叉树中的僵尸数量:', zombies.length);
     } else {
         console.error('❌ 初始僵尸创建失败');
         throw new Error('初始僵尸创建失败');
@@ -469,6 +507,36 @@ function performInitialRendering() {
         }
         
         console.log('✅ 初始渲染完成');
+        
+        // 测试僵尸渲染
+        console.log('🧟‍♂️ 测试僵尸渲染...');
+        if (window.zombieManager && gameEngine.viewSystem) {
+            var zombies = window.zombieManager.getAllZombies();
+            console.log('测试渲染的僵尸数量:', zombies.length);
+            
+            zombies.forEach((zombie, index) => {
+                console.log(`测试僵尸 ${index} 渲染:`, {
+                    id: zombie.id,
+                    type: zombie.type,
+                    hp: zombie.hp,
+                    state: zombie.state,
+                    x: zombie.x,
+                    y: zombie.y,
+                    size: zombie.size
+                });
+                
+                // 检查僵尸是否在视野内
+                if (gameEngine.viewSystem.camera && gameEngine.viewSystem.camera.isInView) {
+                    var inView = gameEngine.viewSystem.camera.isInView(zombie.x, zombie.y, zombie.size, zombie.size);
+                    console.log(`僵尸 ${index} 在视野内:`, inView);
+                    
+                    if (inView) {
+                        var screenPos = gameEngine.viewSystem.camera.worldToScreen(zombie.x, zombie.y);
+                        console.log(`僵尸 ${index} 屏幕位置:`, screenPos);
+                    }
+                }
+            });
+        }
         
     } catch (error) {
         console.error('❌ 初始渲染失败:', error);

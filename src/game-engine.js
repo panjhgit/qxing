@@ -551,13 +551,17 @@ GameEngine.prototype.updateJoystickMovement = function() {
     
     console.log('触摸摇杆移动:', '方向:', direction, '移动速度:', moveSpeed, '当前位置:', mainChar.x, mainChar.y);
     
-    // 简化移动逻辑：直接计算目标位置并设置移动目标
+    // 修复移动逻辑：使用触摸摇杆的实际移动距离，而不是配置的移动速度
     if (Math.abs(direction.x) > 0.1 || Math.abs(direction.y) > 0.1) {
-        var newX = mainChar.x + direction.x * moveSpeed;
-        var newY = mainChar.y + direction.y * moveSpeed;
+        // 使用触摸摇杆的实际移动距离（60像素半径）
+        var joystickRadius = 60;
+        var moveDistance = joystickRadius * 0.5; // 使用摇杆半径的一半作为移动距离
+        
+        var newX = mainChar.x + direction.x * moveDistance;
+        var newY = mainChar.y + direction.y * moveDistance;
         
         console.log('设置移动目标:', '从', mainChar.x, mainChar.y, '到', newX, newY);
-        console.log('移动计算详情:', '方向X:', direction.x, '方向Y:', direction.y, '移动速度:', moveSpeed);
+        console.log('移动计算详情:', '方向X:', direction.x, '方向Y:', direction.y, '移动距离:', moveDistance);
         
         var result = mainChar.setMoveTarget(newX, newY);
         console.log('设置移动目标结果:', result);
@@ -762,8 +766,6 @@ GameEngine.prototype.update = function() {
         deltaTime = Math.min(deltaTime, 1/30); // 最大30fps的deltaTime
         
         this.zombieManager.updateAllZombies(characters, deltaTime);
-        
-
     }
     
     // 更新动态障碍物
@@ -843,7 +845,26 @@ GameEngine.prototype.render = function() {
             
             // 渲染僵尸
             if (this.zombieManager) {
+                console.log('GameEngine.render: 开始渲染僵尸');
+                var zombies = this.zombieManager.getAllZombies();
+                console.log('GameEngine.render: 获取到僵尸数量:', zombies.length);
+                
+                if (zombies.length > 0) {
+                    zombies.forEach((zombie, index) => {
+                        console.log(`GameEngine.render: 僵尸 ${index} 准备渲染:`, {
+                            id: zombie.id,
+                            type: zombie.type,
+                            x: zombie.x,
+                            y: zombie.y,
+                            hp: zombie.hp,
+                            state: zombie.state
+                        });
+                    });
+                }
+                
                 this.viewSystem.renderZombies(this.zombieManager);
+            } else {
+                console.warn('GameEngine.render: zombieManager未初始化');
             }
             
             // 渲染触摸摇杆

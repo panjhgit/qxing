@@ -127,7 +127,7 @@ const AnimationUtils = {
 
 // 移动工具类
 const MovementUtils = {
-    // 计算移动向量 - 真正的固定速度移动，基于时间
+    // 计算移动向量 - 优化的固定速度移动，基于时间
     calculateMoveVector: function(fromX, fromY, toX, toY, speed, deltaTime = 1/60) {
         var deltaX = toX - fromX;
         var deltaY = toY - fromY;
@@ -139,6 +139,11 @@ const MovementUtils = {
         
         // 固定速度移动：每帧移动固定的像素距离，基于时间
         var moveDistance = speed * deltaTime;
+        
+        // 确保每帧至少移动1像素，避免移动过慢
+        if (moveDistance < 1) {
+            moveDistance = 1;
+        }
         
         // 计算移动方向（归一化）
         var directionX = deltaX / distance;

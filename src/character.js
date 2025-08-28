@@ -222,6 +222,16 @@ Character.prototype.setMoveTarget = function (targetX, targetY) {
         this.rotationY = mathUtils.angle(this.x, this.y, targetX, targetY);
     }
 
+    console.log('角色设置移动目标成功:', {
+        idd: this.id,
+        role: this.role,
+        from: { x: this.x, y: this.y },
+        to: { x: targetX, y: targetY },
+        distance: Math.sqrt(deltaX * deltaX + deltaY * deltaY),
+        isMoving: this.isMoving,
+        status: this.status
+    });
+
     return true;
 };
 
@@ -252,8 +262,8 @@ Character.prototype.stopMovement = function() {
     
     console.log('移动向量计算:', '当前位置:', this.x, this.y, '目标位置:', this.targetX, this.targetY, '移动向量:', moveVector, 'deltaTime:', deltaTime);
     
-    // 检查是否到达目标
-    if (moveVector.reached || moveVector.distance < collisionConfig.MIN_MOVE_DISTANCE) {
+    // 检查是否到达目标 - 修复过早停止移动的问题
+    if (moveVector.reached) {
         // 到达目标位置，但也要检查碰撞
         if (window.collisionSystem && window.collisionSystem.getCircleSafeMovePosition) {
             var finalMove = window.collisionSystem.getCircleSafeMovePosition(
@@ -268,6 +278,15 @@ Character.prototype.stopMovement = function() {
             this.status = STATUS.BLOCKED;
             return;
         }
+        this.isMoving = false;
+        this.status = STATUS.IDLE;
+        console.log('角色到达目标位置，停止移动');
+        return;
+    }
+    
+    // 检查移动距离是否过小（只有在移动距离确实很小时才停止）
+    if (moveVector.distance < (collisionConfig.MIN_MOVE_DISTANCE || 1)) {
+        console.log('移动距离过小，停止移动:', moveVector.distance);
         this.isMoving = false;
         this.status = STATUS.IDLE;
         return;

@@ -1219,8 +1219,24 @@ var CollisionSystem = {
         }
         
         var allObjects = this.dynamicQuadTree.getAllObjects();
+        console.log('CollisionSystem.getAllZombies: 动态四叉树中的总对象数量:', allObjects.length);
+        
+        if (allObjects.length > 0) {
+            allObjects.forEach((obj, index) => {
+                console.log(`CollisionSystem.getAllZombies: 对象 ${index}:`, {
+                    id: obj.id,
+                    type: obj.type,
+                    role: obj.role,
+                    x: obj.x,
+                    y: obj.y,
+                    hp: obj.hp,
+                    hasQuadTreeId: !!obj._quadTreeId
+                });
+            });
+        }
+        
         var zombies = allObjects.filter(function(obj) {
-            return obj && obj.type && (
+            var isZombie = obj && obj.type && (
                 obj.type === 'skinny' || 
                 obj.type === 'fat' || 
                 obj.type === 'boss' || 
@@ -1228,7 +1244,21 @@ var CollisionSystem = {
                 obj.type === 'tank' ||
                 (obj.hp !== undefined && obj.moveSpeed !== undefined && obj.icon === '🧟‍♂️')
             );
+            
+            if (obj && obj.type) {
+                console.log(`CollisionSystem.getAllZombies: 检查对象 ${obj.id}:`, {
+                    type: obj.type,
+                    isZombie: isZombie,
+                    hasHp: obj.hp !== undefined,
+                    hasMoveSpeed: obj.moveSpeed !== undefined,
+                    icon: obj.icon
+                });
+            }
+            
+            return isZombie;
         });
+        
+        console.log('CollisionSystem.getAllZombies: 识别出的僵尸数量:', zombies.length);
         
         return zombies;
     },
@@ -2536,35 +2566,5 @@ DynamicObstacleManager.prototype.getStats = function () {
 };
 
 // 导出
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = CollisionSystem;
-} else if (typeof window !== 'undefined') {
-    window.CollisionSystem = CollisionSystem;
-    window.DynamicObstacle = DynamicObstacle;
-    window.DynamicObstacleManager = DynamicObstacleManager;
-
-    // 添加全局访问方法
-    window.collisionSystem = CollisionSystem;
-
-    // 提供便捷的全局方法
-    window.initCollisionSystem = function (mapId) {
-        return CollisionSystem.init(mapId);
-    };
-
-    window.updateCollisionMap = function (mapId) {
-        return CollisionSystem.updateMapData(mapId);
-    };
-
-    window.getCollisionMapInfo = function () {
-        return CollisionSystem.getCurrentMapInfo();
-    };
-
-    window.validateCollisionSystem = function () {
-        return CollisionSystem.validateSystem();
-    };
-
-    console.log('✅ 碰撞检测系统已全局注册，可用方法:');
-
-}
-
-
+export { CollisionSystem, DynamicObstacle, DynamicObstacleManager };
+export default CollisionSystem;
