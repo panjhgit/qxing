@@ -1514,28 +1514,6 @@ var CollisionSystem = {
         return isOverlapping;
     },
 
-    // 检测圆形对象与对象列表的碰撞（使用四叉树优化，预留10%半径空间）
-    isCircleOverlappingWithList: function (objX, objY, objRadius, objectList, safetyMargin = 0.1) {
-        if (!objectList || objectList.length === 0) {
-            return false;
-        }
-
-        // 直接遍历对象列表进行检测（更准确）
-        for (var i = 0; i < objectList.length; i++) {
-            var otherObj = objectList[i];
-            if (otherObj && otherObj.x !== undefined && otherObj.y !== undefined) {
-                // 使用对象的radius属性，如果没有则使用宽度的一半作为默认值
-                var otherRadius = otherObj.radius || (otherObj.width || 32) / 2;
-
-                if (this.isCirclesOverlapping(objX, objY, objRadius, otherObj.x, otherObj.y, otherRadius, safetyMargin)) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    },
-
     // 检测僵尸与僵尸列表的重叠（专门优化）
     isZombieOverlappingWithZombies: function (zombieX, zombieY, zombieRadius, zombieList, safetyMargin = null) {
         // 如果没有指定安全边距，使用配置中的默认值
@@ -1586,24 +1564,6 @@ var CollisionSystem = {
         }
 
         return false;
-    },
-
-    // 获取避免重叠的移动位置（简化版本）
-    getNonOverlappingPosition: function (fromX, fromY, toX, toY, objectWidth, objectHeight, avoidObjects, buildingCollision, isCircle = true) {
-        // 检查建筑物碰撞
-        if (buildingCollision && this.isCircleCollidingWithBuildings(toX, toY, objectWidth / 2)) {
-            var buildingSafePos = this.getCircleSafeMovePosition(fromX, fromY, toX, toY, objectWidth / 2);
-            toX = buildingSafePos.x;
-            toY = buildingSafePos.y;
-        }
-
-        // 检查是否与对象重叠
-        if (this.isCircleOverlappingWithList(toX, toY, objectWidth / 2, avoidObjects, 0.1)) {
-            return {x: toX, y: toY};
-        }
-
-        // 如果重叠，返回原位置
-        return {x: fromX, y: fromY};
     },
 
     // 在矩阵的0值区域生成安全位置（已优化，减少重复代码）
@@ -2281,63 +2241,6 @@ var CollisionSystem = {
                 rect2.y + rect2.height < rect1.y);
     },
 
-    // 测试四叉树状态
-    testQuadTreeStatus: function() {
-        console.log('=== 四叉树状态测试 ===');
-        
-        if (!this.dynamicQuadTree) {
-            console.error('❌ 动态四叉树未初始化');
-            return;
-        }
-        
-        var allObjects = this.dynamicQuadTree.getAllObjects();
-        console.log('动态四叉树中的总对象数量:', allObjects.length);
-        
-        if (allObjects.length === 0) {
-            console.warn('⚠️ 动态四叉树中没有对象');
-            return;
-        }
-        
-        console.log('🔍 分析所有对象:');
-        allObjects.forEach((obj, index) => {
-            console.log(`对象 ${index}:`, {
-                id: obj.id,
-                type: obj.type,
-                zombieType: obj.zombieType,
-                role: obj.role,
-                x: obj.x,
-                y: obj.y,
-                hp: obj.hp,
-                state: obj.state,
-                hasQuadTreeId: !!obj._quadTreeId,
-                quadTreeId: obj._quadTreeId,
-                quadTreeType: obj._quadTreeType
-            });
-            
-            // 检查僵尸对象
-            if (obj.type === 'zombie') {
-                console.log(`✅ 发现僵尸对象 ${index}:`, {
-                    id: obj.id,
-                    type: obj.type,
-                    zombieType: obj.zombieType,
-                    x: obj.x,
-                    y: obj.y,
-                    hp: obj.hp,
-                    state: obj.state
-                });
-            }
-        });
-        
-        // 统计不同类型的对象
-        var typeStats = {};
-        allObjects.forEach(obj => {
-            var type = obj.type || 'unknown';
-            typeStats[type] = (typeStats[type] || 0) + 1;
-        });
-        
-        console.log('对象类型统计:', typeStats);
-        console.log('==================');
-    },
 
     // 获取四叉树性能统计
     getPerformanceStats: function() {

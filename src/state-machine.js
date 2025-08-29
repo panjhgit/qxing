@@ -131,25 +131,12 @@ class StateMachine {
         this.enterState(newState);
     }
     
-    // 获取当前状态信息
-    getStateInfo() {
-        return {
-            currentState: this.currentState,
-            previousState: this.previousState,
-            stateTime: this.stateTime,
-            stateData: this.stateData
-        };
-    }
-    
+
     // 检查是否在指定状态
     isInState(state) {
         return this.currentState === state;
     }
     
-    // 检查是否在多个状态中的任意一个
-    isInAnyState(states) {
-        return states.includes(this.currentState);
-    }
 }
 
 // 导出

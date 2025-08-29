@@ -682,44 +682,6 @@ Character.prototype.updateAttack = function(deltaTime) {
     this.moveToAttackRange();
 };
 
-// 通用的跟随更新方法
-Character.prototype.updateFollow = function(deltaTime) {
-    if (!this.followPoint) {
-        this.calculateFollowPoint();
-        return;
-    }
-    
-    // 计算到跟随点的距离
-    var mathUtils = UtilsManager.getMathUtils();
-    var distance = mathUtils.distance(this.x, this.y, this.followPoint.x, this.followPoint.y);
-    
-    if (distance > 5) { // 5px的跟随精度
-        // 移动到跟随点
-        this.setMoveTarget(this.followPoint.x, this.followPoint.y);
-    } else {
-        // 到达跟随点，停止移动
-        this.stopMovement();
-    }
-};
-
-// 通用的避障更新方法
-Character.prototype.updateAvoid = function(deltaTime) {
-    if (!this.avoidanceTarget) {
-        return;
-    }
-    
-    // 移动到避障目标位置
-    var mathUtils = UtilsManager.getMathUtils();
-    var distance = mathUtils.distance(this.x, this.y, this.avoidanceTarget.x, this.avoidanceTarget.y);
-    
-    if (distance > 3) { // 3px的避障精度
-        this.setMoveTarget(this.avoidanceTarget.x, this.avoidanceTarget.y);
-    } else {
-        // 到达避障位置，停止移动
-        this.stopMovement();
-        this.avoidanceComplete = true;
-    }
-};
 
 // 计算跟随点（主人物侧后方）
 Character.prototype.calculateFollowPoint = function() {
@@ -844,13 +806,6 @@ Character.prototype.isAttackTargetValid = function() {
     }
     
     return true;
-};
-
-// 强制重新选择攻击目标
-Character.prototype.forceRetarget = function() {
-    console.log('主人物强制重新选择攻击目标');
-    this.attackTarget = null;
-    this.findAttackTarget();
 };
 
 // 移动到攻击范围（主人物专用）
@@ -978,68 +933,6 @@ Character.prototype.getJoystickDirection = function() {
     return joystick.getMoveDirection();
 };
 
-// 计算避障策略
-Character.prototype.calculateAvoidanceStrategy = function() {
-    if (!window.characterManager) return;
-    
-    var mainChar = window.characterManager.getMainCharacter();
-    if (!mainChar) return;
-    
-    var mathUtils = UtilsManager.getMathUtils();
-    
-    // 计算主人物移动方向
-    var mainCharDirection = 0;
-    if (mainChar.isMoving && mainChar.targetX !== mainChar.x && mainChar.targetY !== mainChar.y) {
-        mainCharDirection = mathUtils.angle(mainChar.x, mainChar.y, mainChar.targetX, mainChar.targetY);
-    }
-    
-    // 计算避障方向（垂直于主人物移动方向）
-    var avoidDirection = mainCharDirection + Math.PI / 2; // 90度垂直
-    
-    // 根据伙伴ID选择避障方向（避免所有伙伴往同一方向避障）
-    var sideMultiplier = (this.id % 2 === 0) ? 1 : -1;
-    var finalAvoidDirection = avoidDirection * sideMultiplier;
-    
-    // 计算避障目标位置（距离100px）
-    var avoidDistance = 100;
-    this.avoidanceTarget = {
-        x: this.x + Math.cos(finalAvoidDirection) * avoidDistance,
-        y: this.y + Math.sin(finalAvoidDirection) * avoidDistance
-    };
-    
-    // 确保避障目标位置安全
-    if (window.collisionSystem && window.collisionSystem.isCircleCollidingWithBuildings) {
-        if (window.collisionSystem.isCircleCollidingWithBuildings(this.avoidanceTarget.x, this.avoidanceTarget.y, 16)) {
-            // 寻找附近的安全避障位置
-            var safePos = this.findSafeAvoidancePosition(this.x, this.y, avoidDistance);
-            if (safePos) {
-                this.avoidanceTarget = safePos;
-            }
-        }
-    }
-    
-    this.avoidanceComplete = false;
-    console.log('伙伴计算避障策略，目标位置:', this.avoidanceTarget);
-};
-
-// 寻找安全的避障位置
-Character.prototype.findSafeAvoidancePosition = function(centerX, centerY, baseDistance) {
-    var searchRadius = baseDistance;
-    var searchSteps = 12; // 12个方向
-    
-    for (var i = 0; i < searchSteps; i++) {
-        var angle = (i / searchSteps) * Math.PI * 2;
-        var testX = centerX + Math.cos(angle) * searchRadius;
-        var testY = centerY + Math.sin(angle) * searchRadius;
-        
-        if (!window.collisionSystem.isCircleCollidingWithBuildings(testX, testY, 16)) {
-            return {x: testX, y: testY};
-        }
-    }
-    
-    // 如果都找不到，返回原位置
-    return {x: centerX, y: centerY};
-};
 
 // 检查避障是否完成
 Character.prototype.isAvoidanceComplete = function() {
@@ -1064,18 +957,6 @@ Character.prototype.playDeathAnimation = function() {
     console.log('主人物播放死亡动画');
 };
 
-// 销毁角色
-Character.prototype.destroy = function() {
-    console.log('伙伴销毁:', this.role, this.id);
-    
-    // 从四叉树中移除
-    if (window.collisionSystem && window.collisionSystem.removeDynamicObject) {
-        window.collisionSystem.removeDynamicObject(this);
-    }
-    
-    // 标记为已销毁
-    this._destroyed = true;
-};
 
 // 设置移动目标 - 使用工具类
 Character.prototype.setMoveTarget = function (targetX, targetY) {
@@ -1615,106 +1496,5 @@ Character.prototype.checkJoystickInput = function() {
     }
 };
 
-// 调试方法：打印主人物状态信息
-Character.prototype.debugMainCharacterState = function() {
-    if (this.role !== ROLE.MAIN) return;
-    
-    console.log('=== 主人物状态调试信息 ===');
-    console.log('角色ID:', this.id);
-    console.log('位置:', { x: this.x, y: this.y });
-    console.log('状态:', this.status);
-    console.log('是否移动:', this.isMoving);
-    console.log('目标位置:', { x: this.targetX, y: this.targetY });
-    console.log('血量:', this.hp);
-    
-    if (this.stateMachine) {
-        var stateInfo = this.stateMachine.getStateInfo();
-        console.log('状态机信息:', stateInfo);
-    } else {
-        console.log('状态机: 未初始化');
-    }
-    
-    // 检查摇杆状态
-    if (window.gameEngine && window.gameEngine.joystick) {
-        var joystick = window.gameEngine.joystick;
-        console.log('摇杆状态:', {
-            isActive: joystick.isActive,
-            isDragging: joystick.isDragging,
-            isVisible: joystick.isVisible,
-            direction: joystick.getMoveDirection(),
-            position: { x: joystick.joystickX, y: joystick.joystickY }
-        });
-    } else {
-        console.log('摇杆: 未初始化');
-    }
-    
-    // 检查摇杆输入
-    console.log('摇杆输入检测:', this.hasJoystickInput());
-    console.log('摇杆方向:', this.getJoystickDirection());
-    console.log('========================');
-};
 
-// 伙伴寻找攻击目标
-Character.prototype.findPartnerAttackTarget = function() {
-    if (!window.zombieManager) return;
-    
-    var zombies = window.zombieManager.getAllZombies().filter(z => z.hp > 0);
-    if (zombies.length === 0) {
-        // 没有僵尸时清除攻击目标
-        this.attackTarget = null;
-        return;
-    }
-    
-    var mathUtils = UtilsManager.getMathUtils();
-    var closestZombie = null;
-    var closestDistance = Infinity;
-    
-    // 寻找最近的僵尸
-    for (var i = 0; i < zombies.length; i++) {
-        var zombie = zombies[i];
-        var distance = mathUtils.distance(this.x, this.y, zombie.x, zombie.y);
-        
-        if (distance <= this.attackRange && distance < closestDistance) {
-            closestDistance = distance;
-            closestZombie = zombie;
-        }
-    }
-    
-    // 如果当前目标无效或不是最近的，更新目标
-    if (!this.attackTarget || 
-        this.attackTarget.hp <= 0 || 
-        this.attackTarget !== closestZombie) {
-        
-        this.attackTarget = closestZombie;
-        
-        if (this.attackTarget) {
-            console.log('伙伴', this.id, '更新攻击目标:', this.attackTarget.type, '距离:', closestDistance);
-        } else {
-            console.log('伙伴', this.id, '没有找到有效的攻击目标');
-        }
-    }
-};
 
-// 伙伴检查当前攻击目标是否仍然有效
-Character.prototype.isPartnerAttackTargetValid = function() {
-    if (!this.attackTarget) return false;
-    
-    // 检查目标是否还活着
-    if (this.attackTarget.hp <= 0) {
-        console.log('伙伴', this.id, '攻击目标已死亡，清除目标');
-        this.attackTarget = null;
-        return false;
-    }
-    
-    // 检查目标是否在攻击范围内
-    var mathUtils = UtilsManager.getMathUtils();
-    var distance = mathUtils.distance(this.x, this.y, this.attackTarget.x, this.attackTarget.y);
-    
-    if (distance > this.attackRange) {
-        console.log('伙伴', this.id, '攻击目标超出范围，距离:', distance, '攻击范围:', this.attackRange);
-        this.attackTarget = null;
-        return false;
-    }
-    
-    return true;
-};
