@@ -39,7 +39,8 @@
  *
  * 🚀 移动系统配置 (MOVEMENT)
  * ========================================
- * - MOVE_SPEED: 10px/帧 - 移动速度（人物和僵尸通用）
+ * - CHARACTER_MOVE_SPEED: 6px/帧 - 人物移动速度
+ * - ZOMBIE_MOVE_SPEED: 5px/帧 - 僵尸移动速度
  *
  * ⚔️ 攻击系统配置 (COMBAT)
  * ========================================
@@ -72,7 +73,8 @@
 const GAME_CONFIG = {
     // 移动系统配置
     MOVEMENT: {
-        MOVE_SPEED: 5,                 // 移动速度 (像素/帧)
+        CHARACTER_MOVE_SPEED: 6,        // 人物移动速度 (像素/帧)
+        ZOMBIE_MOVE_SPEED: 4,           // 僵尸移动速度 (像素/帧)
     },
 
     // 动画系统配置

@@ -780,10 +780,10 @@ GameEngine.prototype.updateJoystickMovement = function() {
             mainChar.status = 'MOVING';
         }
         
-        // 每帧直接移动角色，从配置文件读取移动速度
+        // 每帧直接移动角色，从配置文件读取人物移动速度
         var configManager = window.ConfigManager;
         var movementConfig = configManager ? configManager.get('MOVEMENT') : null;
-        var moveSpeed = movementConfig ? movementConfig.MOVE_SPEED : 10; // 从配置读取移动速度
+        var moveSpeed = movementConfig ? movementConfig.CHARACTER_MOVE_SPEED : 6; // 从配置读取人物移动速度
         var newX = mainChar.x + direction.x * moveSpeed;
         var newY = mainChar.y + direction.y * moveSpeed;
         

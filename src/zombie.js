@@ -101,9 +101,10 @@ Zombie.prototype.setupProperties = function() {
     
     // 攻击和检测范围
     this.attackRange = config.attackRange + this.radius + 16 + Math.round(config.attackRange * 0.1);
-    this.detectionRange = config.detectionRange;
     
+    // 使用config.js中的检测范围配置，而不是模板中的值
     var detectionConfig = ConfigManager.get('DETECTION');
+    this.detectionRange = detectionConfig.ZOMBIE_DETECTION_RANGE; // 使用700px的配置
     this.mainCharacterDetectionRange = detectionConfig.MAIN_CHARACTER_DETECTION;
 };
 
@@ -285,9 +286,9 @@ Zombie.prototype.moveTowards = function(targetX, targetY, deltaTime) {
     
     this.direction = Math.atan2(targetY - this.y, targetX - this.x);
     
-    // 每帧直接移动，从配置文件读取移动速度
+    // 每帧直接移动，从配置文件读取僵尸移动速度
     var movementConfig = ConfigManager.get('MOVEMENT');
-    var moveSpeed = movementConfig ? movementConfig.MOVE_SPEED : 10; // 从配置读取移动速度
+    var moveSpeed = movementConfig ? movementConfig.ZOMBIE_MOVE_SPEED : 5; // 从配置读取僵尸移动速度
     var newX = this.x + Math.cos(this.direction) * moveSpeed;
     var newY = this.y + Math.sin(this.direction) * moveSpeed;
     
