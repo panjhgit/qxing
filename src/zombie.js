@@ -97,8 +97,7 @@ Zombie.prototype.setupProperties = function() {
     
     // 移动和检测
     var movementConfig = ConfigManager.get('MOVEMENT');
-    this.moveSpeed = movementConfig.ZOMBIE_MOVE_SPEED;
-    this.currentMoveSpeed = this.moveSpeed;
+    // 移动速度已固定为5px，不再需要动态配置
     
     // 攻击和检测范围
     this.attackRange = config.attackRange + this.radius + 16 + Math.round(config.attackRange * 0.1);
@@ -285,26 +284,26 @@ Zombie.prototype.moveTowards = function(targetX, targetY, deltaTime) {
     }
     
     this.direction = Math.atan2(targetY - this.y, targetX - this.x);
-    var moveDistance = this.currentMoveSpeed * deltaTime;
     
-    if (moveDistance > 0) {
-        var newX = this.x + Math.cos(this.direction) * moveDistance;
-        var newY = this.y + Math.sin(this.direction) * moveDistance;
+    // 每帧直接移动，从配置文件读取移动速度
+    var movementConfig = ConfigManager.get('MOVEMENT');
+    var moveSpeed = movementConfig ? movementConfig.MOVE_SPEED : 10; // 从配置读取移动速度
+    var newX = this.x + Math.cos(this.direction) * moveSpeed;
+    var newY = this.y + Math.sin(this.direction) * moveSpeed;
+    
+    // 检查碰撞
+    var finalPosition = this.checkCollision(this.x, this.y, newX, newY);
+    if (finalPosition) {
+        var oldX = this.x, oldY = this.y;
+        this.x = finalPosition.x;
+        this.y = finalPosition.y;
         
-        // 检查碰撞
-        var finalPosition = this.checkCollision(this.x, this.y, newX, newY);
-        if (finalPosition) {
-            var oldX = this.x, oldY = this.y;
-            this.x = finalPosition.x;
-            this.y = finalPosition.y;
-            
-            // 更新四叉树位置
-            if (window.collisionSystem && window.collisionSystem.updateDynamicObjectPosition) {
-                window.collisionSystem.updateDynamicObjectPosition(this, oldX, oldY, this.x, this.y);
-            }
-            
-            this.state = ZOMBIE_STATE.WALKING;
+        // 更新四叉树位置
+        if (window.collisionSystem && window.collisionSystem.updateDynamicObjectPosition) {
+            window.collisionSystem.updateDynamicObjectPosition(this, oldX, oldY, this.x, this.y);
         }
+        
+        this.state = ZOMBIE_STATE.WALKING;
     }
 };
 

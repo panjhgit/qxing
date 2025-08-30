@@ -114,7 +114,7 @@ var Character = function (role, x, y) {
     // 从配置获取移动属性
     var movementConfig = window.ConfigManager ? window.ConfigManager.get('MOVEMENT') : null;
     this.isMoving = false;                  // 是否在移动
-    this.moveSpeed = movementConfig ? movementConfig.CHARACTER_MOVE_SPEED : 100;    // 移动速度
+    // 移动速度已固定为5px，不再需要动态配置
     this.targetX = x;                       // 目标X坐标
     this.targetY = y;                       // 目标Y坐标
 
@@ -911,10 +911,8 @@ Character.prototype.stopMovement = function() {
         var animationUtils = UtilsManager.getAnimationUtils();
         var collisionConfig = window.ConfigManager ? window.ConfigManager.get('COLLISION') : null;
         
-        // 使用移动工具计算移动向量 - 基于时间的匀速移动
-        var moveVector = movementUtils.calculateMoveVector(
-            this.x, this.y, this.targetX, this.targetY, this.moveSpeed, deltaTime
-        );
+        // 触摸摇杆现在直接处理移动，这里只处理动画更新
+        // 不再需要复杂的移动向量计算
 
 
         

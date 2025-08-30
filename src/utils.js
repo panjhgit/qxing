@@ -51,8 +51,8 @@ const AnimationUtils = {
 
 // 移动工具类
 const MovementUtils = {
-    // 计算移动向量 - 优化的固定速度移动，基于时间
-    calculateMoveVector: function (fromX, fromY, toX, toY, speed, deltaTime = 1 / 60) {
+    // 计算移动向量 - 平滑的匀速移动
+    calculateMoveVector: function (fromX, fromY, toX, toY, deltaTime = 1/60) {
         var deltaX = toX - fromX;
         var deltaY = toY - fromY;
         var distance = MathUtils.distance(fromX, fromY, toX, toY);
@@ -61,19 +61,20 @@ const MovementUtils = {
             return {x: 0, y: 0, distance: 0, reached: true};
         }
 
-        // 固定速度移动：每帧移动固定的像素距离，基于时间
-        var moveDistance = speed * deltaTime;
-
-        // 🔴 修复：确保每帧至少移动2像素，避免移动过慢导致卡住
-        if (moveDistance < 2) {
-            moveDistance = 2;
+        // 平滑移动：每帧移动固定距离，不受目标距离影响
+        var moveDistance = 50 * deltaTime; // 50px/秒 × deltaTime秒
+        
+        // 确保每帧至少移动一个最小距离，避免卡顿
+        var minMoveDistance = 0.5; // 每帧最小移动0.5像素
+        if (moveDistance < minMoveDistance) {
+            moveDistance = minMoveDistance;
         }
 
         // 计算移动方向（归一化）
         var directionX = deltaX / distance;
         var directionY = deltaY / distance;
 
-        // 始终移动固定距离，除非目标就在移动距离内
+        // 始终按固定速度移动，除非目标就在移动距离内
         if (distance <= moveDistance) {
             // 目标很近，直接移动到目标
             return {x: deltaX, y: deltaY, distance: distance, reached: true};

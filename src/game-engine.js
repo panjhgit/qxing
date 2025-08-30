@@ -769,37 +769,57 @@ GameEngine.prototype.updateJoystickMovement = function() {
     }
     
     var direction = this.joystick.getMoveDirection();
-    var moveSpeed = mainChar.moveSpeed;
     
-    console.log('触摸摇杆移动:', '方向:', direction, '移动速度:', moveSpeed, '当前位置:', mainChar.x, mainChar.y);
+    console.log('触摸摇杆移动:', '方向:', direction, '当前位置:', mainChar.x, mainChar.y);
     
-    // 修复移动逻辑：使用触摸摇杆的实际移动距离，而不是配置的移动速度
+    // 简化移动：直接根据摇杆方向移动角色
     if (Math.abs(direction.x) > 0.1 || Math.abs(direction.y) > 0.1) {
-        // 使用触摸摇杆的实际移动距离（60像素半径）
-        var joystickRadius = 60;
-        var moveDistance = joystickRadius * 0.5; // 使用摇杆半径的一半作为移动距离
+        // 触摸摇杆有输入，直接移动角色
+        if (!mainChar.isMoving) {
+            mainChar.isMoving = true;
+            mainChar.status = 'MOVING';
+        }
         
-        var newX = mainChar.x + direction.x * moveDistance;
-        var newY = mainChar.y + direction.y * moveDistance;
+        // 每帧直接移动角色，从配置文件读取移动速度
+        var configManager = window.ConfigManager;
+        var movementConfig = configManager ? configManager.get('MOVEMENT') : null;
+        var moveSpeed = movementConfig ? movementConfig.MOVE_SPEED : 10; // 从配置读取移动速度
+        var newX = mainChar.x + direction.x * moveSpeed;
+        var newY = mainChar.y + direction.y * moveSpeed;
         
-        console.log('设置移动目标:', '从', mainChar.x, mainChar.y, '到', newX, newY);
-        console.log('移动计算详情:', '方向X:', direction.x, '方向Y:', direction.y, '移动距离:', moveDistance);
+        // 检查碰撞并移动
+        if (window.collisionSystem && window.collisionSystem.getCircleSafeMovePosition) {
+            var safePos = window.collisionSystem.getCircleSafeMovePosition(
+                mainChar.x, mainChar.y, newX, newY, mainChar.radius
+            );
+            if (safePos) {
+                var oldX = mainChar.x, oldY = mainChar.y;
+                mainChar.x = safePos.x;
+                mainChar.y = safePos.y;
+                
+                // 更新四叉树位置
+                if (window.collisionSystem.updateCharacterPosition) {
+                    window.collisionSystem.updateCharacterPosition(mainChar, oldX, oldY, mainChar.x, mainChar.y);
+                }
+            }
+        } else {
+            // 没有碰撞系统，直接移动
+            mainChar.x = newX;
+            mainChar.y = newY;
+        }
         
-        var result = mainChar.setMoveTarget(newX, newY);
-        console.log('设置移动目标结果:', result);
+        // 记录触摸摇杆方向（用于调试）
+        this.lastJoystickDirection = { x: direction.x, y: direction.y };
     } else {
         // 移动方向太小，停止移动
         if (mainChar.isMoving) {
-            mainChar.stopMovement();
+            mainChar.isMoving = false;
+            mainChar.status = 'IDLE';
+            console.log('触摸摇杆停止，角色停止移动');
         }
-        console.log('移动方向太小，停止移动');
-    }
-    
-    // 更新状态
-    if (Math.abs(direction.x) > 0.1 || Math.abs(direction.y) > 0.1) {
-        mainChar.status = 'MOVING'; // 使用正确的状态枚举
-    } else {
-        mainChar.status = 'IDLE';
+        
+        // 清除触摸摇杆方向记录
+        this.lastJoystickDirection = null;
     }
     
     // 更新视觉系统跟随目标

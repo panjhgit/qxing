@@ -39,9 +39,7 @@
  *
  * 🚀 移动系统配置 (MOVEMENT)
  * ========================================
- * - DEFAULT_MOVE_SPEED: 300px/s - 默认移动速度
- * - CHARACTER_MOVE_SPEED: 300px/s - 人物移动速度
- * - ZOMBIE_MOVE_SPEED: 180px/s - 僵尸移动速度（比人物慢）
+ * - MOVE_SPEED: 10px/帧 - 移动速度（人物和僵尸通用）
  *
  * ⚔️ 攻击系统配置 (COMBAT)
  * ========================================
@@ -74,15 +72,7 @@
 const GAME_CONFIG = {
     // 移动系统配置
     MOVEMENT: {
-        DEFAULT_MOVE_SPEED: 300,        // 默认移动速度 (像素/秒)
-        CHARACTER_MOVE_SPEED: 300,      // 人物移动速度 (像素/秒)
-        ZOMBIE_MOVE_SPEED: 180,         // 僵尸移动速度 (像素/秒) - 比人物慢
-        MIN_MOVE_DISTANCE: 1,            // 最小移动距离
-        PATHFINDING_STEPS: 10,          // 路径检测步数
-        SMOOTH_MOVE_RATIOS: [0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1], // 平滑移动比例
-        
-        // 夜晚速度配置
-        NIGHT_SPEED_MULTIPLIER: 1.67    // 夜晚速度倍数（僵尸夜晚速度提升）
+        MOVE_SPEED: 5,                 // 移动速度 (像素/帧)
     },
 
     // 动画系统配置
@@ -108,7 +98,7 @@ const GAME_CONFIG = {
         PATH_VALIDATION_STEPS: 10,      // 路径验证步数
         MIN_MOVE_DISTANCE: 1,           // 最小移动距离
 
-        // 新增：碰撞间距配置
+        // 碰撞间距配置
         COLLISION_MARGINS: {
             BUILDING: 1.1,              // 建筑物碰撞：1.1倍半径（额外10%空间）
             CHARACTER_TO_CHARACTER: 1.3  // 角色间重叠：1.3倍半径（30%额外空间）
@@ -258,18 +248,7 @@ const GAME_CONFIG = {
         QUADTREE_MAX_DEPTH: 6,          // 四叉树最大深度
         CACHE_CLEANUP_THRESHOLD: 1000,  // 缓存清理阈值
         
-        // 新增：分帧更新策略配置
-        BATCH_UPDATE: {
-            BATCH_SIZE: 5,              // 僵尸分为5个批次
-            HIGH_PRIORITY_RANGE: 500,   // 高优先级范围：500px内
-            MEDIUM_PRIORITY_RANGE: 800, // 中优先级范围：500-800px
-            LOW_PRIORITY_RANGE: Infinity, // 低优先级范围：800px外
-            HIGH_UPDATE_FREQUENCY: 1,   // 高优先级：每帧更新
-            MEDIUM_UPDATE_FREQUENCY: 2, // 中优先级：每2帧更新
-            LOW_UPDATE_FREQUENCY: 3     // 低优先级：每3帧更新
-        },
-        
-        // 新增：性能优化配置
+        // 性能优化配置
         OPTIMIZATION: {
             // 检测范围限制（防止性能问题）
             MAX_DETECTION_RANGE: 500,    // 最大检测范围限制
@@ -308,12 +287,8 @@ const DIFFICULTY_CONFIG = {
 
 // 配置验证器
 const ConfigValidator = {
-    // 验证移动配置
+    // 移动配置已固定为5px，无需验证
     validateMovementConfig: function (config) {
-        if (config.MOVEMENT.DEFAULT_MOVE_SPEED <= 0) {
-            console.warn('移动速度必须大于0，使用默认值');
-            config.MOVEMENT.DEFAULT_MOVE_SPEED = 120;
-        }
         return config;
     },
 
