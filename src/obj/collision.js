@@ -140,6 +140,112 @@ var CollisionSystem = {
         return {x: fromX, y: fromY};
     },
 
+    // 🔴 新增：贴着建筑物移动的位置计算
+    getWallFollowingPosition: function(fromX, fromY, toX, toY, radius, moveSpeed) {
+        if (!this.mapMatrix) {
+            return {x: toX, y: toY};
+        }
+        
+        // 获取配置参数
+        var wallFollowingConfig = window.ConfigManager ? window.ConfigManager.get('MOVEMENT.WALL_FOLLOWING') : null;
+        var diagonalFactor = wallFollowingConfig ? wallFollowingConfig.DIAGONAL_FACTOR : 0.7;
+        var searchSteps = wallFollowingConfig ? wallFollowingConfig.SEARCH_STEPS : 8;
+        var minStepSize = wallFollowingConfig ? wallFollowingConfig.MIN_STEP_SIZE : 4;
+        var nearbyRadius = wallFollowingConfig ? wallFollowingConfig.NEARBY_SEARCH_RADIUS : 0.5;
+        
+        // 计算移动方向向量
+        var dx = toX - fromX;
+        var dy = toY - fromY;
+        var distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (distance === 0) {
+            return {x: fromX, y: fromY};
+        }
+        
+        // 归一化方向向量
+        var dirX = dx / distance;
+        var dirY = dy / distance;
+        
+        // 尝试直接移动到目标位置
+        if (this.isPositionWalkable(toX, toY)) {
+            return {x: toX, y: toY};
+        }
+        
+        // 🔴 核心算法：贴着建筑物移动
+        // 1. 首先尝试水平移动（贴着垂直墙壁）
+        var horizontalX = fromX + dirX * moveSpeed;
+        var horizontalY = fromY;
+        
+        if (this.isPositionWalkable(horizontalX, horizontalY)) {
+            // 水平移动可行，检查是否更接近目标
+            var horizontalDistance = Math.sqrt(
+                Math.pow(horizontalX - toX, 2) + Math.pow(horizontalY - toY, 2)
+            );
+            if (horizontalDistance < distance) {
+                return {x: horizontalX, y: horizontalY};
+            }
+        }
+        
+        // 2. 尝试垂直移动（贴着水平墙壁）
+        var verticalX = fromX;
+        var verticalY = fromY + dirY * moveSpeed;
+        
+        if (this.isPositionWalkable(verticalX, verticalY)) {
+            // 垂直移动可行，检查是否更接近目标
+            var verticalDistance = Math.sqrt(
+                Math.pow(verticalX - toX, 2) + Math.pow(verticalY - toY, 2)
+            );
+            if (verticalDistance < distance) {
+                return {x: verticalX, y: verticalY};
+            }
+        }
+        
+        // 3. 尝试对角线移动（贴着墙角）
+        var diagonalX = fromX + dirX * moveSpeed * diagonalFactor;
+        var diagonalY = fromY + dirY * moveSpeed * diagonalFactor;
+        
+        if (this.isPositionWalkable(diagonalX, diagonalY)) {
+            var diagonalDistance = Math.sqrt(
+                Math.pow(diagonalX - toX, 2) + Math.pow(diagonalY - toY, 2)
+            );
+            if (diagonalDistance < distance) {
+                return {x: diagonalX, y: diagonalY};
+            }
+        }
+        
+        // 4. 如果都不行，尝试在移动方向上找最近的可行走位置
+        var stepSize = Math.max(radius / 2, minStepSize);
+        var maxSteps = Math.ceil(moveSpeed / stepSize);
+        
+        for (var i = 1; i <= maxSteps; i++) {
+            var testX = fromX + dirX * i * stepSize;
+            var testY = fromY + dirY * i * stepSize;
+            
+            if (this.isPositionWalkable(testX, testY)) {
+                return {x: testX, y: testY};
+            }
+        }
+        
+        // 5. 最后尝试在起始位置周围找可行走位置
+        var nearbyPositions = [
+            {dx: -radius * nearbyRadius, dy: 0}, {dx: radius * nearbyRadius, dy: 0},
+            {dx: 0, dy: -radius * nearbyRadius}, {dx: 0, dy: radius * nearbyRadius}
+        ];
+        
+        for (var j = 0; j < nearbyPositions.length; j++) {
+            var pos = nearbyPositions[j];
+            var testX = fromX + pos.dx;
+            var testY = fromY + pos.dy;
+            
+            if (this.isPositionWalkable(testX, testY)) {
+                return {x: testX, y: testY};
+            }
+        }
+        
+        // 无法移动，返回起始位置
+        return {x: fromX, y: fromY};
+    },
+
     // 🔴 核心：简化的移动碰撞检测 - 检查目标位置是否可行走
     getCircleSafeMovePosition: function (fromX, fromY, toX, toY, radius) {
         // 使用智能移动检测，允许贴着建筑物移动

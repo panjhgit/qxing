@@ -308,13 +308,25 @@ Zombie.prototype.moveTowards = function(targetX, targetY, deltaTime) {
     }
 };
 
-// 检查碰撞 - 简化版本
+// 检查碰撞 - 优化版本，支持贴着建筑物移动
 Zombie.prototype.checkCollision = function(fromX, fromY, toX, toY) {
     if (!window.collisionSystem) {
         return {x: toX, y: toY};
     }
     
-    // 直接检查目标位置是否可行走
+    // 🔴 优化：使用贴着建筑物移动算法
+    if (window.collisionSystem.getWallFollowingPosition) {
+        var moveSpeed = window.ConfigManager ? window.ConfigManager.get('MOVEMENT.ZOMBIE_MOVE_SPEED') : 4;
+        var safePos = window.collisionSystem.getWallFollowingPosition(
+            fromX, fromY, toX, toY, this.radius || 16, moveSpeed
+        );
+        
+        if (safePos) {
+            return safePos;
+        }
+    }
+    
+    // 备用方案：直接检查目标位置是否可行走
     if (window.collisionSystem.isPositionWalkable && window.collisionSystem.isPositionWalkable(toX, toY)) {
         return {x: toX, y: toY};
     }

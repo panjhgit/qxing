@@ -780,24 +780,51 @@ GameEngine.prototype.updateJoystickMovement = function() {
             mainChar.status = 'MOVING';
         }
         
-        // 每帧直接移动角色，从配置文件读取人物移动速度
+        // 🔴 优化：使用配置的移动速度，确保匀速移动
         var configManager = window.ConfigManager;
         var movementConfig = configManager ? configManager.get('MOVEMENT') : null;
-        var moveSpeed = movementConfig ? movementConfig.CHARACTER_MOVE_SPEED : 6; // 从配置读取人物移动速度
-        var newX = mainChar.x + direction.x * moveSpeed;
-        var newY = mainChar.y + direction.y * moveSpeed;
+        var moveSpeed = movementConfig ? movementConfig.CHARACTER_MOVE_SPEED : 6;
         
-        // 检查碰撞并移动 - 简化版本
-        if (window.collisionSystem && window.collisionSystem.isPositionWalkable) {
-            if (window.collisionSystem.isPositionWalkable(newX, newY)) {
+        // 🔴 核心：使用贴着建筑物移动算法
+        if (window.collisionSystem && window.collisionSystem.getWallFollowingPosition) {
+            // 计算目标位置（基于当前方向和速度）
+            var targetX = mainChar.x + direction.x * moveSpeed;
+            var targetY = mainChar.y + direction.y * moveSpeed;
+            
+            // 使用贴着建筑物移动算法
+            var newPosition = window.collisionSystem.getWallFollowingPosition(
+                mainChar.x, mainChar.y, targetX, targetY, mainChar.radius || 16, moveSpeed
+            );
+            
+            if (newPosition) {
+                var oldX = mainChar.x, oldY = mainChar.y;
+                mainChar.x = newPosition.x;
+                mainChar.y = newPosition.y;
+                
+                // 更新四叉树位置
+                if (window.collisionSystem.updateCharacterPosition) {
+                    window.collisionSystem.updateCharacterPosition(mainChar, oldX, oldY, mainChar.x, mainChar.y);
+                } else if (window.collisionSystem.updateDynamicObjectPosition) {
+                    window.collisionSystem.updateDynamicObjectPosition(mainChar, oldX, oldY, mainChar.x, mainChar.y);
+                }
+            }
+        } else {
+            // 🔴 备用方案：直接移动，但使用配置文件的速度
+            var newX = mainChar.x + direction.x * moveSpeed;
+            var newY = mainChar.y + direction.y * moveSpeed;
+            
+            // 检查碰撞并移动
+            if (window.collisionSystem && window.collisionSystem.isPositionWalkable) {
+                if (window.collisionSystem.isPositionWalkable(newX, newY)) {
+                    mainChar.x = newX;
+                    mainChar.y = newY;
+                }
+                // 如果目标位置不可行走，角色不移动
+            } else {
+                // 没有碰撞系统，直接移动
                 mainChar.x = newX;
                 mainChar.y = newY;
             }
-            // 如果目标位置不可行走，角色不移动
-        } else {
-            // 没有碰撞系统，直接移动
-            mainChar.x = newX;
-            mainChar.y = newY;
         }
         
         // 记录触摸摇杆方向（用于调试）

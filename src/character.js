@@ -891,12 +891,11 @@ Character.prototype.stopMovement = function() {
     console.log('角色停止移动，当前位置:', this.x, this.y);
 };
 
-    // 更新移动 - 使用工具类，优化平滑移动
+    // 更新移动 - 只处理动画更新，移动由触摸摇杆控制
     Character.prototype.updateMovement = function (deltaTime = 1/60) {
-        // 注意：状态机应该在外部更新，这里只处理移动逻辑
+        // 注意：移动由触摸摇杆直接控制，这里只处理动画和状态更新
         
         if (!this.isMoving) {
-            console.log('人物不在移动状态:', this.status, this.isMoving);
             return;
         }
         
@@ -907,84 +906,14 @@ Character.prototype.stopMovement = function() {
             return;
         }
 
-        var movementUtils = UtilsManager.getMovementUtils();
         var animationUtils = UtilsManager.getAnimationUtils();
-        var collisionConfig = window.ConfigManager ? window.ConfigManager.get('COLLISION') : null;
         
-        // 触摸摇杆现在直接处理移动，这里只处理动画更新
-        // 不再需要复杂的移动向量计算
-
-
-        
-        // 检查是否到达目标 - 修复过早停止移动的问题
-        if (moveVector.reached) {
-            // 到达目标位置，检查碰撞 - 简化版本
-            if (window.collisionSystem && window.collisionSystem.isPositionWalkable) {
-                if (window.collisionSystem.isPositionWalkable(this.targetX, this.targetY)) {
-                    this.x = this.targetX;
-                    this.y = this.targetY;
-                } else {
-                    console.warn('目标位置不可行走，角色停止移动');
-                    this.status = STATUS.BLOCKED;
-                    return;
-                }
-            } else {
-                console.warn('碰撞系统不可用，角色停止移动');
-                this.status = STATUS.BLOCKED;
-                return;
-            }
-            this.isMoving = false;
-            this.status = STATUS.IDLE;
-            console.log('角色到达目标位置，停止移动');
-            return;
+        // 更新最后位置，用于卡住检测
+        if (!this.lastPosition) {
+            this.lastPosition = { x: this.x, y: this.y };
         }
-        
-        // 检查移动距离是否过小（只有在移动距离确实很小时才停止）
-        if (moveVector.distance < (collisionConfig ? (collisionConfig.MIN_MOVE_DISTANCE || 2) : 2)) {
-            console.log('移动距离过小，停止移动:', moveVector.distance);
-            this.isMoving = false;
-            this.status = STATUS.IDLE;
-            return;
-        }
-
-        // 直接使用计算好的移动向量（已经是基于时间的匀速移动）
-        var newX = this.x + moveVector.x;
-        var newY = this.y + moveVector.y;
-
-        // 使用新的简洁碰撞检测系统
-        if (window.collisionSystem && window.collisionSystem.getCircleSafeMovePosition) {
-            // 首先检查建筑物碰撞
-            var buildingSafePos = window.collisionSystem.getCircleSafeMovePosition(
-                this.x, this.y, newX, newY, this.radius
-            );
-            
-            if (buildingSafePos) {
-                // 建筑物碰撞检测通过，直接移动（允许与僵尸重叠）
-                var oldX = this.x, oldY = this.y;
-                this.x = buildingSafePos.x;
-                this.y = buildingSafePos.y;
-                this.status = STATUS.MOVING;
-                
-                // 通过四叉树更新位置
-                if (window.collisionSystem && window.collisionSystem.updateCharacterPosition) {
-                    window.collisionSystem.updateCharacterPosition(this, oldX, oldY, this.x, this.y);
-                } else if (window.collisionSystem && window.collisionSystem.updateDynamicObjectPosition) {
-                    // 兼容旧版本
-                    window.collisionSystem.updateDynamicObjectPosition(this, oldX, oldY, this.x, this.y);
-                }
-                
-                
-            } else {
-                // 移动被阻挡，保持原位置
-                this.status = STATUS.BLOCKED;
-                console.log('角色移动被建筑物阻挡');
-                return;
-            }
-        } else {
-            console.warn('碰撞系统不可用，角色停止移动');
-            this.status = STATUS.BLOCKED;
-            return;
-        }
+        this.lastPosition.x = this.x;
+        this.lastPosition.y = this.y;
 
         // 使用动画工具更新动画帧 - 优化动画更新频率
         if (this.animationFrame !== undefined) {

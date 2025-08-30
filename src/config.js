@@ -73,8 +73,17 @@
 const GAME_CONFIG = {
     // 移动系统配置
     MOVEMENT: {
-        CHARACTER_MOVE_SPEED: 6,        // 人物移动速度 (像素/帧)
-        ZOMBIE_MOVE_SPEED: 4,           // 僵尸移动速度 (像素/帧)
+        CHARACTER_MOVE_SPEED: 3,        // 🔴 降低：人物移动速度 (像素/帧) - 从6降到3，避免漂移
+        ZOMBIE_MOVE_SPEED: 2,           // 🔴 降低：僵尸移动速度 (像素/帧) - 从4降到2，避免漂移
+        
+        // 🔴 新增：贴着建筑物移动配置
+        WALL_FOLLOWING: {
+            ENABLED: true,               // 启用贴着建筑物移动
+            DIAGONAL_FACTOR: 0.7,        // 对角线移动速度因子（0.7倍）
+            SEARCH_STEPS: 8,             // 搜索步数
+            MIN_STEP_SIZE: 2,            // 🔴 降低：最小步长（像素）- 从4降到2
+            NEARBY_SEARCH_RADIUS: 0.5    // 附近搜索半径（相对于对象半径）
+        }
     },
 
     // 动画系统配置
