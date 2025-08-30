@@ -383,15 +383,44 @@ ViewSystem.prototype.renderZombies = function(zombieManager) {
     
     // 🔴 获取主人物位置，用于计算活跃僵尸
     var mainCharacter = null;
-    if (window.characterManager) {
-        mainCharacter = window.characterManager.getMainCharacter();
+    
+    // 检查系统状态
+    if (!window.characterManager) {
+        console.warn('renderZombies: characterManager 未初始化，等待系统准备就绪');
+        return;
     }
     
-    if (!mainCharacter) {
-        console.warn('renderZombies: 无法获取主人物位置，回退到传统渲染');
-        var zombies = zombieManager.getAllZombies();
-        this.renderZombieList(zombies);
+    if (!window.collisionSystem) {
+        console.warn('renderZombies: collisionSystem 未初始化，等待系统准备就绪');
         return;
+    }
+    
+    // 尝试获取主人物
+    mainCharacter = window.characterManager.getMainCharacter();
+    
+    if (!mainCharacter) {
+        console.warn('renderZombies: 无法获取主人物位置，系统可能还在初始化中');
+        
+        // 检查四叉树状态
+        if (window.collisionSystem.dynamicQuadTree) {
+            var allObjects = window.collisionSystem.dynamicQuadTree.getAllObjects();
+            console.log('renderZombies: 四叉树状态 - 总对象数:', allObjects.length);
+            
+            // 查找主人物
+            var foundMainChar = allObjects.find(obj => obj && obj.role === 1);
+            if (foundMainChar) {
+                console.log('renderZombies: 在四叉树中找到主人物，但characterManager未返回');
+                mainCharacter = foundMainChar;
+            }
+        }
+        
+        // 如果仍然没有主人物，回退到传统渲染
+        if (!mainCharacter) {
+            console.warn('renderZombies: 回退到传统渲染');
+            var zombies = zombieManager.getAllZombies();
+            this.renderZombieList(zombies);
+            return;
+        }
     }
     
     // 🔴 使用新的高性能活跃僵尸列表

@@ -1156,18 +1156,40 @@ var CharacterManager = {
             return null;
         }
         
-        var allCharacters = window.collisionSystem.getAllCharacters();
+        // 检查四叉树状态
+        if (!window.collisionSystem.dynamicQuadTree) {
+            console.warn('CharacterManager.getMainCharacter: 动态四叉树未初始化');
+            return null;
+        }
         
+        var allCharacters = window.collisionSystem.getAllCharacters();
+        console.log('CharacterManager.getMainCharacter: 从四叉树获取到角色数量:', allCharacters.length);
+        
+        // 查找主人物
         var mainChar = allCharacters.find(char => 
             char && char.role === ROLE.MAIN
         );
         
         if (!mainChar) {
+            console.log('CharacterManager.getMainCharacter: 使用ROLE.MAIN未找到，尝试使用数字1查找');
             // 尝试使用数字1查找
             mainChar = allCharacters.find(char => 
                 char && char.role === 1
             );
         }
+        
+        if (mainChar) {
+            console.log('CharacterManager.getMainCharacter: 找到主人物:', {
+                id: mainChar.id,
+                role: mainChar.role,
+                x: mainChar.x,
+                y: mainChar.y,
+                hp: mainChar.hp
+            });
+        } else {
+            console.warn('CharacterManager.getMainCharacter: 未找到主人物，四叉树内容:', allCharacters);
+        }
+        
         return mainChar;
     },
 

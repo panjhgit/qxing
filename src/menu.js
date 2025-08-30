@@ -68,6 +68,8 @@ menuPrototype.handleTouch = function(x, y) {
         }
     }
     
+
+    
     // 检查返回主菜单按钮点击
     if (this.returnToMainMenuButtonArea) {
         if (x >= this.returnToMainMenuButtonArea.x && 
@@ -361,11 +363,16 @@ menuPrototype.renderHomeStartButton = function (centerX, centerY, isMobile) {
     this.ctx.textAlign = 'center';
     this.ctx.fillText('🎮 开始游戏', centerX, buttonY + buttonHeight / 2 + 8);
 
-    // 保存按钮区域用于点击检测
+    // 保存按钮区域信息
     this.startButtonArea = {
-        x: buttonX, y: buttonY, width: buttonWidth, height: buttonHeight
+        x: buttonX,
+        y: buttonY,
+        width: buttonWidth,
+        height: buttonHeight
     };
 };
+
+
 
 // 绘制圆角矩形
 menuPrototype.roundRect = function (x, y, width, height, radius) {

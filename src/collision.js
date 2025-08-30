@@ -621,13 +621,17 @@ var CollisionSystem = {
 
     getAllCharacters: function () {
         if (!this.dynamicQuadTree) {
+            console.warn('CollisionSystem.getAllCharacters: 动态四叉树未初始化');
             return [];
         }
 
         var allObjects = this.dynamicQuadTree.getAllObjects();
+        console.log('CollisionSystem.getAllCharacters: 四叉树总对象数:', allObjects.length);
+        
         var characters = allObjects.filter(function(obj) {
             // 主人物即使血量变为0也应该被找到
             if (obj && obj.role === 1) {
+                console.log('CollisionSystem.getAllCharacters: 找到主人物:', obj);
                 return true; // 主人物总是返回
             }
             // 其他角色需要血量大于0
@@ -635,6 +639,7 @@ var CollisionSystem = {
                 obj.role === 4 || obj.role === 5 || obj.role === 6) && obj.hp > 0;
         });
         
+        console.log('CollisionSystem.getAllCharacters: 过滤后角色数量:', characters.length);
         return characters;
     },
 

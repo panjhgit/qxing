@@ -395,6 +395,7 @@ function setupGameEngineSystems() {
 if (typeof window !== 'undefined') {
     window.startGame = startGame;
     window.resetGame = resetGame;
+    window.resetAllConfig = resetAllConfig;
 }
 
 // 重新开始游戏（从游戏结束界面调用）
@@ -414,6 +415,45 @@ function restartGame() {
     } catch (error) {
         console.error('❌ 重新开始游戏失败:', error);
         showErrorMessage('重新开始游戏失败: ' + error.message);
+    }
+}
+
+// 重置所有配置（从首页调用）
+function resetAllConfig() {
+    console.log('🔄 开始重置所有配置...');
+    
+    try {
+        // 第一步：停止游戏循环
+        if (gameEngine && gameEngine.gameState === 'playing') {
+            gameEngine.setGameState('home');
+        }
+        
+        // 第二步：清空所有游戏数据
+        clearGameData();
+        
+        // 第三步：重置游戏状态
+        resetGameState();
+        
+        // 第四步：重置配置管理器
+        if (window.ConfigManager && window.ConfigManager.reset) {
+            window.ConfigManager.reset();
+            console.log('✅ 配置管理器已重置');
+        }
+        
+        // 第五步：重置工具管理器
+        if (window.UtilsManager && window.UtilsManager.reset) {
+            window.UtilsManager.reset();
+            console.log('✅ 工具管理器已重置');
+        }
+        
+        // 第六步：显示主菜单
+        showHomePage();
+        
+        console.log('✅ 所有配置重置完成');
+        
+    } catch (error) {
+        console.error('❌ 重置所有配置失败:', error);
+        showErrorMessage('重置配置失败: ' + error.message);
     }
 }
 
