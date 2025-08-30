@@ -68,6 +68,42 @@ menuPrototype.handleTouch = function(x, y) {
         }
     }
     
+    // 检查返回主菜单按钮点击
+    if (this.returnToMainMenuButtonArea) {
+        if (x >= this.returnToMainMenuButtonArea.x && 
+            x <= this.returnToMainMenuButtonArea.x + this.returnToMainMenuButtonArea.width &&
+            y >= this.returnToMainMenuButtonArea.y && 
+            y <= this.returnToMainMenuButtonArea.y + this.returnToMainMenuButtonArea.height) {
+            
+            console.log('✅ 返回主菜单按钮被点击！');
+            
+            // 调用全局的resetGame函数
+            if (typeof window.resetGame === 'function') {
+                window.resetGame();
+            } else {
+                console.error('❌ resetGame函数未找到，请检查game.js是否正确加载');
+                // 显示错误提示
+                this.showError('返回主菜单功能未准备好，请刷新页面重试');
+            }
+            return true;
+        }
+    }
+    
+    // 检查继续游戏按钮点击
+    if (this.continueGameButtonArea) {
+        if (x >= this.continueGameButtonArea.x && 
+            x <= this.continueGameButtonArea.x + this.continueGameButtonArea.width &&
+            y >= this.continueGameButtonArea.y && 
+            y <= this.continueGameButtonArea.y + this.continueGameButtonArea.height) {
+            
+            console.log('✅ 继续游戏按钮被点击！');
+            
+            // 隐藏游戏内菜单，继续游戏
+            this.hideGameMenu();
+            return true;
+        }
+    }
+    
     return false;
 };
 
@@ -387,6 +423,106 @@ menuPrototype.renderCuteZombieDecorations = function () {
 
     // 右下角僵尸
     this.ctx.fillText('🧟', this.canvas.width - margin, this.canvas.height - margin);
+};
+
+// 渲染继续游戏按钮
+menuPrototype.renderContinueGameButton = function(centerX, centerY) {
+    var buttonWidth = 200;
+    var buttonHeight = 50;
+    var buttonX = centerX - buttonWidth / 2;
+    var buttonY = centerY - 25;
+    
+    // 保存按钮区域信息
+    this.continueGameButtonArea = {
+        x: buttonX,
+        y: buttonY,
+        width: buttonWidth,
+        height: buttonHeight
+    };
+    
+    // 绘制按钮背景
+    this.ctx.fillStyle = '#27ae60';
+    this.ctx.fillRect(buttonX, buttonY, buttonWidth, buttonHeight);
+    
+    // 绘制按钮边框
+    this.ctx.strokeStyle = '#229954';
+    this.ctx.lineWidth = 2;
+    this.ctx.strokeRect(buttonX, buttonY, buttonWidth, buttonHeight);
+    
+    // 绘制按钮文字
+    this.ctx.fillStyle = '#ffffff';
+    this.ctx.font = 'bold 20px Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText('继续游戏', centerX, centerY + 8);
+};
+
+// 隐藏游戏内菜单
+menuPrototype.hideGameMenu = function() {
+    // 清除按钮区域信息
+    this.returnToMainMenuButtonArea = null;
+    this.continueGameButtonArea = null;
+    
+    console.log('✅ 游戏内菜单已隐藏');
+};
+
+// 渲染游戏内菜单（包含返回主菜单按钮）
+menuPrototype.renderGameMenu = function() {
+    if (!this.canvas || !this.ctx) {
+        console.error('❌ 菜单系统未正确初始化');
+        return;
+    }
+    
+    var centerX = this.canvas.width / 2;
+    var centerY = this.canvas.height / 2;
+    
+    // 半透明背景
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    
+    // 菜单标题
+    this.ctx.fillStyle = '#ffffff';
+    this.ctx.font = 'bold 32px Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText('游戏菜单', centerX, centerY - 100);
+    
+    // 返回主菜单按钮
+    this.renderReturnToMainMenuButton(centerX, centerY);
+    
+    // 继续游戏按钮
+    this.renderContinueGameButton(centerX, centerY + 80);
+    
+    console.log('✅ 游戏内菜单渲染完成');
+};
+
+// 渲染返回主菜单按钮
+menuPrototype.renderReturnToMainMenuButton = function(centerX, centerY) {
+    var buttonWidth = 200;
+    var buttonHeight = 50;
+    var buttonX = centerX - buttonWidth / 2;
+    var buttonY = centerY - 25;
+    
+    // 保存按钮区域信息
+    this.returnToMainMenuButtonArea = {
+        x: buttonX,
+        y: buttonY,
+        width: buttonWidth,
+        height: buttonHeight
+    };
+    
+    // 绘制按钮背景
+    this.ctx.fillStyle = '#e74c3c';
+    this.ctx.fillRect(buttonX, buttonY, buttonWidth, buttonHeight);
+    
+    // 绘制按钮边框
+    this.ctx.strokeStyle = '#c0392b';
+    this.ctx.lineWidth = 2;
+    this.ctx.strokeRect(buttonX, buttonY, buttonWidth, buttonHeight);
+    
+    // 绘制按钮文字
+    this.ctx.fillStyle = '#ffffff';
+    this.ctx.font = 'bold 20px Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText('返回主菜单', centerX, centerY + 8);
 };
 
 // ES6模块导出

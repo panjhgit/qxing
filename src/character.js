@@ -689,10 +689,9 @@ Character.prototype.handleGameOver = function() {
 
 // 显示游戏结束界面
 Character.prototype.showGameOverScreen = function() {
-    // 这里可以添加游戏结束界面的显示逻辑
     console.log('显示游戏结束界面');
     
-    // 示例：在画布上显示游戏结束文字
+    // 在画布上显示游戏结束文字
     if (window.gameEngine && window.gameEngine.ctx) {
         var ctx = window.gameEngine.ctx;
         var canvas = window.gameEngine.canvas;
@@ -716,7 +715,40 @@ Character.prototype.showGameOverScreen = function() {
         ctx.fillStyle = '#FFFF00';
         ctx.font = '20px Arial';
         ctx.fillText('点击屏幕重新开始', canvas.width / 2, canvas.height / 2 + 50);
+        
+        // 添加点击事件监听器
+        this.addGameOverClickListener(canvas);
     }
+};
+
+// 添加游戏结束界面的点击事件监听器
+Character.prototype.addGameOverClickListener = function(canvas) {
+    var self = this;
+    
+    // 移除之前的事件监听器（如果存在）
+    if (this.gameOverClickListener) {
+        canvas.removeEventListener('touchstart', this.gameOverClickListener);
+    }
+    
+    // 创建新的事件监听器
+    this.gameOverClickListener = function(event) {
+        event.preventDefault();
+        console.log('游戏结束界面被点击，重新开始游戏');
+        
+        // 移除事件监听器
+        canvas.removeEventListener('touchstart', self.gameOverClickListener);
+        self.gameOverClickListener = null;
+        
+        // 调用重新开始游戏函数
+        if (window.restartGame) {
+            window.restartGame();
+        } else {
+            console.error('restartGame函数未找到');
+        }
+    };
+    
+    // 添加事件监听器
+    canvas.addEventListener('touchstart', this.gameOverClickListener);
 };
 
 // 获取摇杆移动方向
@@ -796,7 +828,8 @@ Character.prototype.resetMovementState = function() {
 Character.prototype.playAttackAnimation = function() {
     // 设置攻击动画帧
     this.animationFrame = 0;
-            this.animationSpeed = animationConfig ? (animationConfig.ATTACK_ANIMATION_SPEED || 0.3) : 0.3; // 从配置读取攻击动画速度
+    var animationConfig = window.ConfigManager ? window.ConfigManager.get('ANIMATION') : null;
+    this.animationSpeed = animationConfig ? (animationConfig.ATTACK_ANIMATION_SPEED || 0.3) : 0.3; // 从配置读取攻击动画速度
     
     console.log('主人物播放攻击动画');
 };
@@ -805,7 +838,8 @@ Character.prototype.playAttackAnimation = function() {
 Character.prototype.playDeathAnimation = function() {
     // 设置死亡动画帧
     this.animationFrame = 0;
-            this.animationSpeed = animationConfig ? (animationConfig.DEATH_ANIMATION_SPEED || 0.1) : 0.1; // 从配置读取死亡动画速度
+    var animationConfig = window.ConfigManager ? window.ConfigManager.get('ANIMATION') : null;
+    this.animationSpeed = animationConfig ? (animationConfig.DEATH_ANIMATION_SPEED || 0.1) : 0.1; // 从配置读取死亡动画速度
     
     console.log('主人物播放死亡动画');
 };
@@ -955,6 +989,7 @@ Character.prototype.stopMovement = function() {
 
         // 使用动画工具更新动画帧 - 优化动画更新频率
         if (this.animationFrame !== undefined) {
+            var animationConfig = window.ConfigManager ? window.ConfigManager.get('ANIMATION') : null;
             this.animationFrame = animationUtils.updateFrame(
                 this.animationFrame, 
                 this.animationSpeed * deltaTime, 

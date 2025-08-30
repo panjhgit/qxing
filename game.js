@@ -27,6 +27,131 @@ let collisionSystem = null;
 let isGameInitialized = false; // 标记游戏是否已初始化
 let isInitializing = false; // 标记是否正在初始化
 
+// 游戏重置功能
+function resetGame() {
+    console.log('🔄 开始重置游戏...');
+    
+    try {
+        // 第一步：停止游戏循环
+        if (gameEngine && gameEngine.gameState === 'playing') {
+            gameEngine.setGameState('home');
+        }
+        
+        // 第二步：清空角色和僵尸数据
+        clearGameData();
+        
+        // 第三步：重置游戏状态
+        resetGameState();
+        
+        // 第四步：显示主菜单
+        showHomePage();
+        
+        console.log('✅ 游戏重置完成');
+        
+    } catch (error) {
+        console.error('❌ 游戏重置失败:', error);
+        showErrorMessage('游戏重置失败: ' + error.message);
+    }
+}
+
+// 清空游戏数据
+function clearGameData() {
+    console.log('🗑️ 清空游戏数据...');
+    
+    // 清空角色管理器
+    if (window.characterManager) {
+        // 清空所有角色
+        if (window.collisionSystem && window.collisionSystem.getAllCharacters) {
+            var characters = window.collisionSystem.getAllCharacters();
+            characters.forEach(char => {
+                if (char && char.id !== 1001) { // 保留主人物ID
+                    // 从碰撞系统中移除
+                    if (window.collisionSystem.removeDynamicObject) {
+                        window.collisionSystem.removeDynamicObject(char);
+                    }
+                }
+            });
+        }
+        
+        // 重置角色管理器
+        window.characterManager = null;
+        characterManager = null;
+    }
+    
+    // 清空僵尸管理器
+    if (window.zombieManager) {
+        // 清空所有僵尸
+        if (window.zombieManager.getAllZombies) {
+            var zombies = window.zombieManager.getAllZombies();
+            zombies.forEach(zombie => {
+                if (zombie) {
+                    // 从碰撞系统中移除
+                    if (window.collisionSystem && window.collisionSystem.removeDynamicObject) {
+                        window.collisionSystem.removeDynamicObject(zombie);
+                    }
+                }
+            });
+        }
+        
+        // 重置僵尸管理器
+        window.zombieManager = null;
+    }
+    
+    // 清空碰撞系统
+    if (window.collisionSystem) {
+        // 清空动态四叉树
+        if (window.collisionSystem.dynamicQuadTree) {
+            window.collisionSystem.dynamicQuadTree.clear();
+        }
+        
+        // 重置碰撞系统
+        window.collisionSystem = null;
+        collisionSystem = null;
+    }
+    
+    // 清空地图系统
+    if (window.mapSystem) {
+        window.mapSystem = null;
+        mapSystem = null;
+    }
+    
+    // 清空游戏引擎
+    if (window.gameEngine) {
+        window.gameEngine = null;
+        gameEngine = null;
+    }
+    
+    console.log('✅ 游戏数据清空完成');
+}
+
+// 重置游戏状态
+function resetGameState() {
+    console.log('🔄 重置游戏状态...');
+    
+    // 重置初始化标志
+    isGameInitialized = false;
+    isInitializing = false;
+    
+    // 清空全局变量
+    if (typeof window !== 'undefined') {
+        // 保留必要的系统变量
+        // window.menuSystem = menuSystem; // 保留菜单系统
+        // window.canvas = canvas; // 保留画布
+        // window.ctx = ctx; // 保留上下文
+        
+        // 清空游戏相关全局变量
+        delete window.characterManager;
+        delete window.zombieManager;
+        delete window.collisionSystem;
+        delete window.mapSystem;
+        delete window.gameEngine;
+        delete window.MapManager;
+        delete window.ViewSystem;
+    }
+    
+    console.log('✅ 游戏状态重置完成');
+}
+
 // 页面加载完成后立即执行
 console.log('🚀 游戏页面加载完成，开始初始化菜单系统...');
 
@@ -269,6 +394,32 @@ function setupGameEngineSystems() {
 // 将startGame函数暴露到全局，供菜单系统调用
 if (typeof window !== 'undefined') {
     window.startGame = startGame;
+    window.resetGame = resetGame;
+}
+
+// 重新开始游戏（从游戏结束界面调用）
+function restartGame() {
+    console.log('🔄 重新开始游戏...');
+    
+    try {
+        // 第一步：重置游戏
+        resetGame();
+        
+        // 第二步：等待一小段时间后重新开始
+        setTimeout(() => {
+            console.log('🎮 重新开始游戏...');
+            startGame();
+        }, 500);
+        
+    } catch (error) {
+        console.error('❌ 重新开始游戏失败:', error);
+        showErrorMessage('重新开始游戏失败: ' + error.message);
+    }
+}
+
+// 将restartGame函数暴露到全局
+if (typeof window !== 'undefined') {
+    window.restartGame = restartGame;
 }
 
 // 初始化地图系统
