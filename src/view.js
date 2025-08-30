@@ -371,39 +371,53 @@ ViewSystem.prototype.renderCharacter = function(character, worldX, worldY) {
     }
 };
 
-// 渲染僵尸（带摄像机变换）
+// 🔴 渲染僵尸（带摄像机变换）- 使用高性能活跃僵尸列表
 ViewSystem.prototype.renderZombies = function(zombieManager) {
     if (!zombieManager) {
         console.warn('renderZombies: zombieManager 为空');
         return;
     }
     
-    var zombies = zombieManager.getAllZombies();
-    console.log('renderZombies: 获取到僵尸数量:', zombies.length);
+    // 🔴 获取主人物位置，用于计算活跃僵尸
+    var mainCharacter = null;
+    if (window.characterManager) {
+        mainCharacter = window.characterManager.getMainCharacter();
+    }
     
-    if (zombies.length === 0) {
-        console.log('renderZombies: 没有僵尸需要渲染');
+    if (!mainCharacter) {
+        console.warn('renderZombies: 无法获取主人物位置，回退到传统渲染');
+        var zombies = zombieManager.getAllZombies();
+        this.renderZombieList(zombies);
         return;
     }
     
+    // 🔴 使用新的高性能活跃僵尸列表
+    var activeZombies = [];
+    if (zombieManager.getActiveZombies && typeof zombieManager.getActiveZombies === 'function') {
+        activeZombies = zombieManager.getActiveZombies(mainCharacter);
+        console.log('🔴 高性能渲染: 活跃僵尸数量:', activeZombies.length, '主人物位置:', mainCharacter.x, mainCharacter.y);
+    } else {
+        // 回退到传统方法
+        activeZombies = zombieManager.getAllZombies();
+        console.log('renderZombies: 回退到传统方法，僵尸数量:', activeZombies.length);
+    }
+    
+    if (activeZombies.length === 0) {
+        console.log('renderZombies: 没有活跃僵尸需要渲染');
+        return;
+    }
+    
+    // 🔴 渲染活跃僵尸列表
+    this.renderZombieList(activeZombies);
+};
+
+// 🔴 新增：渲染僵尸列表的通用方法
+ViewSystem.prototype.renderZombieList = function(zombies) {
     zombies.forEach((zombie, index) => {
-        console.log(`renderZombies: 僵尸 ${index}:`, {
-            id: zombie.id,
-            type: zombie.type,
-            x: zombie.x,
-            y: zombie.y,
-            size: zombie.size,
-            hp: zombie.hp,
-            state: zombie.state
-        });
-        
         // 检查僵尸是否在视野内
         if (this.camera.isInView(zombie.x, zombie.y, zombie.size, zombie.size)) {
             var screenPos = this.camera.worldToScreen(zombie.x, zombie.y);
-            console.log(`renderZombies: 僵尸 ${index} 在视野内，屏幕位置:`, screenPos);
             this.renderZombie(zombie, screenPos.x, screenPos.y);
-        } else {
-            console.log(`renderZombies: 僵尸 ${index} 不在视野内，世界位置:`, zombie.x, zombie.y);
         }
     });
 };

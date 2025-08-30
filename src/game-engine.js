@@ -964,7 +964,7 @@ GameEngine.prototype.update = function() {
         this.collisionSystem.updateDynamicQuadTree(characters, zombies);
     }
     
-    // 更新僵尸
+    // 🔴 更新僵尸 - 使用高性能分帧更新策略
     if (this.zombieManager) {
         var characters = this.characterManager ? this.characterManager.getAllCharacters() : [];
         // 计算真实的deltaTime，确保移动平滑
@@ -975,9 +975,8 @@ GameEngine.prototype.update = function() {
         // 限制deltaTime，防止跳帧导致的瞬移
         deltaTime = Math.min(deltaTime, 1/30); // 最大30fps的deltaTime
         
-        this.zombieManager.updateAllZombies(characters, deltaTime);
-        
-
+        // 🔴 传递当前帧数，启用分帧更新策略
+        this.zombieManager.updateAllZombies(characters, deltaTime, this.frameCount);
     }
     
     // 更新动态障碍物
@@ -1044,6 +1043,12 @@ GameEngine.prototype.logSystemStatus = function() {
         var zombies = this.zombieManager.getAllZombies();
         var activeZombies = zombies.filter(z => z.hp > 0);
         console.log('僵尸总数:', zombies.length, '活跃僵尸:', activeZombies.length);
+        
+        // 🔴 新增：僵尸性能监控
+        if (this.zombieManager.getBatchInfo && typeof this.zombieManager.getBatchInfo === 'function') {
+            var batchInfo = this.zombieManager.getBatchInfo(this.frameCount);
+            console.log('🔴 僵尸批次信息:', batchInfo);
+        }
     }
     
     if (this.navigationSystem) {

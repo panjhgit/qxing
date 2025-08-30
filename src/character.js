@@ -812,6 +812,12 @@ Character.prototype.isAttackTargetValid = function() {
 Character.prototype.moveToAttackRange = function() {
     if (!this.attackTarget || this.attackTarget.hp <= 0) return;
     
+    // 🔴 关键修复：如果摇杆有输入，不执行自动移动（保持摇杆优先级最高）
+    if (this.hasJoystickInput()) {
+        console.log('摇杆有输入，跳过自动移动到攻击范围');
+        return;
+    }
+    
     var mathUtils = UtilsManager.getMathUtils();
     var distance = mathUtils.distance(this.x, this.y, this.attackTarget.x, this.attackTarget.y);
     var targetDistance = this.attackRange - 5; // 留5px缓冲
@@ -824,7 +830,7 @@ Character.prototype.moveToAttackRange = function() {
         
         this.setMoveTarget(targetX, targetY);
     } else {
-        // 在攻击范围内，停止移动
+        // 在攻击范围内，停止移动（但摇杆输入时不会执行到这里）
         this.stopMovement();
     }
 };
@@ -939,6 +945,63 @@ Character.prototype.isAvoidanceComplete = function() {
     return this.avoidanceComplete || false;
 };
 
+// 🔴 新增：检查人物是否卡住
+Character.prototype.isStuck = function() {
+    // 检查是否在同一个位置停留太久
+    if (!this.lastPosition) {
+        this.lastPosition = { x: this.x, y: this.y };
+        this.stuckTime = 0;
+        return false;
+    }
+    
+    var distance = Math.sqrt(
+        Math.pow(this.x - this.lastPosition.x, 2) + 
+        Math.pow(this.y - this.lastPosition.y, 2)
+    );
+    
+    // 如果移动距离小于5像素，增加卡住时间
+    if (distance < 5) {
+        this.stuckTime = (this.stuckTime || 0) + 1;
+        
+        // 如果卡住超过30帧（0.5秒），认为卡住了
+        if (this.stuckTime > 30) {
+            console.log('人物卡住检测：位置变化:', distance.toFixed(2), 'px, 卡住时间:', this.stuckTime, '帧');
+            return true;
+        }
+    } else {
+        // 有移动，重置卡住时间
+        this.stuckTime = 0;
+        this.lastPosition = { x: this.x, y: this.y };
+    }
+    
+    return false;
+};
+
+// 🔴 新增：重置移动状态
+Character.prototype.resetMovementState = function() {
+    console.log('重置人物移动状态');
+    
+    // 重置移动相关状态
+    this.isMoving = false;
+    this.status = STATUS.IDLE;
+    this.targetX = this.x;
+    this.targetY = this.y;
+    this.stuckTime = 0;
+    
+    // 清除攻击目标，避免继续卡住
+    if (this.attackTarget) {
+        console.log('清除攻击目标，避免卡住');
+        this.attackTarget = null;
+    }
+    
+    // 强制状态机回到待机状态
+    if (this.stateMachine) {
+        this.stateMachine.forceState(MAIN_CHARACTER_STATES.IDLE);
+    }
+    
+    console.log('人物移动状态已重置');
+};
+
 // 播放攻击动画
 Character.prototype.playAttackAnimation = function() {
     // 设置攻击动画帧
@@ -1012,6 +1075,13 @@ Character.prototype.stopMovement = function() {
             console.log('人物不在移动状态:', this.status, this.isMoving);
             return;
         }
+        
+        // 🔴 修复：检查是否卡住，如果卡住则重置移动状态
+        if (this.isStuck()) {
+            console.log('检测到人物卡住，重置移动状态');
+            this.resetMovementState();
+            return;
+        }
 
         var movementUtils = UtilsManager.getMovementUtils();
         var animationUtils = UtilsManager.getAnimationUtils();
@@ -1047,7 +1117,7 @@ Character.prototype.stopMovement = function() {
         }
         
         // 检查移动距离是否过小（只有在移动距离确实很小时才停止）
-        if (moveVector.distance < (collisionConfig.MIN_MOVE_DISTANCE || 1)) {
+        if (moveVector.distance < (collisionConfig.MIN_MOVE_DISTANCE || 2)) {
             console.log('移动距离过小，停止移动:', moveVector.distance);
             this.isMoving = false;
             this.status = STATUS.IDLE;
@@ -1437,8 +1507,8 @@ Character.prototype.checkJoystickInput = function() {
     
     // 检查是否超过死区
     if (Math.abs(direction.x) > deadZone || Math.abs(direction.y) > deadZone) {
-        // 计算移动目标位置
-        var moveDistance = 100; // 每次移动100px
+        // 🔴 修复：增加移动距离，避免移动过慢
+        var moveDistance = 150; // 每次移动150px（从100px增加到150px）
         var targetX = this.x + direction.x * moveDistance;
         var targetY = this.y + direction.y * moveDistance;
         
@@ -1453,10 +1523,27 @@ Character.prototype.checkJoystickInput = function() {
         this.isMoving = true;
         this.status = STATUS.MOVING;
         
-        // 强制状态机切换到移动状态（如果当前不是移动状态）
+        // 🔴 修复：更安全的状态切换，避免状态混乱
         if (this.stateMachine && this.stateMachine.currentState !== MAIN_CHARACTER_STATES.MOVE) {
-            console.log('强制切换到移动状态');
-            this.stateMachine.forceState(MAIN_CHARACTER_STATES.MOVE);
+            console.log('安全切换到移动状态');
+            // 使用正常的转换而不是强制切换
+            if (this.stateMachine.transitions.has(this.stateMachine.currentState)) {
+                // 检查是否有到MOVE状态的转换
+                var transitions = this.stateMachine.transitions.get(this.stateMachine.currentState);
+                var hasMoveTransition = transitions.some(t => t.toState === MAIN_CHARACTER_STATES.MOVE);
+                if (hasMoveTransition) {
+                    // 有正常转换路径，让状态机自然转换
+                    console.log('状态机有正常转换路径到移动状态');
+                } else {
+                    // 没有正常转换路径，才使用强制切换
+                    console.log('状态机没有正常转换路径，使用强制切换');
+                    this.stateMachine.forceState(MAIN_CHARACTER_STATES.MOVE);
+                }
+            } else {
+                // 当前状态没有转换规则，使用强制切换
+                console.log('当前状态没有转换规则，使用强制切换');
+                this.stateMachine.forceState(MAIN_CHARACTER_STATES.MOVE);
+            }
         }
     }
 };
