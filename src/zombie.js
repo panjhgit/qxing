@@ -254,11 +254,11 @@ Zombie.prototype.update = function (deltaTime, characters, currentFrame = 0) {
         }
     }
 
-    // 性能优化：使用帧间隔更新，减少CPU负载
+    // 性能优化：使用帧间隔更新，减少CPU负载 - 但确保独立行为
     if (!this._updateFrame) this._updateFrame = 0;
     this._updateFrame++;
 
-    // 根据僵尸类型和状态决定更新频率
+    // 根据僵尸类型和状态决定更新频率 - 减少间隔，提高响应性
     var updateInterval = this.getUpdateInterval();
     if (this._updateFrame % updateInterval !== 0) {
         // 跳过这一帧的更新，只更新动画
@@ -302,16 +302,16 @@ Zombie.prototype.update = function (deltaTime, characters, currentFrame = 0) {
 
 // 获取僵尸更新间隔（性能优化）
 Zombie.prototype.getUpdateInterval = function () {
-    // 根据僵尸类型和状态决定更新频率
+    // 根据僵尸类型和状态决定更新频率 - 减少间隔，提高响应性
     switch (this.zombieType) {
         case ZOMBIE_STATE.FAST:
             return 1; // 快速僵尸每帧更新
         case ZOMBIE_STATE.BOSS:
-            return 2; // Boss僵尸每2帧更新
+            return 1; // Boss僵尸每帧更新（提高响应性）
         case ZOMBIE_STATE.TANK:
-            return 3; // 坦克僵尸每3帧更新
+            return 2; // 坦克僵尸每2帧更新
         default:
-            return 2; // 其他僵尸每2帧更新
+            return 1; // 其他僵尸每帧更新（提高响应性）
     }
 };
 
@@ -1431,11 +1431,12 @@ var ZombieManager = {
             index % 3 === currentBatch
         );
 
-        console.log('🔴 分帧更新策略:', {
+        console.log('🔴 优化分帧更新策略:', {
             '当前帧': currentFrame,
             '当前批次': currentBatch,
             '总活跃僵尸': totalActiveZombies,
-            '本帧更新数量': zombiesToUpdate.length
+            '本帧更新数量': zombiesToUpdate.length,
+            '更新频率': '每3帧循环，每帧更新1/3僵尸'
         });
 
         // 使用性能工具测量更新时间
@@ -1458,11 +1459,19 @@ var ZombieManager = {
                 return;
             }
 
-                    // 🔴 优化：使用统一的更新方法
+                    // 🔴 优化：使用统一的更新方法，确保独立行为
         try {
+            // 为每个僵尸添加独立的更新标识
+            zombie._lastUpdateTime = Date.now();
+            zombie._updateCount = (zombie._updateCount || 0) + 1;
+            
             var wasUpdated = zombie.update(deltaTime, characters, currentFrame);
             if (wasUpdated) {
                 updatedCount++;
+                // 记录僵尸独立行为
+                if (zombie.state === ZOMBIE_STATE.CHASING || zombie.state === ZOMBIE_STATE.ATTACKING) {
+                    console.log('✅ 僵尸独立行动:', zombie.zombieType, zombie.id, '状态:', zombie.state, '更新次数:', zombie._updateCount);
+                }
             } else {
                 skippedCount++;
             }
@@ -1550,12 +1559,13 @@ var ZombieManager = {
             zombie && zombie.hp > 0 && zombie.state !== ZOMBIE_STATE.DEAD
         );
         
-        var currentBatch = currentFrame % 5;
+        var currentBatch = currentFrame % 3; // 更新为3个批次
         
         return {
             totalActive: activeZombies.length,
             currentBatch: currentBatch,
-            nextBatch: (currentBatch + 1) % 5
+            nextBatch: (currentBatch + 1) % 3, // 更新为3个批次
+            batchSize: 3 // 批次大小
         };
     }
 };
@@ -1715,7 +1725,7 @@ Zombie.prototype.isTargetValid = function () {
     return true;
 };
 
-// 🔴 优化：僵尸活性范围管理
+// 🔴 优化：僵尸活性范围管理 - 确保独立行动
 Zombie.prototype.updateActivationStatus = function(playerX, playerY, currentFrame) {
     var mathUtils = UtilsManager.getMathUtils();
     this.activationDistance = mathUtils.distance(this.x, this.y, playerX, playerY);
@@ -1724,33 +1734,29 @@ Zombie.prototype.updateActivationStatus = function(playerX, playerY, currentFram
     var wasActive = this.isActive;
     this.isActive = this.activationDistance <= 1200;
     
-    // 根据距离设置更新间隔
+    // 根据距离设置更新间隔 - 减少间隔，提高响应性
     if (this.isActive) {
         if (this.activationDistance <= 500) {
             this.updateInterval = 1;      // 500px内每帧更新
         } else if (this.activationDistance <= 800) {
-            this.updateInterval = 2;      // 500-800px每2帧更新
+            this.updateInterval = 1;      // 500-800px每帧更新（提高响应性）
         } else {
-            this.updateInterval = 3;      // 800px外每3帧更新
+            this.updateInterval = 2;      // 800px外每2帧更新（提高响应性）
         }
         
-        // 确保僵尸能够移动
+        // 确保僵尸能够移动 - 更智能的状态转换
         if (this.state === ZOMBIE_STATE.IDLE && this.targetCharacter) {
             this.state = ZOMBIE_STATE.CHASING;
         }
-    } else {
-        this.updateInterval = 999;        // 休眠状态不更新
-    }
-    
-    // 检查是否应该更新（分帧更新策略）
-    var shouldUpdate = this.isActive && (currentFrame - this.lastUpdateFrame) >= this.updateInterval;
-    
-    // 如果应该更新，记录更新帧数
-    if (shouldUpdate) {
+        
+        // 记录更新帧数，确保僵尸能独立更新
         this.lastUpdateFrame = currentFrame;
+        
+        return true; // 活跃僵尸总是允许更新
+    } else {
+        this.updateInterval = 5;          // 休眠状态每5帧更新一次（而不是999）
+        return false; // 休眠僵尸跳过更新
     }
-    
-    return shouldUpdate;
 };
 
 
