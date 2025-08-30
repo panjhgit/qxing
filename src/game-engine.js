@@ -759,10 +759,10 @@ GameEngine.prototype.spawnOneZombiePerDay = function() {
         return;
     }
     
-    console.log('GameEngine: 新的一天开始，刷新一只僵尸，当前天数:', this.timeSystem.day, '主人物位置:', mainChar.x, mainChar.y);
+    console.log('GameEngine: 新的一天开始，刷新10只僵尸，当前天数:', this.timeSystem.day, '主人物位置:', mainChar.x, mainChar.y);
     
-    // 每天只刷新一只僵尸
-    var zombiesToCreate = 1;
+    // 每天刷新10只僵尸
+    var zombiesToCreate = 10;
     console.log('GameEngine: 需要创建', zombiesToCreate, '只僵尸，在人物700px范围内');
     
     // 创建僵尸批次
