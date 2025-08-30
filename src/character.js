@@ -1070,156 +1070,220 @@ Character.prototype.getHeadColor = function () {
 };
 
 
-// 角色管理器 - 重构版本：只负责游戏逻辑，四叉树负责对象管理
+// 角色管理器 - 重构版本：使用对象池优化内存管理
 var CharacterManager = {
+    // 对象池引用
+    objectPool: null,
+    
+    // 初始化对象池
+    initObjectPool: function() {
+        if (!window.objectPoolManager) {
+            console.warn('对象池管理器未初始化，使用传统创建方式');
+            return;
+        }
+        
+        // 创建角色对象池
+        this.objectPool = window.objectPoolManager.createPool('character', 
+            // 创建函数
+            () => new Character(ROLE.CIVILIAN, 0, 0),
+            // 重置函数
+            (character) => this.resetCharacter(character)
+        );
+        
+        console.log('✅ 角色对象池初始化完成');
+    },
+    
+    // 重置角色状态（对象池复用）
+    resetCharacter: function(character) {
+        if (!character) return;
+        
+        // 重置基础属性
+        character.hp = character.maxHp || 50;
+        character.status = STATUS.IDLE;
+        character.isMoving = false;
+        character.targetX = character.x;
+        character.targetY = character.y;
+        character.attackCooldown = 0;
+        character.attackTarget = null;
+        character.stuckTime = 0;
+        character.lastPosition = null;
+        
+        // 重置状态机
+        if (character.stateMachine) {
+            character.stateMachine.forceState(MAIN_CHARACTER_STATES.IDLE);
+        }
+        
+        // 重置动画
+        character.animationFrame = 0;
+        character.frameCount = 0;
+        
+        console.log('✅ 角色状态重置完成:', character.id);
+    },
+    
     // 创建主人物
     createMainCharacter: function (x, y) {
         var validationUtils = UtilsManager.getValidationUtils();
-        var performanceUtils = UtilsManager.getPerformanceUtils();
         
-        // 使用性能工具测量创建时间
-        return performanceUtils.measureFunction('createMainCharacter', function() {
-            // 使用验证工具检查参数
-            if (!validationUtils.validatePosition(x, y)) {
-                console.error('无效的主人物位置:', x, y);
-                return null;
-            }
+        // 使用验证工具检查参数
+        if (!validationUtils.validatePosition(x, y)) {
+            console.error('无效的主人物位置:', x, y);
+            return null;
+        }
 
-            var mainChar = new Character(ROLE.MAIN, x, y);
-
-            // 验证角色创建是否成功
-            if (!validationUtils.validateObject(mainChar, ['role', 'x', 'y', 'hp'])) {
-                console.error('主人物创建失败');
-                return null;
-            }
-            
-            console.log('主人物创建成功:', mainChar.role, 'ID:', mainChar.id, '位置:', x, y);
-            
-            // 通过四叉树创建角色（四叉树负责对象管理）
-                    if (window.collisionSystem && window.collisionSystem.createCharacterObject) {
-            var createdCharacter = window.collisionSystem.createCharacterObject(mainChar);
-            if (createdCharacter) {
-                return createdCharacter;
+        var mainChar = null;
+        
+        // 优先使用对象池
+        if (this.objectPool) {
+            mainChar = this.objectPool.get();
+            if (mainChar) {
+                // 重新初始化主人物属性
+                mainChar.role = ROLE.MAIN;
+                mainChar.id = CHARACTER_ID.MAIN;
+                mainChar.x = x;
+                mainChar.y = y;
+                mainChar.setupRoleProperties();
+                mainChar.initializeStateMachine();
+                
+                console.log('✅ 从对象池获取主人物:', mainChar.id, '位置:', x, y);
             }
         }
-        return null;
-        }.bind(this));
+        
+        // 对象池不可用时，使用传统创建方式
+        if (!mainChar) {
+            mainChar = new Character(ROLE.MAIN, x, y);
+            console.log('✅ 传统方式创建主人物:', mainChar.role, 'ID:', mainChar.id, '位置:', x, y);
+        }
+
+        // 验证角色创建是否成功
+        if (!validationUtils.validateObject(mainChar, ['role', 'x', 'y', 'hp'])) {
+            console.error('主人物创建失败');
+            return null;
+        }
+        
+        // 🔴 重构：直接存储到内部存储，不再依赖四叉树
+        this.mainCharacter = mainChar;
+        
+        console.log('✅ 主人物创建完成并存储到内部:', mainChar.id, '位置:', x, y);
+        console.log('🔍 角色管理器状态检查:', {
+            hasMainCharacter: !!this.mainCharacter,
+            mainCharacterId: this.mainCharacter ? this.mainCharacter.id : 'N/A',
+            mainCharacterRole: this.mainCharacter ? this.mainCharacter.role : 'N/A',
+            mainCharacterType: this.mainCharacter ? this.mainCharacter.type : 'N/A'
+        });
+        return mainChar;
     },
 
     // 创建伙伴
     createPartner: function (role, x, y) {
         var validationUtils = UtilsManager.getValidationUtils();
-        var performanceUtils = UtilsManager.getPerformanceUtils();
         
-        // 使用性能工具测量创建时间
-        return performanceUtils.measureFunction('createPartner', function() {
-            // 使用验证工具检查参数
-            if (!validationUtils.validatePosition(x, y)) {
-                console.error('无效的伙伴位置:', x, y);
-                return null;
-            }
-
-            if (!validationUtils.validateRange(role, 2, 6, '伙伴角色类型')) {
-                console.error('无效的伙伴角色类型:', role);
-                return null;
-            }
-
-            var partner = new Character(role, x, y);
-
-            // 验证角色创建是否成功
-            if (!validationUtils.validateObject(partner, ['role', 'x', 'y', 'hp'])) {
-                console.error('伙伴创建失败');
-                return null;
-            }
-            
-            console.log('伙伴创建成功:', partner.role, 'ID:', partner.id, '位置:', x, y);
-            
-            if (window.collisionSystem && window.collisionSystem.createCharacterObject) {
-                var createdCharacter = window.collisionSystem.createCharacterObject(partner);
-                if (createdCharacter) {
-                    return createdCharacter;
-                }
-            }
+        // 使用验证工具检查参数
+        if (!validationUtils.validatePosition(x, y)) {
+            console.error('无效的伙伴位置:', x, y);
             return null;
-        }.bind(this));
+        }
+
+        if (!validationUtils.validateRange(role, 2, 6, '伙伴角色类型')) {
+            console.error('无效的伙伴角色类型:', role);
+            return null;
+        }
+
+        var partner = null;
+        
+        // 优先使用对象池
+        if (this.objectPool) {
+            partner = this.objectPool.get();
+            if (partner) {
+                // 重新初始化伙伴属性
+                partner.role = role;
+                partner.id = this.getNextPartnerId(role);
+                partner.x = x;
+                partner.y = y;
+                partner.setupRoleProperties();
+                partner.initializeStateMachine();
+                
+                console.log('✅ 从对象池获取伙伴:', partner.role, 'ID:', partner.id, '位置:', x, y);
+            }
+        }
+        
+        // 对象池不可用时，使用传统创建方式
+        if (!partner) {
+            partner = new Character(role, x, y);
+            console.log('✅ 传统方式创建伙伴:', partner.role, 'ID:', partner.id, '位置:', x, y);
+        }
+
+        // 验证角色创建是否成功
+        if (!validationUtils.validateObject(partner, ['role', 'x', 'y', 'hp'])) {
+            console.error('伙伴创建失败');
+            return null;
+        }
+        
+        if (window.collisionSystem && window.collisionSystem.createCharacterObject) {
+            var createdCharacter = window.collisionSystem.createCharacterObject(partner);
+            if (createdCharacter) {
+                return createdCharacter;
+            }
+        }
+        
+        return partner;
+    },
+    
+    // 获取下一个伙伴ID
+    getNextPartnerId: function(role) {
+        switch (role) {
+            case ROLE.POLICE: return CHARACTER_ID.PARTNER_1;
+            case ROLE.CIVILIAN: return CHARACTER_ID.PARTNER_2;
+            case ROLE.DOCTOR: return CHARACTER_ID.PARTNER_3;
+            case ROLE.NURSE: return CHARACTER_ID.PARTNER_4;
+            case ROLE.CHEF: return CHARACTER_ID.PARTNER_5;
+            default: return CHARACTER_ID.PARTNER_1;
+        }
     },
 
-    // 获取主人物 - 从四叉树获取
+    // 🔴 重构：从内部存储获取主人物 - 角色业务逻辑的唯一数据源
     getMainCharacter: function () {
-        if (!window.collisionSystem) {
-            console.warn('CharacterManager.getMainCharacter: 碰撞系统未初始化');
-            return null;
-        }
-        
-        if (!window.collisionSystem.getAllCharacters) {
-            console.warn('CharacterManager.getMainCharacter: 四叉树不支持getAllCharacters方法');
-            return null;
-        }
-        
-        // 检查四叉树状态
-        if (!window.collisionSystem.dynamicQuadTree) {
-            console.warn('CharacterManager.getMainCharacter: 动态四叉树未初始化');
-            return null;
-        }
-        
-        var allCharacters = window.collisionSystem.getAllCharacters();
-        console.log('CharacterManager.getMainCharacter: 从四叉树获取到角色数量:', allCharacters.length);
-        
-        // 查找主人物
-        var mainChar = allCharacters.find(char => 
-            char && char.role === ROLE.MAIN
-        );
-        
-        if (!mainChar) {
-            console.log('CharacterManager.getMainCharacter: 使用ROLE.MAIN未找到，尝试使用数字1查找');
-            // 尝试使用数字1查找
-            mainChar = allCharacters.find(char => 
-                char && char.role === 1
-            );
-        }
-        
-        if (mainChar) {
-            console.log('CharacterManager.getMainCharacter: 找到主人物:', {
-                id: mainChar.id,
-                role: mainChar.role,
-                x: mainChar.x,
-                y: mainChar.y,
-                hp: mainChar.hp
+        // 直接从内部存储获取主人物
+        if (this.mainCharacter && this.mainCharacter.hp > 0) {
+            console.log('CharacterManager.getMainCharacter: 从内部存储获取到主人物:', {
+                id: this.mainCharacter.id,
+                role: this.mainCharacter.role,
+                x: this.mainCharacter.x,
+                y: this.mainCharacter.y,
+                hp: this.mainCharacter.hp
             });
-        } else {
-            console.warn('CharacterManager.getMainCharacter: 未找到主人物，四叉树内容:', allCharacters);
+            return this.mainCharacter;
         }
         
-        return mainChar;
+        console.warn('CharacterManager.getMainCharacter: 内部存储中未找到有效的主人物');
+        return null;
     },
 
-    // 获取所有角色 - 从四叉树获取
+    // 🔴 重构：从内部存储获取所有角色 - 角色业务逻辑的唯一数据源
     getAllCharacters: function () {
-        if (!window.collisionSystem) {
-            console.warn('CharacterManager.getAllCharacters: 碰撞系统未初始化');
-            return [];
+        var characters = [];
+        
+        // 添加主人物
+        if (this.mainCharacter && this.mainCharacter.hp > 0) {
+            characters.push(this.mainCharacter);
         }
         
-        if (!window.collisionSystem.getAllCharacters) {
-            console.warn('CharacterManager.getAllCharacters: 四叉树不支持getAllCharacters方法');
-            return [];
+        // 添加伙伴（如果有的话）
+        if (this.partners && Array.isArray(this.partners)) {
+            characters.push(...this.partners.filter(partner => partner && partner.hp > 0));
         }
         
-        var allCharacters = window.collisionSystem.getAllCharacters();
-
-        return allCharacters;
+        console.log('CharacterManager.getAllCharacters: 从内部存储获取到角色数量:', characters.length);
+        return characters;
     },
 
     // 更新所有角色 - 从四叉树获取角色列表
     updateAllCharacters: function (deltaTime = 1/60) {
         var performanceUtils = UtilsManager.getPerformanceUtils();
         
-        // 从四叉树获取所有角色
-        var characters = [];
-        if (window.collisionSystem && window.collisionSystem.getAllCharacters) {
-            characters = window.collisionSystem.getAllCharacters();
-        } else {
-            console.warn('无法从四叉树获取角色列表');
+        // 🔴 重构：直接从管理器获取角色
+        var characters = this.getAllCharacters();
+        if (characters.length === 0) {
+            console.warn('无法获取角色列表');
             return;
         }
         

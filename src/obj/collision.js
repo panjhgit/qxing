@@ -2,10 +2,10 @@
  * 优化版碰撞检测系统 (collision-optimized.js)
  *
  * 优化内容：
- * - 保留四叉树核心功能
- * - 移除复杂的冗余功能
- * - 专注于建筑物碰撞检测和动态对象管理
- * - 代码量从2398行减少到约800行
+ * - 四叉树只负责空间索引和碰撞检测
+ * - 移除对象管理职责，避免与对象池重叠
+ * - 专注于建筑物碰撞检测和空间查询
+ * - 简化代码结构，提高性能
  */
 
 // 四叉树节点类（核心功能）
@@ -17,7 +17,7 @@ function QuadTreeNode(x, y, width, height, maxDepth, currentDepth) {
     this.maxDepth = maxDepth || 4;
     this.currentDepth = currentDepth || 0;
 
-    this.objects = [];        // 存储的对象
+    this.objects = [];        // 存储的对象引用（不管理生命周期）
     this.maxObjects = 8;      // 最大对象数量
     this.children = null;     // 子节点
     this.isDivided = false;   // 是否已分割
@@ -204,8 +204,16 @@ QuadTreeNode.prototype.getAllObjects = function () {
 var CollisionSystem = {
     // 四叉树实例
     staticQuadTree: null,    // 静态四叉树（建筑物）
-    dynamicQuadTree: null,   // 动态四叉树（人物、僵尸）
-
+    // 🔴 重构：四叉树只存储ID和位置，不存储对象引用
+    // 动态对象四叉树（只存储ID和位置信息）
+    dynamicQuadTree: null,
+    
+    // 🔴 新增：对象ID到位置的映射表
+    objectPositions: new Map(), // Map<objectId, {x, y, width, height}>
+    
+    // 🔴 新增：对象ID到类型的映射表
+    objectTypes: new Map(), // Map<objectId, objectType>
+    
     // 当前地图配置
     currentMap: null,
     mapManager: null,
@@ -220,40 +228,180 @@ var CollisionSystem = {
         return x >= 0 && x < mapDimensions.width && y >= 0 && y < mapDimensions.height;
     },
 
-    // 简化的安全位置生成
-    generateSafePosition: function (centerX, centerY, minDistance, maxDistance, objectWidth, objectHeight, isCircle = true) {
-        var collisionCheck = isCircle ?
-            (x, y) => !this.isCircleCollidingWithBuildings(x, y, objectWidth / 2) :
-            (x, y) => !this.isRectCollidingWithBuildings(x, y, objectWidth, objectHeight);
+    // 🔴 重构：添加对象到空间索引（只存储ID和位置）
+    addToSpatialIndex: function(object) {
+        if (!object || !object.id) {
+            console.warn('addToSpatialIndex: 对象无效或缺少ID');
+            return false;
+        }
+        
+        // 存储对象位置信息
+        this.objectPositions.set(object.id, {
+            x: object.x,
+            y: object.y,
+            width: object.width || 32,
+            height: object.height || 32
+        });
+        
+        // 存储对象类型
+        this.objectTypes.set(object.id, object.type || object.constructor.name);
+        
+        // 添加到四叉树（如果可用）
+        if (this.dynamicQuadTree) {
+            this.dynamicQuadTree.insert({
+                id: object.id,
+                x: object.x,
+                y: object.y,
+                width: object.width || 32,
+                height: object.height || 32
+            });
+        }
+        
+        console.log('✅ 对象已添加到空间索引:', object.id, '位置:', object.x, object.y);
+        return true;
+    },
+    
+    // 🔴 重构：从空间索引移除对象
+    removeFromSpatialIndex: function(object) {
+        if (!object || !object.id) {
+            console.warn('removeFromSpatialIndex: 对象无效或缺少ID');
+            return false;
+        }
+        
+        // 从映射表移除
+        this.objectPositions.delete(object.id);
+        this.objectTypes.delete(object.id);
+        
+        // 从四叉树移除（如果可用）
+        if (this.dynamicQuadTree) {
+            this.dynamicQuadTree.remove({
+                id: object.id,
+                x: object.x,
+                y: object.y,
+                width: object.width || 32,
+                height: object.height || 32
+            });
+        }
+        
+        console.log('✅ 对象已从空间索引移除:', object.id);
+        return true;
+    },
+    
+    // 🔴 重构：更新对象位置
+    updateObjectPosition: function(object) {
+        if (!object || !object.id) {
+            console.warn('updateObjectPosition: 对象无效或缺少ID');
+            return false;
+        }
+        
+        // 更新位置信息
+        this.objectPositions.set(object.id, {
+            x: object.x,
+            y: object.y,
+            width: object.width || 32,
+            height: object.height || 32
+        });
+        
+        // 更新四叉树（如果可用）
+        if (this.dynamicQuadTree) {
+            this.dynamicQuadTree.update({
+                id: object.id,
+                x: object.x,
+                y: object.y,
+                width: object.width || 32,
+                height: object.height || 32
+            });
+        }
+        
+        return true;
+    },
+    
+    // 🔴 重构：获取指定范围内的对象ID
+    getObjectsInRange: function(x, y, radius) {
+        if (!this.dynamicQuadTree) {
+            return [];
+        }
+        
+        var bounds = {
+            x: x - radius,
+            y: y - radius,
+            width: radius * 2,
+            height: radius * 2
+        };
+        
+        var objectsInRange = this.dynamicQuadTree.retrieve(bounds);
+        return objectsInRange.map(obj => obj.id);
+    },
+    
+    // 🔴 重构：简单的移动碰撞检测方法
+    getCircleSafeMovePosition: function (fromX, fromY, toX, toY, radius) {
+        if (!this.staticQuadTree) {
+            return {x: toX, y: toY};
+        }
+        
+        // 简单的直线移动碰撞检测
+        var dx = toX - fromX;
+        var dy = toY - fromY;
+        var distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (distance === 0) {
+            return {x: fromX, y: fromY};
+        }
+        
+        // 检查目标位置是否与建筑物碰撞
+        if (this.isCircleCollidingWithBuildings(toX, toY, radius)) {
+            // 如果目标位置有碰撞，尝试在路径上找安全位置
+            var stepSize = radius / 2;
+            var steps = Math.ceil(distance / stepSize);
+            
+            for (var i = 1; i <= steps; i++) {
+                var ratio = i / steps;
+                var testX = fromX + dx * ratio;
+                var testY = fromY + dy * ratio;
+                
+                if (!this.isCircleCollidingWithBuildings(testX, testY, radius)) {
+                    return {x: testX, y: testY};
+                }
+            }
+            
+            // 如果找不到安全位置，返回起始位置
+            return {x: fromX, y: fromY};
+        }
+        
+        return {x: toX, y: toY};
+    },
 
+    // 🔴 重构：生成游戏安全位置（简化版本）
+    generateGameSafePosition: function (centerX, centerY, minDistance, maxDistance, objectWidth, objectHeight, isCircle = true) {
+        var radius = isCircle ? objectWidth / 2 : Math.max(objectWidth, objectHeight) / 2;
+        
         // 随机位置搜索
-        for (var attempt = 0; attempt < 100; attempt++) {
+        for (var attempt = 0; attempt < 50; attempt++) {
             var angle = Math.random() * Math.PI * 2;
             var distance = minDistance + Math.random() * (maxDistance - minDistance);
             var testX = centerX + Math.cos(angle) * distance;
             var testY = centerY + Math.sin(angle) * distance;
-
-            if (this.isWithinMapBounds(testX, testY) && collisionCheck(testX, testY)) {
+            
+            if (this.isWithinMapBounds(testX, testY) && !this.isCircleCollidingWithBuildings(testX, testY, radius)) {
                 return {x: testX, y: testY, success: true};
             }
         }
-
-        // 边缘位置搜索
-        var mapDimensions = this.getCurrentMapDimensions();
+        
+        // 备用方案：返回边缘位置
         var edgePositions = [
             {x: 100, y: 100},
-            {x: mapDimensions.width - 100, y: 100},
-            {x: 100, y: mapDimensions.height - 100},
-            {x: mapDimensions.width - 100, y: mapDimensions.height - 100}
+            {x: this.currentMap.mapWidth - 100, y: 100},
+            {x: 100, y: this.currentMap.mapHeight - 100},
+            {x: this.currentMap.mapWidth - 100, y: this.currentMap.mapHeight - 100}
         ];
-
+        
         for (var i = 0; i < edgePositions.length; i++) {
             var edgePos = edgePositions[i];
-            if (collisionCheck(edgePos.x, edgePos.y)) {
+            if (!this.isCircleCollidingWithBuildings(edgePos.x, edgePos.y, radius)) {
                 return {x: edgePos.x, y: edgePos.y, success: true};
             }
         }
-
+        
         return {x: centerX, y: centerY, success: false, message: '无法找到安全位置'};
     },
 
@@ -349,119 +497,79 @@ var CollisionSystem = {
         }
     },
 
-    // 插入矩阵地图建筑物
+    // 插入矩阵建筑物
     insertMatrixBuildings: function () {
-        console.log('🗺️ 开始插入矩阵地图建筑物');
+        if (!this.mapManager || !this.mapManager.getCurrentMap) {
+            console.warn('⚠️ 地图管理器不可用，跳过建筑物插入');
+            return;
+        }
 
-        // 从地图管理器获取建筑物数据
-        if (this.mapManager && this.mapManager.getCurrentMap) {
-            try {
-                const currentMap = this.mapManager.getCurrentMap();
-                if (currentMap && currentMap.buildings) {
-                    console.log('✅ 从地图管理器获取建筑物数据，数量:', currentMap.buildings.length);
-                    this.insertBuildingsFromMapManager(currentMap.buildings);
-                    return;
+        var currentMap = this.mapManager.getCurrentMap();
+        if (!currentMap || !currentMap.buildings) {
+            console.warn('⚠️ 当前地图没有建筑物数据');
+            return;
+        }
+
+        var insertedCount = 0;
+        var buildings = currentMap.buildings;
+
+        for (var i = 0; i < buildings.length; i++) {
+            var building = buildings[i];
+            if (building && building.x !== undefined && building.y !== undefined) {
+                // 设置建筑物边界
+                if (!building.bounds) {
+                    building.bounds = {
+                        left: building.x - building.width / 2,
+                        right: building.x + building.width / 2,
+                        top: building.y - building.height / 2,
+                        bottom: building.y + building.height / 2
+                    };
                 }
-            } catch (error) {
-                console.error('❌ 从地图管理器获取建筑物数据失败:', error);
-            }
-        }
 
-        // 从全局mapSystem获取
-        if (window.mapSystem && window.mapSystem.buildings) {
-            console.log('✅ 从全局mapSystem获取建筑物数据，数量:', window.mapSystem.buildings.length);
-            this.insertBuildingsFromMapSystem(window.mapSystem.buildings);
-            return;
-        }
-
-        throw new Error('无法获取建筑物数据');
-    },
-
-    // 从地图管理器插入建筑物
-    insertBuildingsFromMapManager: function (buildings) {
-        if (!buildings || buildings.length === 0) {
-            console.warn('建筑物数据为空');
-            return;
-        }
-
-        let insertedCount = 0;
-        for (let i = 0; i < buildings.length; i++) {
-            const building = buildings[i];
-
-            if (!building.bounds) {
-                building.bounds = {
-                    left: building.x - building.width / 2,
-                    right: building.x + building.width / 2,
-                    top: building.y - building.height / 2,
-                    bottom: building.y + building.height / 2
-                };
-            }
-
-            if (this.staticQuadTree.insert(building)) {
-                insertedCount++;
+                if (this.staticQuadTree.insert(building)) {
+                    insertedCount++;
+                }
             }
         }
 
         console.log('✅ 建筑物插入完成，成功插入:', insertedCount, '个');
     },
 
-    // 从mapSystem插入建筑物
-    insertBuildingsFromMapSystem: function (buildings) {
-        if (!buildings || buildings.length === 0) {
-            console.warn('mapSystem建筑物数据为空');
-            return;
-        }
-
-        let insertedCount = 0;
-        for (let i = 0; i < buildings.length; i++) {
-            const building = buildings[i];
-
-            if (!building.bounds) {
-                building.bounds = {
-                    left: building.x - building.width / 2,
-                    right: building.x + building.width / 2,
-                    top: building.y - building.height / 2,
-                    bottom: building.y + building.height / 2
-                };
-            }
-
-            if (this.staticQuadTree.insert(building)) {
-                insertedCount++;
-            }
-        }
-
-        console.log('✅ 建筑物插入完成，成功插入:', insertedCount, '个');
+    // 🔴 重构：移除对象管理方法，只保留空间查询
+    // 空间查询方法（不管理对象）
+    querySpatialArea: function (searchArea) {
+        if (!this.dynamicQuadTree) return [];
+        return this.dynamicQuadTree.query(searchArea);
     },
 
-    // 动态对象管理（简化版）
-    addDynamicObject: function (object) {
-        if (!object || !this.dynamicQuadTree) {
-            return false;
-        }
-
-        var result = this.dynamicQuadTree.insert(object);
-        return result;
+    // 获取空间索引中的所有对象（只读，不管理）
+    getSpatialIndexObjects: function () {
+        if (!this.dynamicQuadTree) return [];
+        return this.dynamicQuadTree.getAllObjects();
     },
 
-    removeDynamicObject: function (object) {
-        if (!object || !this.dynamicQuadTree) {
-            return false;
+    // 获取空间索引中指定类型的对象数量（只读，不管理）
+    getSpatialIndexCountByType: function (type) {
+        if (!this.dynamicQuadTree) {
+            console.warn('getSpatialIndexCountByType: 动态四叉树未初始化');
+            return 0;
         }
-
-        return this.dynamicQuadTree.remove(object);
+        
+        var allObjects = this.dynamicQuadTree.getAllObjects();
+        console.log('🔍 getSpatialIndexCountByType: 查询类型', type, '，四叉树总对象数:', allObjects.length);
+        
+        var filteredObjects = allObjects.filter(function(obj) { 
+            return obj && obj.type === type; 
+        });
+        
+        console.log('🔍 getSpatialIndexCountByType: 类型', type, '的对象数量:', filteredObjects.length);
+        console.log('🔍 所有对象的类型:', allObjects.map(obj => obj ? obj.type : 'null'));
+        
+        return filteredObjects.length;
     },
 
-    updateDynamicObjectPosition: function (object, oldX, oldY, newX, newY) {
-        if (!object || !this.dynamicQuadTree) {
-            return;
-        }
-
-        // 从旧位置移除并添加到新位置
-        this.dynamicQuadTree.remove(object);
-        this.dynamicQuadTree.insert(object);
-    },
-
-    // 核心碰撞检测功能
+    // 🔴 重构：移除对象创建/销毁方法，这些应该由对象池负责
+    // 保留原有的碰撞检测方法
     isCircleCollidingWithBuildings: function (circleX, circleY, circleRadius) {
         if (!this.staticQuadTree) {
             return false;
@@ -533,159 +641,13 @@ var CollisionSystem = {
         return false;
     },
 
-    // 获取安全的移动位置
-    getCircleSafeMovePosition: function (fromX, fromY, toX, toY, circleRadius) {
-        // 检查目标位置是否可行
-        if (!this.isCircleCollidingWithBuildings(toX, toY, circleRadius)) {
-            return {x: toX, y: toY, success: true};
-        }
-
-        // 尝试8个方向的偏移
-        var directions = [
-            {dx: 0, dy: -circleRadius}, {dx: circleRadius, dy: 0}, {dx: 0, dy: circleRadius}, {dx: -circleRadius, dy: 0},
-            {dx: circleRadius * 0.707, dy: -circleRadius * 0.707}, {dx: circleRadius * 0.707, dy: circleRadius * 0.707},
-            {dx: -circleRadius * 0.707, dy: circleRadius * 0.707}, {dx: -circleRadius * 0.707, dy: -circleRadius * 0.707}
-        ];
-
-        for (var i = 0; i < directions.length; i++) {
-            var dir = directions[i];
-            var newX = toX + dir.dx;
-            var newY = toY + dir.dy;
-
-            if (!this.isCircleCollidingWithBuildings(newX, newY, circleRadius)) {
-                return {x: newX, y: newY, success: true, offset: true};
-            }
-        }
-
-        return {x: fromX, y: fromY, success: false, message: '无法找到安全位置'};
-    },
-
-    // 查询范围内的对象
-    queryRange: function (centerX, centerY, radius) {
-        var result = {
-            buildings: [],
-            dynamicObjects: []
-        };
-
-        // 查询建筑物
-        if (this.staticQuadTree) {
-            var searchArea = {
-                left: centerX - radius,
-                right: centerX + radius,
-                top: centerY - radius,
-                bottom: centerY + radius
-            };
-            result.buildings = this.staticQuadTree.query(searchArea);
-        }
-
-        // 查询动态对象
-        if (this.dynamicQuadTree) {
-            var searchArea = {
-                left: centerX - radius,
-                right: centerX + radius,
-                top: centerY - radius,
-                bottom: centerY + radius
-            };
-            result.dynamicObjects = this.dynamicQuadTree.query(searchArea);
-        }
-
-        return result;
-    },
-
-    // 简化的对象管理接口（保持兼容性）
-    createCharacterObject: function (character) {
-        if (!character) return null;
-
-        this.addDynamicObject(character);
-        return character;
-    },
-
-    createZombieObject: function (zombie) {
-        if (!zombie) return null;
-
-        this.addDynamicObject(zombie);
-        return zombie;
-    },
-
-    updateCharacterPosition: function (character, oldX, oldY, newX, newY) {
-        this.updateDynamicObjectPosition(character, oldX, oldY, newX, newY);
-    },
-
-    updateZombiePosition: function (zombie, oldX, oldY, newX, newY) {
-        this.updateDynamicObjectPosition(zombie, oldX, oldY, newX, newY);
-    },
-
-    destroyZombieObject: function (zombie) {
-        this.removeDynamicObject(zombie);
-    },
-
-    getAllCharacters: function () {
-        if (!this.dynamicQuadTree) {
-            console.warn('CollisionSystem.getAllCharacters: 动态四叉树未初始化');
-            return [];
-        }
-
-        var allObjects = this.dynamicQuadTree.getAllObjects();
-        console.log('CollisionSystem.getAllCharacters: 四叉树总对象数:', allObjects.length);
-        
-        var characters = allObjects.filter(function(obj) {
-            // 主人物即使血量变为0也应该被找到
-            if (obj && obj.role === 1) {
-                console.log('CollisionSystem.getAllCharacters: 找到主人物:', obj);
-                return true; // 主人物总是返回
-            }
-            // 其他角色需要血量大于0
-            return obj && (obj.role === 2 || obj.role === 3 ||
-                obj.role === 4 || obj.role === 5 || obj.role === 6) && obj.hp > 0;
-        });
-        
-        console.log('CollisionSystem.getAllCharacters: 过滤后角色数量:', characters.length);
-        return characters;
-    },
-
-    getAllZombies: function () {
-        if (!this.dynamicQuadTree) return [];
-
-        return this.dynamicQuadTree.getAllObjects().filter(function(obj) {
-            return obj && obj.type === 'zombie';
-        });
-    },
-
-    getDynamicObjectCountByType: function (type) {
-        if (!this.dynamicQuadTree) return 0;
-
-        var allObjects = this.dynamicQuadTree.getAllObjects();
-        if (type === 'zombie') {
-            return allObjects.filter(function(obj) { return obj && obj.type === 'zombie'; }).length;
-        } else if (type === 'character') {
-            return allObjects.filter(function(obj) {
-                return obj && (obj.role === 'main' || obj.role === 'police' || obj.role === 'civilian' ||
-                    obj.role === 'doctor' || obj.role === 'nurse' || obj.role === 'chef');
-            }).length;
-        }
-        return 0;
-    },
-
-    // 简化的更新函数
-    updateDynamicQuadTree: function (characters, zombies) {
-        // 简化的更新逻辑，只清理无效对象
-        if (this.dynamicQuadTree) {
-            var allObjects = this.dynamicQuadTree.getAllObjects();
-            for (var i = 0; i < allObjects.length; i++) {
-                var obj = allObjects[i];
-                if (obj && obj.hp <= 0) {
-                    this.dynamicQuadTree.remove(obj);
-                }
-            }
-        }
-    },
-
-    // 工具函数
+    // 检查两个矩形是否相交
     rectsIntersect: function (rect1, rect2) {
         return !(rect1.right <= rect2.left || rect1.left >= rect2.right ||
             rect1.bottom <= rect2.top || rect1.top >= rect2.bottom);
     },
 
+    // 获取对象边界（工具方法）
     getObjectBounds: function (object) {
         if (!object) return {left: 0, right: 0, top: 0, bottom: 0};
 
@@ -704,6 +666,15 @@ var CollisionSystem = {
         };
     },
 
+    // 🔴 重构：移除对象管理方法，这些应该由对象池负责
+    // 保留空间索引的清理方法（不管理对象生命周期）
+    clearSpatialIndex: function () {
+        if (this.dynamicQuadTree) {
+            this.dynamicQuadTree.clear();
+        }
+    },
+
+    // 获取当前地图
     getCurrentMap: function () {
         if (this.mapManager && this.mapManager.getCurrentMap) {
             return this.mapManager.getCurrentMap();
@@ -717,20 +688,99 @@ var CollisionSystem = {
         var currentMap = this.getCurrentMap();
         if (currentMap) {
             return {
-                width: currentMap.width || currentMap.mapWidth || 10000,
-                height: currentMap.height || currentMap.mapHeight || 10000
+                width: currentMap.mapWidth || currentMap.width || 10000,
+                height: currentMap.mapHeight || currentMap.height || 10000
             };
         }
         return {width: 10000, height: 10000};
     },
 
-    // 生成游戏安全位置
-    generateGameSafePosition: function (centerX, centerY, minDistance, maxDistance, objectWidth, objectHeight, isCircle = false) {
-        return this.generateSafePosition(centerX, centerY, minDistance, maxDistance, objectWidth, objectHeight, isCircle);
+    // 🔴 新增：支持角色管理器的getAllCharacters方法
+    getAllCharacters: function() {
+        if (!this.dynamicQuadTree) {
+            console.warn('CollisionSystem.getAllCharacters: 动态四叉树未初始化');
+            return [];
+        }
+        
+        try {
+            var allObjects = this.dynamicQuadTree.getAllObjects();
+            // 过滤出角色对象（type为'character'或role属性存在的对象）
+            var characters = allObjects.filter(obj => 
+                obj && (obj.type === 'character' || obj.role !== undefined)
+            );
+            
+            console.log('CollisionSystem.getAllCharacters: 从四叉树获取到角色数量:', characters.length);
+            return characters;
+        } catch (error) {
+            console.error('CollisionSystem.getAllCharacters: 获取角色失败:', error);
+            return [];
+        }
+    },
+
+    // 🔴 新增：支持角色管理器的getMainCharacter方法
+    getMainCharacter: function() {
+        var allCharacters = this.getAllCharacters();
+        if (allCharacters.length === 0) {
+            return null;
+        }
+        
+        // 查找主人物（role为1或ROLE.MAIN）
+        var mainChar = allCharacters.find(char => 
+            char && (char.role === 1 || char.role === 'main')
+        );
+        
+        if (mainChar) {
+            console.log('CollisionSystem.getMainCharacter: 找到主人物:', {
+                id: mainChar.id,
+                role: mainChar.role,
+                x: mainChar.x,
+                y: mainChar.y
+            });
+        }
+        
+        return mainChar;
+    },
+
+    // 🔴 新增：支持僵尸管理器的getAllZombies方法
+    getAllZombies: function() {
+        if (!this.dynamicQuadTree) {
+            console.warn('CollisionSystem.getAllZombies: 动态四叉树未初始化');
+            return [];
+        }
+        
+        try {
+            var allObjects = this.dynamicQuadTree.getAllObjects();
+            // 过滤出僵尸对象（type为'zombie'的对象）
+            var zombies = allObjects.filter(obj => 
+                obj && obj.type === 'zombie'
+            );
+            
+            console.log('CollisionSystem.getAllZombies: 从四叉树获取到僵尸数量:', zombies.length);
+            return zombies;
+        } catch (error) {
+            console.error('CollisionSystem.getAllZombies: 获取僵尸失败:', error);
+            return [];
+        }
+    },
+
+    // 🔴 新增：支持空间索引计数
+    getSpatialIndexCountByType: function(type) {
+        if (!this.dynamicQuadTree) {
+            return 0;
+        }
+        
+        try {
+            var allObjects = this.dynamicQuadTree.getAllObjects();
+            var count = allObjects.filter(obj => obj && obj.type === type).length;
+            return count;
+        } catch (error) {
+            console.error('CollisionSystem.getSpatialIndexCountByType: 获取计数失败:', error);
+            return 0;
+        }
     }
 };
 
-// 导出模块
+// 导出
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = CollisionSystem;
 } else if (typeof window !== 'undefined') {

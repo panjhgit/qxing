@@ -7,7 +7,10 @@ import {CharacterManager} from './src/character.js';
 import {ZombieManager} from './src/zombie.js';
 import GameEngine from './src/game-engine.js';
 import ViewSystem from './src/view.js';
-import CollisionSystem from './src/collision.js';
+import CollisionSystem from './src/obj/collision.js';
+import objectPoolManager from './src/obj/object-pool.js';
+import memoryMonitor from './src/obj/memory-optimization.js';
+import ConfigManager from './src/config.js';
 
 // 全局变量声明
 let systemInfo = tt.getSystemInfoSync();
@@ -60,14 +63,14 @@ function clearGameData() {
     
     // 清空角色管理器
     if (window.characterManager) {
-        // 清空所有角色
-        if (window.collisionSystem && window.collisionSystem.getAllCharacters) {
-            var characters = window.collisionSystem.getAllCharacters();
+        // 🔴 修复：使用正确的管理器方法获取角色
+        if (window.characterManager.getAllCharacters) {
+            var characters = window.characterManager.getAllCharacters();
             characters.forEach(char => {
                 if (char && char.id !== 1001) { // 保留主人物ID
-                    // 从碰撞系统中移除
-                    if (window.collisionSystem.removeDynamicObject) {
-                        window.collisionSystem.removeDynamicObject(char);
+                    // 从空间索引中移除
+                    if (window.collisionSystem && window.collisionSystem.removeFromSpatialIndex) {
+                        window.collisionSystem.removeFromSpatialIndex(char);
                     }
                 }
             });
@@ -80,14 +83,14 @@ function clearGameData() {
     
     // 清空僵尸管理器
     if (window.zombieManager) {
-        // 清空所有僵尸
+        // 🔴 修复：使用正确的管理器方法获取僵尸
         if (window.zombieManager.getAllZombies) {
             var zombies = window.zombieManager.getAllZombies();
             zombies.forEach(zombie => {
                 if (zombie) {
-                    // 从碰撞系统中移除
-                    if (window.collisionSystem && window.collisionSystem.removeDynamicObject) {
-                        window.collisionSystem.removeDynamicObject(zombie);
+                    // 从空间索引中移除
+                    if (window.collisionSystem && window.collisionSystem.removeFromSpatialIndex) {
+                        window.collisionSystem.removeFromSpatialIndex(zombie);
                     }
                 }
             });
@@ -95,6 +98,16 @@ function clearGameData() {
         
         // 重置僵尸管理器
         window.zombieManager = null;
+    }
+    
+    // 清理对象池
+    if (window.objectPoolManager) {
+        window.objectPoolManager.resetAllPools();
+    }
+    
+    // 停止内存监控
+    if (window.memoryMonitor) {
+        window.memoryMonitor.stop();
     }
     
     // 清空碰撞系统
@@ -147,6 +160,8 @@ function resetGameState() {
         delete window.gameEngine;
         delete window.MapManager;
         delete window.ViewSystem;
+        delete window.objectPoolManager;
+        delete window.memoryMonitor;
     }
     
     console.log('✅ 游戏状态重置完成');
@@ -321,17 +336,26 @@ function initGameEngine() {
 // 初始化角色和僵尸系统
 function initCharacterAndZombieSystems() {
     try {
+        // 🔴 修复：先设置对象池管理器为全局变量，确保角色和僵尸管理器可以访问
+        if (typeof window !== 'undefined') {
+            window.objectPoolManager = objectPoolManager;
+            window.memoryMonitor = memoryMonitor;
+            window.ConfigManager = ConfigManager;
+        }
+        
         // 初始化角色管理器
         console.log('👤 初始化角色管理器');
         characterManager = Object.create(CharacterManager);
+        characterManager.initObjectPool(); // 🔴 新增：初始化对象池
         
         // 初始化僵尸管理器
         console.log('🧟‍♂️ 初始化僵尸管理器');
         var zombieManager = Object.create(ZombieManager);
         zombieManager.maxZombies = zombieManager.maxZombies || 100;
         zombieManager.difficulty = zombieManager.difficulty || 1;
+        zombieManager.initObjectPool(); // 🔴 新增：初始化对象池
         
-        // 设置全局变量
+        // 设置其他全局变量
         if (typeof window !== 'undefined') {
             window.characterManager = characterManager;
             window.zombieManager = zombieManager;
@@ -598,6 +622,12 @@ function continueGameSystemsInit() {
         isInitializing = false;
         
         console.log('🎉 游戏系统初始化完成！游戏可以开始！');
+        
+        // 启动内存监控
+        if (window.memoryMonitor) {
+            window.memoryMonitor.start();
+            console.log('🔍 内存监控已启动');
+        }
         
         // 隐藏加载提示
         hideLoadingMessage();

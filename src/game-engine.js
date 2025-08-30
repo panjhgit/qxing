@@ -354,7 +354,8 @@ var GameEngine = function(canvas, ctx) {
         optimizePerformance: function() {
             if (!window.zombieManager) return;
             
-            var zombies = window.zombieManager.getAllZombies().filter(z => z.hp > 0);
+            // 🔴 修复：直接从僵尸管理器内部存储获取
+        var zombies = window.zombieManager.getAllZombies();
             
             // 如果僵尸数量过多，减少一些
             if (zombies.length > 35) {
@@ -433,6 +434,12 @@ GameEngine.prototype.init = function() {
     
     // 初始化时间系统配置
     this.initTimeSystemConfig();
+    
+    // 🔴 修复：确保ConfigManager可用
+    if (typeof window !== 'undefined' && !window.ConfigManager && typeof ConfigManager !== 'undefined') {
+        window.ConfigManager = ConfigManager;
+        console.log('✅ GameEngine: ConfigManager已设置为全局可用');
+    }
 };
 
 // 初始化时间系统配置
@@ -503,6 +510,9 @@ GameEngine.prototype.setSystems = function(mapSystem, characterManager, menuSyst
     this.zombieManager = zombieManager;
     this.collisionSystem = collisionSystem;
     
+    // 初始化对象池系统
+    this.initObjectPools();
+    
     console.log('✅ 系统引用设置完成');
     console.log('🔍 设置后的实例变量:');
     console.log('- this.characterManager:', !!this.characterManager);
@@ -520,6 +530,9 @@ GameEngine.prototype.setSystems = function(mapSystem, characterManager, menuSyst
     if (obstacleResult) {
         console.log('[GameEngine] 动态障碍物管理器初始化成功');
     }
+    
+    // 初始化对象池系统
+    this.initObjectPools();
     
     // 初始化触摸摇杆（确保所有系统都已加载）
     if (!this.joystick) {
@@ -610,6 +623,35 @@ GameEngine.prototype.initNavigationSystem = function() {
         return true;
     } else {
         console.warn('[GameEngine] NavigationSystem未定义，跳过NavMesh初始化');
+        return false;
+    }
+};
+
+/**
+ * 初始化对象池系统
+ */
+GameEngine.prototype.initObjectPools = function() {
+    if (typeof window !== 'undefined' && window.objectPoolManager) {
+        console.log('[GameEngine] 开始初始化对象池系统...');
+        
+        try {
+            // 🔴 修复：对象池已经在角色和僵尸管理器初始化时创建，这里只需要验证状态
+            console.log('[GameEngine] 验证对象池系统状态...');
+            
+            var characterPoolStatus = this.characterManager && this.characterManager.objectPool ? '已初始化' : '未初始化';
+            var zombiePoolStatus = this.zombieManager && this.zombieManager.objectPool ? '已初始化' : '未初始化';
+            
+            console.log('[GameEngine] 角色对象池状态:', characterPoolStatus);
+            console.log('[GameEngine] 僵尸对象池状态:', zombiePoolStatus);
+            
+            console.log('[GameEngine] 对象池系统验证完成');
+            return true;
+        } catch (error) {
+            console.error('[GameEngine] 对象池系统初始化失败:', error);
+            return false;
+        }
+    } else {
+        console.warn('[GameEngine] 对象池管理器不可用，跳过对象池初始化');
         return false;
     }
 };
@@ -854,16 +896,17 @@ GameEngine.prototype.spawnOneZombiePerDay = function() {
     // 创建僵尸批次
     this.createZombieBatchAroundPlayer(zombiesPerDay, mainChar, minDistance, maxDistance);
     
-    // 验证四叉树中的僵尸数量
-    if (this.collisionSystem && this.collisionSystem.getDynamicObjectCountByType) {
-        var quadTreeZombieCount = this.collisionSystem.getDynamicObjectCountByType('zombie');
-        var currentZombies = this.zombieManager.getAllZombies().filter(z => z.hp > 0);
-        console.log('GameEngine: 四叉树中的僵尸数量:', quadTreeZombieCount, '管理器中的僵尸数量:', currentZombies.length);
-        
-        if (quadTreeZombieCount !== currentZombies.length) {
-            console.warn('GameEngine: 僵尸数量不匹配！管理器:', currentZombies.length, '四叉树:', quadTreeZombieCount);
+            // 🔴 重构：验证空间索引中的僵尸数量
+        if (this.collisionSystem && this.collisionSystem.getSpatialIndexCountByType) {
+            var spatialIndexZombieCount = this.collisionSystem.getSpatialIndexCountByType('zombie');
+            // 🔴 修复：直接从僵尸管理器内部存储获取
+            var currentZombies = this.zombieManager.getAllZombies();
+            console.log('GameEngine: 空间索引中的僵尸数量:', spatialIndexZombieCount, '管理器中的僵尸数量:', currentZombies.length);
+            
+            if (spatialIndexZombieCount !== currentZombies.length) {
+                console.warn('GameEngine: 僵尸数量不匹配！管理器:', currentZombies.length, '空间索引:', spatialIndexZombieCount);
+            }
         }
-    }
 },
 
 // 分批创建僵尸（性能优化）- 使用配置文件中的距离范围
@@ -914,16 +957,16 @@ GameEngine.prototype.createZombieBatchAroundPlayer = function(batchSize, mainCha
                         x: createdZombie.x,
                         y: createdZombie.y,
                         hp: createdZombie.hp,
-                        hasQuadTreeId: !!createdZombie._quadTreeId,
-                        quadTreeId: createdZombie._quadTreeId,
+                        hasSpatialIndexId: !!createdZombie._spatialIndexId,
+                        spatialIndexId: createdZombie._spatialIndexId,
                         distanceFromMain: Math.sqrt(Math.pow(createdZombie.x - mainChar.x, 2) + Math.pow(createdZombie.y - mainChar.y, 2))
                     });
                     
-                    // 验证僵尸是否在四叉树中
-                    if (createdZombie._quadTreeId) {
-                        console.log('GameEngine: 僵尸已正确添加到四叉树:', createdZombie._quadTreeId);
+                    // 🔴 重构：验证僵尸是否在空间索引中
+                    if (createdZombie._spatialIndexId) {
+                        console.log('GameEngine: 僵尸已正确添加到空间索引:', createdZombie._spatialIndexId);
                     } else {
-                        console.error('GameEngine: 僵尸未添加到四叉树！');
+                        console.error('GameEngine: 僵尸未添加到空间索引！');
                     }
                 } else {
                     console.error('GameEngine: 僵尸创建失败');
@@ -946,11 +989,12 @@ GameEngine.prototype.createZombieBatchAroundPlayer = function(batchSize, mainCha
         }
     }
     
-    var finalZombieCount = this.zombieManager.getAllZombies().filter(z => z.hp > 0).length;
-    console.log('GameEngine: 批次创建完成，成功创建:', createdZombies.length, '只僵尸，当前总僵尸数:', finalZombieCount);
-    
-    // 验证新创建的僵尸是否都在配置的距离范围内
-    var allZombies = this.zombieManager.getAllZombies().filter(z => z.hp > 0);
+            // 🔴 修复：直接从僵尸管理器内部存储获取
+        var finalZombieCount = this.zombieManager.getAllZombies().length;
+        console.log('GameEngine: 批次创建完成，成功创建:', createdZombies.length, '只僵尸，当前总僵尸数:', finalZombieCount);
+        
+        // 验证新创建的僵尸是否都在配置的距离范围内
+        var allZombies = this.zombieManager.getAllZombies();
     var zombiesInRange = allZombies.filter(z => {
         var distance = Math.sqrt(Math.pow(z.x - mainChar.x, 2) + Math.pow(z.y - mainChar.y, 2));
         return distance >= (minDistance - 100) && distance <= (maxDistance + 100);
@@ -1047,16 +1091,17 @@ GameEngine.prototype.update = function() {
     // 更新计时系统
     this.updateTimeSystem();
     
-    // 更新动态四叉树
-    if (this.collisionSystem && this.collisionSystem.updateDynamicQuadTree) {
-        var characters = this.characterManager ? this.characterManager.getAllCharacters() : [];
-        var zombies = this.zombieManager ? this.zombieManager.getAllZombies().filter(z => z.hp > 0) : [];
-        this.collisionSystem.updateDynamicQuadTree(characters, zombies);
+    // 🔴 重构：空间索引更新（四叉树只负责空间索引，不管理对象）
+    if (this.collisionSystem && this.collisionSystem.updateSpatialIndex) {
+        // 空间索引的更新由对象池和各个管理器负责
+        // 这里只需要确保空间索引与对象状态同步
+        console.log('GameEngine: 空间索引状态检查...');
     }
     
     // 🔴 更新僵尸 - 使用高性能分帧更新策略
     if (this.zombieManager) {
-        var characters = this.characterManager ? this.characterManager.getAllCharacters() : [];
+        // 🔴 修复：直接从角色管理器内部存储获取
+        var characters = this.characterManager && this.characterManager.mainCharacter ? [this.characterManager.mainCharacter] : [];
         // 计算真实的deltaTime，确保移动平滑
         var currentTime = performance.now();
         var deltaTime = (currentTime - this.lastUpdateTime) / 1000; // 转换为秒
@@ -1082,6 +1127,16 @@ GameEngine.prototype.update = function() {
         }
     }
     
+    // 更新对象池管理器
+    if (window.objectPoolManager) {
+        window.objectPoolManager.update();
+    }
+    
+    // 更新内存监控器
+    if (window.memoryMonitor) {
+        window.memoryMonitor.checkMemoryUsage();
+    }
+    
     // 更新视觉系统
     if (this.viewSystem) {
         this.viewSystem.update();
@@ -1091,11 +1146,11 @@ GameEngine.prototype.update = function() {
     if (this.frameCount % 300 === 0) {
         this.logSystemStatus();
         
-        // 获取碰撞系统状态
+        // 🔴 重构：获取空间索引状态
         if (this.collisionSystem) {
-            var characterCount = this.collisionSystem.getDynamicObjectCountByType('character');
-            var zombieCount = this.collisionSystem.getDynamicObjectCountByType('zombie');
-            console.log('碰撞系统状态: 角色数量:', characterCount, '僵尸数量:', zombieCount);
+            var characterCount = this.collisionSystem.getSpatialIndexCountByType('character');
+            var zombieCount = this.collisionSystem.getSpatialIndexCountByType('zombie');
+            console.log('空间索引状态: 角色数量:', characterCount, '僵尸数量:', zombieCount);
         }
     }
 },
@@ -1126,11 +1181,13 @@ GameEngine.prototype.logSystemStatus = function() {
     }
     
     if (this.characterManager) {
-        var characters = this.characterManager.getAllCharacters();
+        // 🔴 修复：直接从角色管理器内部存储获取
+        var characters = this.characterManager.mainCharacter ? [this.characterManager.mainCharacter] : [];
         console.log('角色数量:', characters.length);
     }
     
     if (this.zombieManager) {
+        // 🔴 修复：使用僵尸管理器的方法获取僵尸列表
         var zombies = this.zombieManager.getAllZombies();
         var activeZombies = zombies.filter(z => z.hp > 0);
         console.log('僵尸总数:', zombies.length, '活跃僵尸:', activeZombies.length);
@@ -1156,6 +1213,18 @@ GameEngine.prototype.logSystemStatus = function() {
         console.log('动态障碍物统计:', obstacleStats);
     }
     
+    // 对象池性能统计
+    if (window.objectPoolManager) {
+        var poolStats = window.objectPoolManager.getPerformanceStats();
+        console.log('🔴 对象池性能统计:', {
+            totalPools: poolStats.totalPools,
+            totalObjects: poolStats.totalObjects,
+            averageHitRate: (poolStats.averageHitRate * 100).toFixed(1) + '%',
+            memoryUsage: (poolStats.totalMemoryUsage / 1024).toFixed(1) + 'KB',
+            leakWarnings: poolStats.leakWarnings
+        });
+    }
+    
     console.log('==================');
 },
 
@@ -1178,6 +1247,7 @@ GameEngine.prototype.render = function() {
             // 渲染僵尸
             if (this.zombieManager) {
                 console.log('GameEngine.render: 开始渲染僵尸');
+                // 🔴 修复：使用僵尸管理器的方法获取僵尸列表
                 var zombies = this.zombieManager.getAllZombies();
                 console.log('GameEngine.render: 获取到僵尸数量:', zombies.length);
                 

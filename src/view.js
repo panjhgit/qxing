@@ -316,7 +316,8 @@ ViewSystem.prototype.renderCharacters = function(characterManager) {
     this.ctx.scale(this.camera.zoom, this.camera.zoom);
     this.ctx.translate(-this.camera.x, -this.camera.y);
     
-    var characters = characterManager.getAllCharacters();
+            // 🔴 修复：直接从角色管理器内部存储获取
+        var characters = characterManager.mainCharacter ? [characterManager.mainCharacter] : [];
     characters.forEach(character => {
         // 直接使用世界坐标渲染角色，让摄像机变换处理位置
         this.renderCharacter(character, character.x, character.y);
@@ -417,7 +418,8 @@ ViewSystem.prototype.renderZombies = function(zombieManager) {
         // 如果仍然没有主人物，回退到传统渲染
         if (!mainCharacter) {
             console.warn('renderZombies: 回退到传统渲染');
-            var zombies = zombieManager.getAllZombies();
+            // 🔴 修复：直接从僵尸管理器内部存储获取
+        var zombies = zombieManager.getAllZombies();
             this.renderZombieList(zombies);
             return;
         }
@@ -430,7 +432,8 @@ ViewSystem.prototype.renderZombies = function(zombieManager) {
         console.log('🔴 高性能渲染: 活跃僵尸数量:', activeZombies.length, '主人物位置:', mainCharacter.x, mainCharacter.y);
     } else {
         // 回退到传统方法
-        activeZombies = zombieManager.getAllZombies();
+                    // 🔴 修复：直接从僵尸管理器内部存储获取
+            activeZombies = zombieManager.getAllZombies();
         console.log('renderZombies: 回退到传统方法，僵尸数量:', activeZombies.length);
     }
     

@@ -185,9 +185,20 @@ Zombie.prototype.updateDead = function(deltaTime) {
 
 // 销毁僵尸
 Zombie.prototype.destroy = function() {
-    if (window.collisionSystem && window.collisionSystem.destroyZombieObject) {
-        window.collisionSystem.destroyZombieObject(this);
+    // 🔴 协调僵尸管理器：让僵尸管理器处理销毁逻辑
+    if (window.zombieManager && window.zombieManager.destroyZombie) {
+        window.zombieManager.destroyZombie(this);
+        return;
     }
+    
+    // 备用方案：直接归还到对象池
+    if (window.zombieManager && window.zombieManager.objectPool) {
+        if (window.zombieManager.objectPool.return(this)) {
+            console.log('✅ 僵尸已归还到对象池:', this.id);
+            return;
+        }
+    }
+    
     this._destroyed = true;
 };
 
@@ -473,16 +484,64 @@ Zombie.prototype.getDistanceTo = function(targetX, targetY) {
 var ZombieManager = {
     maxZombies: ConfigManager.get('PERFORMANCE.MAX_ZOMBIES'),
     
-    // 创建僵尸
+    // 对象池引用
+    objectPool: null,
+    
+    // 🔴 核心：内部存储的僵尸列表 - 僵尸业务逻辑的唯一数据源
+    zombies: [],
+    
+    // 初始化对象池
+    initObjectPool: function() {
+        if (!window.objectPoolManager) {
+            console.warn('对象池管理器未初始化，使用传统创建方式');
+            return;
+        }
+        
+        // 创建僵尸对象池
+        this.objectPool = window.objectPoolManager.createPool('zombie', 
+            // 创建函数
+            () => new Zombie('skinny', 0, 0),
+            // 重置函数
+            (zombie) => this.resetZombie(zombie)
+        );
+        
+        console.log('✅ 僵尸对象池初始化完成');
+    },
+    
+    // 重置僵尸状态（对象池复用）
+    resetZombie: function(zombie) {
+        if (!zombie) return;
+        
+        // 重置基础属性
+        zombie.hp = zombie.maxHp || 30;
+        zombie.state = ZOMBIE_STATE.IDLE;
+        zombie.targetX = zombie.x;
+        zombie.y = zombie.y;
+        zombie.targetCharacter = null;
+        zombie.isActive = false;
+        zombie.updateInterval = 1;
+        zombie.lastAttackTime = 0;
+        zombie.animationFrame = 0;
+        zombie.direction = 0;
+        
+        // 重置性能相关
+        zombie._updateFrame = 0;
+        zombie._destroyed = false;
+        
+        console.log('✅ 僵尸状态重置完成:', zombie.id);
+    },
+    
+    // 🔴 核心：创建僵尸 - 添加到内部存储
     createZombie: function(type, x, y) {
         if (!window.collisionSystem) {
             console.error('碰撞系统未初始化');
             return null;
         }
         
-        var currentZombieCount = window.collisionSystem.getDynamicObjectCountByType('zombie');
+        // 🔴 核心：使用僵尸管理器自己的计数方法（遵循职责分离）
+        var currentZombieCount = this.zombies.filter(z => z && z.hp > 0).length;
         if (currentZombieCount >= this.maxZombies) {
-            console.warn('僵尸数量已达上限');
+            console.warn('僵尸数量已达上限:', currentZombieCount, '/', this.maxZombies);
             return null;
         }
         
@@ -504,17 +563,56 @@ var ZombieManager = {
         x = validatedPosition.x;
         y = validatedPosition.y;
         
-        var zombie = new Zombie(type, x, y);
+        var zombie = null;
         
-        if (window.collisionSystem.createZombieObject) {
-            var createdZombie = window.collisionSystem.createZombieObject(zombie);
-            if (createdZombie) {
-                this.initializeZombieTarget(createdZombie);
-                return createdZombie;
+        // 🔴 协调对象池：优先使用对象池获取对象
+        if (this.objectPool) {
+            zombie = this.objectPool.get();
+            if (zombie) {
+                // 重新初始化僵尸属性
+                zombie.zombieType = type;
+                zombie.x = x;
+                zombie.y = y;
+                zombie.setupProperties();
+                
+                console.log('✅ 从对象池获取僵尸:', zombie.zombieType, '位置:', x, y);
             }
         }
         
-        return null;
+        // 对象池不可用时，使用传统创建方式
+        if (!zombie) {
+            zombie = new Zombie(type, x, y);
+            console.log('✅ 传统方式创建僵尸:', zombie.zombieType, '位置:', x, y);
+        }
+        
+        // 🔴 协调四叉树：四叉树只负责空间索引，不管理对象生命周期
+        if (window.collisionSystem && window.collisionSystem.addToSpatialIndex) {
+            console.log('🔍 僵尸创建: 碰撞系统状态检查 - 僵尸ID:', zombie.id, '类型:', zombie.type, '位置:', zombie.x, zombie.y);
+            console.log('🔍 碰撞系统状态:', {
+                hasCollisionSystem: !!window.collisionSystem,
+                hasAddToSpatialIndex: !!window.collisionSystem.addToSpatialIndex,
+                hasDynamicQuadTree: !!window.collisionSystem.dynamicQuadTree,
+                dynamicQuadTreeObjects: window.collisionSystem.dynamicQuadTree ? window.collisionSystem.dynamicQuadTree.getAllObjects().length : 'N/A'
+            });
+            
+            var spatialIndexResult = window.collisionSystem.addToSpatialIndex(zombie);
+            if (spatialIndexResult) {
+                console.log('✅ 僵尸已添加到空间索引:', zombie.id);
+                // 给僵尸添加空间索引ID标识
+                zombie._spatialIndexId = Date.now() + Math.random();
+            } else {
+                console.warn('⚠️ 僵尸添加到空间索引失败:', zombie.id);
+            }
+        } else {
+            console.warn('⚠️ 碰撞系统或addToSpatialIndex方法不可用，僵尸无法添加到空间索引:', zombie.id);
+        }
+        
+        this.initializeZombieTarget(zombie);
+        
+        // 🔴 核心：添加到内部存储 - 僵尸业务逻辑的唯一数据源
+        this.zombies.push(zombie);
+        
+        return zombie;
     },
     
     // 生成随机生成位置
@@ -662,12 +760,8 @@ var ZombieManager = {
             return;
         }
         
-        var zombies = [];
-        if (window.collisionSystem && window.collisionSystem.getAllZombies) {
-            zombies = window.collisionSystem.getAllZombies();
-        } else {
-            return;
-        }
+        // 🔴 核心：从内部存储获取僵尸列表
+        var zombies = this.getAllZombies();
         
         var activeZombies = zombies.filter(zombie => 
             zombie && zombie.hp > 0 && zombie.state !== ZOMBIE_STATE.DEAD
@@ -693,30 +787,31 @@ var ZombieManager = {
         // 清理死亡僵尸
         var deadZombies = zombies.filter(zombie => zombie.hp <= 0 || zombie.state === ZOMBIE_STATE.DEAD);
         deadZombies.forEach(zombie => {
-            if (window.collisionSystem && window.collisionSystem.destroyZombieObject) {
-                try {
-                    window.collisionSystem.destroyZombieObject(zombie);
-                } catch (error) {
-                    console.error('销毁僵尸失败:', zombie.type, zombie.id, '错误:', error);
+            try {
+                // 🔴 协调对象池：优先使用对象池归还
+                if (this.objectPool) {
+                    if (this.objectPool.return(zombie)) {
+                        console.log('✅ 死亡僵尸已归还到对象池:', zombie.id);
+                        return; // 使用return而不是continue
+                    }
                 }
+                
+                // 对象池不可用时，使用传统销毁方式
+                if (window.collisionSystem && window.collisionSystem.destroyZombieObject) {
+                    window.collisionSystem.destroyZombieObject(zombie);
+                }
+            } catch (error) {
+                console.error('销毁僵尸失败:', zombie.type, zombie.id, '错误:', error);
             }
         });
     },
     
-    // 获取所有僵尸
+    // 🔴 核心：获取所有僵尸 - 从内部存储获取（遵循职责分离）
     getAllZombies: function() {
-        if (!window.collisionSystem) {
-            return [];
-        }
-        
-        if (!window.collisionSystem.getAllZombies) {
-            return [];
-        }
-        
-        return window.collisionSystem.getAllZombies();
+        return this.zombies.filter(zombie => zombie && zombie.hp > 0);
     },
     
-    // 获取活跃僵尸
+    // 🔴 核心：获取活跃僵尸 - 从内部存储获取
     getActiveZombies: function(mainCharacter) {
         if (!mainCharacter) return [];
         
@@ -729,7 +824,7 @@ var ZombieManager = {
         );
     },
     
-    // 获取批次信息
+    // 🔴 核心：获取批次信息 - 从内部存储获取
     getBatchInfo: function(currentFrame) {
         var allZombies = this.getAllZombies();
         var activeZombies = allZombies.filter(zombie => 
@@ -744,6 +839,46 @@ var ZombieManager = {
             nextBatch: (currentBatch + 1) % 2,
             batchSize: 2
         };
+    },
+    
+    // 🔴 核心：销毁僵尸 - 从内部存储移除，协调对象池和四叉树
+    destroyZombie: function(zombie) {
+        if (!zombie) return;
+        
+        console.log('🗑️ 销毁僵尸:', zombie.id, '类型:', zombie.zombieType);
+        
+        // 🔴 协调四叉树：从空间索引中移除（不管理对象生命周期）
+        if (window.collisionSystem && window.collisionSystem.removeFromSpatialIndex) {
+            var removeResult = window.collisionSystem.removeFromSpatialIndex(zombie);
+            if (removeResult) {
+                console.log('✅ 僵尸已从空间索引移除:', zombie.id);
+            } else {
+                console.warn('⚠️ 僵尸从空间索引移除失败:', zombie.id);
+            }
+        }
+        
+        // 🔴 协调对象池：使用对象池管理对象生命周期
+        if (this.objectPool) {
+            // 重置僵尸状态
+            zombie.hp = 0;
+            zombie.state = 'dead';
+            zombie.isActive = false;
+            
+            // 归还到对象池
+            this.objectPool.return(zombie);
+            console.log('✅ 僵尸已归还到对象池:', zombie.id);
+        } else {
+            // 对象池不可用时，直接删除引用
+            zombie.isActive = false;
+            console.log('✅ 僵尸已标记为非活跃:', zombie.id);
+        }
+        
+        // 🔴 核心：从僵尸列表中移除 - 僵尸业务逻辑的唯一数据源
+        var index = this.zombies.indexOf(zombie);
+        if (index > -1) {
+            this.zombies.splice(index, 1);
+            console.log('✅ 僵尸已从列表移除:', zombie.id);
+        }
     }
 };
 
