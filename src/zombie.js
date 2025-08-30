@@ -1848,3 +1848,39 @@ export {ZOMBIE_TYPE, ZOMBIE_STATE};
 export {ZombieManager};
 export default Zombie;
 
+// 🔴 新增：僵尸高性能管理方法
+
+// 设置更新间隔
+Zombie.prototype.setUpdateInterval = function(interval) {
+    this.updateInterval = Math.max(1, Math.min(5, interval)); // 限制在1-5之间
+    console.log('僵尸', this.id, '更新间隔设置为:', this.updateInterval);
+};
+
+// 获取更新间隔
+Zombie.prototype.getUpdateInterval = function() {
+    return this.updateInterval;
+};
+
+// 检查是否需要更新（基于性能等级和距离）
+Zombie.prototype.shouldUpdate = function(currentFrame, mainCharX, mainCharY) {
+    // 基础更新间隔检查
+    if (currentFrame % this.updateInterval !== 0) {
+        return false;
+    }
+    
+    // 距离检查（远距离僵尸更新频率降低）
+    if (mainCharX !== undefined && mainCharY !== undefined) {
+        var distance = Math.sqrt(Math.pow(this.x - mainCharX, 2) + Math.pow(this.y - mainCharY, 2));
+        
+        if (distance > 1000) { // 1000px以上
+            return currentFrame % (this.updateInterval * 2) === 0; // 更新频率减半
+        } else if (distance > 500) { // 500-1000px
+            return currentFrame % this.updateInterval === 0; // 正常更新频率
+        } else { // 500px以内
+            return true; // 高优先级，每帧更新
+        }
+    }
+    
+    return true;
+};
+

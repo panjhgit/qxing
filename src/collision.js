@@ -265,6 +265,18 @@ var CollisionSystem = {
 
         console.log('🗺️ 初始化优化版碰撞检测系统，地图ID:', mapId);
 
+        // 🔴 新增：初始化性能优化属性
+        this.collisionCache = new Map();
+        this.cacheExpiryTime = 100;
+        this.lastCacheCleanup = 0;
+        this.performanceMode = 'balanced';
+        this.performanceStats = {
+            totalCollisionChecks: 0,
+            cacheHits: 0,
+            cacheMisses: 0,
+            averageCheckTime: 0
+        };
+
         // 获取地图管理器
         if (typeof window !== 'undefined' && window.MapManager) {
             this.mapManager = window.MapManager;

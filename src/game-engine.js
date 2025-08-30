@@ -58,8 +58,8 @@ TouchJoystick.prototype.bindEvents = function() {
         // 检查触摸是否在摇杆范围内
         var distance = Math.sqrt(Math.pow(x - self.centerX, 2) + Math.pow(y - self.centerY, 2));
 
-        // 抖音小游戏环境：稍微放宽触摸检测范围
-        var touchThreshold = self.outerRadius + 10; // 增加10像素的容错范围
+        // 抖音小游戏环境：稍微放宽触摸检测范围，提升用户体验
+        var touchThreshold = self.outerRadius + 20; // 增加20像素的容错范围
         
         console.log('触摸距离:', distance, '触摸阈值:', touchThreshold, '触摸是否在范围内:', distance <= touchThreshold);
         
@@ -313,6 +313,8 @@ var GameEngine = function(canvas, ctx) {
         lastFPS: 60,
         fpsHistory: [],
         lastOptimizationTime: 0,
+        targetFPS: 60,
+        minFPS: 30,
         
         // 监控帧率
         updateFPS: function(deltaTime) {
@@ -335,14 +337,16 @@ var GameEngine = function(canvas, ctx) {
         // 检查性能并自动优化
         checkPerformance: function() {
             var currentTime = Date.now();
-            if (currentTime - this.lastOptimizationTime < 5000) return; // 5秒内不重复优化
+            if (currentTime - this.lastOptimizationTime < 8000) return; // 8秒内不重复优化
             
             var avgFPS = this.fpsHistory.reduce((a, b) => a + b, 0) / this.fpsHistory.length;
             
-            if (avgFPS < 30) { // FPS过低，执行优化
-                console.log('性能监控：FPS过低(' + avgFPS + ')，执行自动优化');
+            if (avgFPS < this.minFPS) { // FPS过低，执行优化
+                console.log('🔴 性能监控：FPS过低(' + avgFPS.toFixed(1) + ')，执行自动优化');
                 this.optimizePerformance();
                 this.lastOptimizationTime = currentTime;
+            } else if (avgFPS > this.targetFPS - 5) { // FPS良好，可以适当增加复杂度
+                this.optimizeForQuality();
             }
         },
         
@@ -353,9 +357,9 @@ var GameEngine = function(canvas, ctx) {
             var zombies = window.zombieManager.getAllZombies().filter(z => z.hp > 0);
             
             // 如果僵尸数量过多，减少一些
-            if (zombies.length > 40) {
-                var excessZombies = zombies.length - 30;
-                console.log('性能优化：移除', excessZombies, '个僵尸');
+            if (zombies.length > 35) {
+                var excessZombies = zombies.length - 28;
+                console.log('🔴 性能优化：移除', excessZombies, '个僵尸');
                 
                 // 移除最远的僵尸
                 var mainChar = window.characterManager ? window.characterManager.getMainCharacter() : null;
@@ -375,11 +379,41 @@ var GameEngine = function(canvas, ctx) {
                 }
             }
             
+            // 降低僵尸更新频率
+            if (window.zombieManager && window.zombieManager.setUpdateInterval) {
+                window.zombieManager.setUpdateInterval(2); // 每2帧更新一次
+                console.log('🔴 性能优化：降低僵尸更新频率');
+            }
+            
             // 强制垃圾回收（如果可用）
             if (window.gc) {
                 window.gc();
-                console.log('性能优化：执行垃圾回收');
+                console.log('🔴 性能优化：执行垃圾回收');
             }
+        },
+        
+        // 质量优化（FPS良好时）
+        optimizeForQuality: function() {
+            if (!window.zombieManager) return;
+            
+            // 如果FPS良好，可以适当提高质量
+            if (window.zombieManager.setUpdateInterval) {
+                window.zombieManager.setUpdateInterval(1); // 每帧更新
+                console.log('🟢 质量优化：提高僵尸更新频率');
+            }
+        },
+        
+        // 获取性能统计
+        getStats: function() {
+            var avgFPS = this.fpsHistory.length > 0 ? 
+                this.fpsHistory.reduce((a, b) => a + b, 0) / this.fpsHistory.length : 0;
+            
+            return {
+                currentFPS: this.lastFPS,
+                averageFPS: avgFPS.toFixed(1),
+                frameCount: this.frameCount,
+                optimizationCount: this.lastOptimizationTime > 0 ? '已启用' : '未启用'
+            };
         }
     };
     
@@ -1061,10 +1095,22 @@ GameEngine.prototype.logSystemStatus = function() {
     console.log('游戏状态:', this.gameState);
     console.log('时间系统:', this.getTimeInfo());
     
+    // 🔴 新增：性能监控统计
+    if (this.performanceMonitor && this.performanceMonitor.getStats) {
+        var perfStats = this.performanceMonitor.getStats();
+        console.log('🔴 性能监控:', perfStats);
+    }
+    
     // 记录系统状态
     if (this.collisionSystem) {
         var stats = this.collisionSystem.getStats ? this.collisionSystem.getStats() : {};
         console.log('碰撞系统状态:', stats);
+        
+        // 🔴 新增：碰撞系统性能统计
+        if (this.collisionSystem.getPerformanceStats) {
+            var collisionPerfStats = this.collisionSystem.getPerformanceStats();
+            console.log('🔴 碰撞系统性能:', collisionPerfStats);
+        }
     }
     
     if (this.characterManager) {
@@ -1081,6 +1127,11 @@ GameEngine.prototype.logSystemStatus = function() {
         if (this.zombieManager.getBatchInfo && typeof this.zombieManager.getBatchInfo === 'function') {
             var batchInfo = this.zombieManager.getBatchInfo(this.frameCount);
             console.log('🔴 僵尸批次信息:', batchInfo);
+        }
+        
+        // 🔴 新增：僵尸管理器性能统计
+        if (this.zombieManager.logPerformanceReport) {
+            this.zombieManager.logPerformanceReport(this.frameCount);
         }
     }
     
