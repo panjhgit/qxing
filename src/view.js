@@ -369,6 +369,9 @@ ViewSystem.prototype.renderCharacter = function(character, worldX, worldY) {
         this.ctx.arc(worldX, bodyY - 6, 4, 0, Math.PI * 2);
         this.ctx.fill();
     }
+
+    // 🔴 绘制角色血条
+    this.renderCharacterHealthBar(character, worldX, worldY);
 };
 
 // 🔴 渲染僵尸（带摄像机变换）- 使用高性能活跃僵尸列表
@@ -507,6 +510,59 @@ ViewSystem.prototype.drawZombieHealthBar = function(zombie, x, y) {
     this.ctx.strokeStyle = '#000000';
     this.ctx.lineWidth = 1;
     this.ctx.strokeRect(x - barWidth/2, y, barWidth, barHeight);
+};
+
+// 🔴 新增：绘制角色血条方法
+ViewSystem.prototype.renderCharacterHealthBar = function(character, worldX, worldY) {
+    // 检查角色是否有血量属性
+    if (!character.hp || !character.maxHp) {
+        return;
+    }
+    
+    // 血条位置（显示在角色上方）
+    var barWidth = character.width; // 血条宽度等于角色宽度
+    var barHeight = 6; // 血条高度
+    var barX = worldX - barWidth / 2; // 血条X坐标（居中对齐）
+    var barY = worldY - character.height/2 - 15; // 血条Y坐标（角色上方15px）
+    
+    // 计算血量比例
+    var healthRatio = character.hp / character.maxHp;
+    
+    // 绘制血条背景（深灰色）
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    this.ctx.fillRect(barX, barY, barWidth, barHeight);
+    
+    // 绘制血条边框（白色）
+    this.ctx.strokeStyle = '#FFFFFF';
+    this.ctx.lineWidth = 1;
+    this.ctx.strokeRect(barX, barY, barWidth, barHeight);
+    
+    // 根据血量比例绘制血条填充
+    var fillWidth = barWidth * healthRatio;
+    if (fillWidth > 0) {
+        // 根据血量选择颜色
+        if (healthRatio > 0.6) {
+            this.ctx.fillStyle = '#00FF00'; // 绿色（血量充足）
+        } else if (healthRatio > 0.3) {
+            this.ctx.fillStyle = '#FFFF00'; // 黄色（血量中等）
+        } else {
+            this.ctx.fillStyle = '#FF0000'; // 红色（血量危险）
+        }
+        
+        this.ctx.fillRect(barX, barY, fillWidth, barHeight);
+    }
+    
+    // 如果是主人物，显示具体血量数值
+    if (character.role === 1) { // 主人物
+        this.ctx.fillStyle = '#FFFFFF';
+        this.ctx.font = 'bold 10px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText(
+            character.hp + '/' + character.maxHp,
+            worldX,
+            barY - 5
+        );
+    }
 };
 
 // 渲染触摸摇杆（不受摄像机变换影响）

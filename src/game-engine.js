@@ -686,20 +686,32 @@ GameEngine.prototype.addSampleDynamicObstacles = function() {
 
 // 更新触摸摇杆控制的角色移动
 GameEngine.prototype.updateJoystickMovement = function() {
-    if (!this.joystick) {
-        console.warn('触摸摇杆未初始化');
+    if (!this.joystick || !this.joystick.isActive) {
         return;
     }
-    
-    if (!this.joystick.isActive) {
-        // 摇杆不活跃时，确保角色停止移动
-        if (this.characterManager) {
-            var mainChar = this.characterManager.getMainCharacter();
-            if (mainChar && mainChar.isMoving) {
-                mainChar.stopMovement();
-            }
+
+    // 获取主人物
+    var mainCharacter = null;
+    if (window.characterManager && window.characterManager.getMainCharacter) {
+        console.log('🔍 updateJoystickMovement: 开始查找主人物...');
+        mainCharacter = window.characterManager.getMainCharacter();
+        if (mainCharacter) {
+            console.log('✅ updateJoystickMovement: 找到主人物:', {
+                id: mainCharacter.id,
+                hp: mainCharacter.hp,
+                x: mainCharacter.x,
+                y: mainCharacter.y
+            });
+        } else {
+            console.error('❌ updateJoystickMovement: 未找到主人物');
         }
-        console.log('触摸摇杆未激活，状态:', this.joystick.isVisible, this.joystick.isDragging);
+    } else {
+        console.warn('updateJoystickMovement: 角色管理器不可用');
+        return;
+    }
+
+    if (!mainCharacter) {
+        console.warn('updateJoystickMovement: 无法获取主人物，跳过摇杆更新');
         return;
     }
     

@@ -436,10 +436,37 @@ var CollisionSystem = {
     // 动态对象管理（简化版）
     addDynamicObject: function (object) {
         if (!object || !this.dynamicQuadTree) {
+            console.warn('🔍 addDynamicObject: 对象或动态四叉树无效', {
+                object: object,
+                hasDynamicQuadTree: !!this.dynamicQuadTree
+            });
             return false;
         }
 
-        return this.dynamicQuadTree.insert(object);
+        console.log('🔍 addDynamicObject: 添加对象到动态四叉树:', {
+            type: object.type,
+            role: object.role,
+            id: object.id,
+            x: object.x,
+            y: object.y,
+            hp: object.hp
+        });
+
+        var result = this.dynamicQuadTree.insert(object);
+        console.log('🔍 addDynamicObject: 插入结果:', result);
+        
+        // 验证对象是否真的被添加
+        if (result) {
+            var allObjects = this.dynamicQuadTree.getAllObjects();
+            var foundObject = allObjects.find(obj => obj && obj.id === object.id);
+            if (foundObject) {
+                console.log('✅ addDynamicObject: 对象成功添加到四叉树');
+            } else {
+                console.error('❌ addDynamicObject: 对象添加失败，在四叉树中找不到');
+            }
+        }
+        
+        return result;
     },
 
     removeDynamicObject: function (object) {
@@ -452,14 +479,41 @@ var CollisionSystem = {
 
     updateDynamicObjectPosition: function (object, oldX, oldY, newX, newY) {
         if (!object || !this.dynamicQuadTree) {
+            console.warn('🔍 updateDynamicObjectPosition: 对象或动态四叉树无效', {
+                object: object,
+                hasDynamicQuadTree: !!this.dynamicQuadTree
+            });
             return;
         }
 
+        console.log('🔍 updateDynamicObjectPosition: 更新对象位置:', {
+            type: object.type,
+            role: object.role,
+            id: object.id,
+            oldX: oldX,
+            oldY: oldY,
+            newX: newX,
+            newY: newY
+        });
+
         // 从旧位置移除
-        this.dynamicQuadTree.remove(object);
+        var removeResult = this.dynamicQuadTree.remove(object);
+        console.log('🔍 updateDynamicObjectPosition: 从旧位置移除结果:', removeResult);
 
         // 添加到新位置
-        this.dynamicQuadTree.insert(object);
+        var insertResult = this.dynamicQuadTree.insert(object);
+        console.log('🔍 updateDynamicObjectPosition: 添加到新位置结果:', insertResult);
+        
+        // 验证对象是否真的在新位置
+        if (insertResult) {
+            var allObjects = this.dynamicQuadTree.getAllObjects();
+            var foundObject = allObjects.find(obj => obj && obj.id === object.id);
+            if (foundObject) {
+                console.log('✅ updateDynamicObjectPosition: 对象位置更新成功');
+            } else {
+                console.error('❌ updateDynamicObjectPosition: 对象位置更新失败，在四叉树中找不到');
+            }
+        }
     },
 
     // 核心碰撞检测功能
@@ -621,12 +675,50 @@ var CollisionSystem = {
     },
 
     getAllCharacters: function () {
-        if (!this.dynamicQuadTree) return [];
+        if (!this.dynamicQuadTree) {
+            console.warn('🔍 getAllCharacters: 动态四叉树未初始化');
+            return [];
+        }
 
-        return this.dynamicQuadTree.getAllObjects().filter(function(obj) {
-            return obj && (obj.role === 1 || obj.role === 2 || obj.role === 3 ||
-                obj.role === 4 || obj.role === 5 || obj.role === 6);
+        var allObjects = this.dynamicQuadTree.getAllObjects();
+        console.log('🔍 getAllCharacters: 动态四叉树中的所有对象数量:', allObjects.length);
+        
+        if (allObjects.length > 0) {
+            console.log('🔍 getAllCharacters: 所有对象详情:', allObjects.map(obj => ({
+                type: obj.type,
+                role: obj.role,
+                id: obj.id,
+                hp: obj.hp,
+                x: obj.x,
+                y: obj.y,
+                hasRole: 'role' in obj,
+                hasHp: 'hp' in obj,
+                hasPosition: 'x' in obj && 'y' in obj
+            })));
+        }
+
+        var characters = allObjects.filter(function(obj) {
+            // 🔴 修复：主人物即使血量变为0也应该被找到
+            if (obj && obj.role === 1) {
+                return true; // 主人物总是返回
+            }
+            // 其他角色需要血量大于0
+            return obj && (obj.role === 2 || obj.role === 3 ||
+                obj.role === 4 || obj.role === 5 || obj.role === 6) && obj.hp > 0;
         });
+        
+        console.log('🔍 getAllCharacters: 过滤后的角色数量:', characters.length);
+        if (characters.length > 0) {
+            console.log('🔍 getAllCharacters: 角色详情:', characters.map(char => ({
+                role: char.role,
+                id: char.id,
+                hp: char.hp,
+                x: char.x,
+                y: char.y
+            })));
+        }
+        
+        return characters;
     },
 
     getAllZombies: function () {

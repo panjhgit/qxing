@@ -1403,7 +1403,35 @@ var ZombieManager = {
         // 获取主人物位置（用于距离计算）
         var mainCharacter = characters.find(c => c.role === 1);
         if (!mainCharacter) {
-            console.warn('未找到主人物，无法进行距离计算');
+            console.warn('🔍 updateAllZombies: 从角色列表未找到主人物，尝试从角色管理器获取...');
+            
+            // 尝试从角色管理器获取主人物
+            if (window.characterManager && window.characterManager.getMainCharacter) {
+                mainCharacter = window.characterManager.getMainCharacter();
+                if (mainCharacter) {
+                    console.log('✅ updateAllZombies: 从角色管理器找到主人物:', {
+                        id: mainCharacter.id,
+                        hp: mainCharacter.hp,
+                        x: mainCharacter.x,
+                        y: mainCharacter.y
+                    });
+                } else {
+                    console.error('❌ updateAllZombies: 从角色管理器也未找到主人物');
+                }
+            } else {
+                console.warn('updateAllZombies: 角色管理器不可用');
+            }
+        } else {
+            console.log('✅ updateAllZombies: 从角色列表找到主人物:', {
+                id: mainCharacter.id,
+                hp: mainCharacter.hp,
+                x: mainCharacter.x,
+                y: mainCharacter.y
+            });
+        }
+        
+        if (!mainCharacter) {
+            console.warn('⚠️ 未找到主人物，无法进行距离计算');
             return;
         }
 

@@ -133,9 +133,10 @@ Character.prototype.setupRoleProperties = function() {
     switch (this.role) {
         case ROLE.MAIN: // 主人物
             this.hp = Math.round(100 * (difficultyConfig ? difficultyConfig.PLAYER_HP_BONUS : 1));
+            this.maxHp = this.hp; // 🔴 新增：设置最大血量
             this.attack = combatConfig ? (combatConfig.DEFAULT_ATTACK || 10) : 10;
             this.weapon = WEAPON.NONE;
-            this.attackRange = combatConfig ? combatConfig.MAX_ATTACK_RANGE : 120;
+            this.attackRange = combatConfig ? (combatConfig.MAX_ATTACK_RANGE || 120) : 120;
             this.icon = '👤';
             break;
 
@@ -1364,13 +1365,78 @@ var CharacterManager = {
             return null;
         }
         
+        // 🔴 新增：直接检查碰撞系统的状态
+        console.log('🔍 getMainCharacter: 检查碰撞系统状态...');
+        console.log('🔍 getMainCharacter: window.collisionSystem:', !!window.collisionSystem);
+        console.log('🔍 getMainCharacter: window.collisionSystem.dynamicQuadTree:', !!window.collisionSystem.dynamicQuadTree);
+        
+        if (window.collisionSystem.dynamicQuadTree) {
+            var allObjects = window.collisionSystem.dynamicQuadTree.getAllObjects();
+            console.log('🔍 getMainCharacter: 动态四叉树中的对象总数:', allObjects.length);
+            
+            if (allObjects.length > 0) {
+                console.log('🔍 getMainCharacter: 所有对象详情:');
+                allObjects.forEach((obj, index) => {
+                    console.log(`  对象${index + 1}:`, {
+                        id: obj.id,
+                        role: obj.role,
+                        roleType: typeof obj.role,
+                        hasRole: 'role' in obj,
+                        hp: obj.hp,
+                        x: obj.x,
+                        y: obj.y,
+                        constructor: obj.constructor ? obj.constructor.name : 'unknown'
+                    });
+                });
+            }
+        }
+        
         var allCharacters = window.collisionSystem.getAllCharacters();
+        console.log('🔍 getMainCharacter: 从碰撞系统获取的角色数量:', allCharacters.length);
+        
+        // 🔴 新增：详细检查每个对象的role属性
+        if (allCharacters.length > 0) {
+            console.log('🔍 getMainCharacter: 所有角色的详细信息:');
+            allCharacters.forEach((char, index) => {
+                console.log(`  角色${index + 1}:`, {
+                    id: char.id,
+                    role: char.role,
+                    roleType: typeof char.role,
+                    hasRole: 'role' in char,
+                    hp: char.hp,
+                    x: char.x,
+                    y: char.y,
+                    isMain: char.role === ROLE.MAIN,
+                    isMainAlt: char.role === 1
+                });
+            });
+        }
+        
+        // 🔴 修复：主人物即使血量变为0也应该被找到
         var mainChar = allCharacters.find(char => 
-            char && char.role === ROLE.MAIN && char.hp > 0
+            char && char.role === ROLE.MAIN
         );
         
         if (!mainChar) {
-            console.warn('未找到主人物');
+            console.warn('❌ getMainCharacter: 未找到主人物');
+            console.log('🔍 getMainCharacter: 尝试使用数字1查找...');
+            var mainCharAlt = allCharacters.find(char => 
+                char && char.role === 1
+            );
+            if (mainCharAlt) {
+                console.log('✅ getMainCharacter: 使用数字1找到主人物:', mainCharAlt);
+                return mainCharAlt;
+            } else {
+                console.error('❌ getMainCharacter: 使用数字1也未找到主人物');
+            }
+        } else {
+            console.log('✅ getMainCharacter: 找到主人物:', {
+                id: mainChar.id,
+                hp: mainChar.hp,
+                maxHp: mainChar.maxHp,
+                x: mainChar.x,
+                y: mainChar.y
+            });
         }
         return mainChar;
     },
