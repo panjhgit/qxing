@@ -918,14 +918,15 @@ Character.prototype.stopMovement = function() {
         
         // 检查是否到达目标 - 修复过早停止移动的问题
         if (moveVector.reached) {
-            // 到达目标位置，但也要检查碰撞
-            if (window.collisionSystem && window.collisionSystem.getCircleSafeMovePosition) {
-                var finalMove = window.collisionSystem.getCircleSafeMovePosition(
-                    this.x, this.y, this.targetX, this.targetY, this.radius
-                );
-                if (finalMove) {
-                    this.x = finalMove.x;
-                    this.y = finalMove.y;
+            // 到达目标位置，检查碰撞 - 简化版本
+            if (window.collisionSystem && window.collisionSystem.isPositionWalkable) {
+                if (window.collisionSystem.isPositionWalkable(this.targetX, this.targetY)) {
+                    this.x = this.targetX;
+                    this.y = this.targetY;
+                } else {
+                    console.warn('目标位置不可行走，角色停止移动');
+                    this.status = STATUS.BLOCKED;
+                    return;
                 }
             } else {
                 console.warn('碰撞系统不可用，角色停止移动');

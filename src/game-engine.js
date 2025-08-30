@@ -787,21 +787,13 @@ GameEngine.prototype.updateJoystickMovement = function() {
         var newX = mainChar.x + direction.x * moveSpeed;
         var newY = mainChar.y + direction.y * moveSpeed;
         
-        // 检查碰撞并移动
-        if (window.collisionSystem && window.collisionSystem.getCircleSafeMovePosition) {
-            var safePos = window.collisionSystem.getCircleSafeMovePosition(
-                mainChar.x, mainChar.y, newX, newY, mainChar.radius
-            );
-            if (safePos) {
-                var oldX = mainChar.x, oldY = mainChar.y;
-                mainChar.x = safePos.x;
-                mainChar.y = safePos.y;
-                
-                // 更新四叉树位置
-                if (window.collisionSystem.updateCharacterPosition) {
-                    window.collisionSystem.updateCharacterPosition(mainChar, oldX, oldY, mainChar.x, mainChar.y);
-                }
+        // 检查碰撞并移动 - 简化版本
+        if (window.collisionSystem && window.collisionSystem.isPositionWalkable) {
+            if (window.collisionSystem.isPositionWalkable(newX, newY)) {
+                mainChar.x = newX;
+                mainChar.y = newY;
             }
+            // 如果目标位置不可行走，角色不移动
         } else {
             // 没有碰撞系统，直接移动
             mainChar.x = newX;
@@ -916,17 +908,9 @@ GameEngine.prototype.spawnOneZombiePerDay = function() {
     // 创建僵尸批次
     this.createZombieBatchAroundPlayer(zombiesPerDay, mainChar, minDistance, maxDistance);
     
-            // 🔴 重构：验证空间索引中的僵尸数量
-        if (this.collisionSystem && this.collisionSystem.getSpatialIndexCountByType) {
-            var spatialIndexZombieCount = this.collisionSystem.getSpatialIndexCountByType('zombie');
-            // 🔴 修复：直接从僵尸管理器内部存储获取
-            var currentZombies = this.zombieManager.getAllZombies();
-            console.log('GameEngine: 空间索引中的僵尸数量:', spatialIndexZombieCount, '管理器中的僵尸数量:', currentZombies.length);
-            
-            if (spatialIndexZombieCount !== currentZombies.length) {
-                console.warn('GameEngine: 僵尸数量不匹配！管理器:', currentZombies.length, '空间索引:', spatialIndexZombieCount);
-            }
-        }
+            // 🔴 简化：简化版碰撞系统不需要空间索引计数
+        var currentZombies = this.zombieManager.getAllZombies();
+        console.log('GameEngine: 简化版碰撞系统，当前僵尸数量:', currentZombies.length);
 },
 
 // 分批创建僵尸（性能优化）- 使用配置文件中的距离范围
@@ -1036,8 +1020,8 @@ GameEngine.prototype.isValidZombieSpawnPosition = function(x, y, mainChar, exist
     }
     
     // 2. 检查是否与建筑物碰撞（确保不刷新在建筑物上）
-    if (this.collisionSystem && this.collisionSystem.isCircleCollidingWithBuildings) {
-        if (this.collisionSystem.isCircleCollidingWithBuildings(x, y, 25)) { // 25px半径，避免太靠近建筑物
+            if (this.collisionSystem && this.collisionSystem.isPositionWalkable) {
+            if (!this.collisionSystem.isPositionWalkable(x, y)) { // 检查是否不可行走
             return false;
         }
     }
@@ -1062,13 +1046,13 @@ GameEngine.prototype.isValidZombieSpawnPosition = function(x, y, mainChar, exist
     }
     
     // 5. 检查是否在可通行区域（街道）
-    if (this.collisionSystem && this.collisionSystem.isCircleCollidingWithBuildings) {
+    if (this.collisionSystem && this.collisionSystem.isPositionWalkable) {
         // 检查周围是否有可通行空间
         var hasWalkableSpace = false;
         for (var angle = 0; angle < Math.PI * 2; angle += Math.PI / 4) {
             var testX = x + Math.cos(angle) * 30;
             var testY = y + Math.sin(angle) * 30;
-            if (!this.collisionSystem.isCircleCollidingWithBuildings(testX, testY, 15)) {
+            if (this.collisionSystem.isPositionWalkable(testX, testY)) {
                 hasWalkableSpace = true;
                 break;
             }
@@ -1111,11 +1095,9 @@ GameEngine.prototype.update = function() {
     // 更新计时系统
     this.updateTimeSystem();
     
-    // 🔴 重构：空间索引更新（四叉树只负责空间索引，不管理对象）
-    if (this.collisionSystem && this.collisionSystem.updateSpatialIndex) {
-        // 空间索引的更新由对象池和各个管理器负责
-        // 这里只需要确保空间索引与对象状态同步
-        console.log('GameEngine: 空间索引状态检查...');
+    // 🔴 简化：简化版碰撞系统不需要空间索引更新
+    if (this.collisionSystem) {
+        console.log('GameEngine: 简化版碰撞系统状态检查...');
     }
     
     // 🔴 更新僵尸 - 使用高性能分帧更新策略
@@ -1166,11 +1148,9 @@ GameEngine.prototype.update = function() {
     if (this.frameCount % 300 === 0) {
         this.logSystemStatus();
         
-        // 🔴 重构：获取空间索引状态
+        // 🔴 简化：简化版碰撞系统不需要空间索引状态
         if (this.collisionSystem) {
-            var characterCount = this.collisionSystem.getSpatialIndexCountByType('character');
-            var zombieCount = this.collisionSystem.getSpatialIndexCountByType('zombie');
-            console.log('空间索引状态: 角色数量:', characterCount, '僵尸数量:', zombieCount);
+            console.log('简化版碰撞系统，不需要空间索引状态');
         }
     }
 },
@@ -1190,14 +1170,7 @@ GameEngine.prototype.logSystemStatus = function() {
     
     // 记录系统状态
     if (this.collisionSystem) {
-        var stats = this.collisionSystem.getStats ? this.collisionSystem.getStats() : {};
-        console.log('碰撞系统状态:', stats);
-        
-        // 🔴 新增：碰撞系统性能统计
-        if (this.collisionSystem.getPerformanceStats) {
-            var collisionPerfStats = this.collisionSystem.getPerformanceStats();
-            console.log('🔴 碰撞系统性能:', collisionPerfStats);
-        }
+        console.log('简化版碰撞系统状态: 基于地图网格的简单可行走性检查');
     }
     
     if (this.characterManager) {

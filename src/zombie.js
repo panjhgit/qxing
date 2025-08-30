@@ -308,14 +308,19 @@ Zombie.prototype.moveTowards = function(targetX, targetY, deltaTime) {
     }
 };
 
-// 检查碰撞
+// 检查碰撞 - 简化版本
 Zombie.prototype.checkCollision = function(fromX, fromY, toX, toY) {
     if (!window.collisionSystem) {
         return {x: toX, y: toY};
     }
     
-    var buildingSafePos = window.collisionSystem.getCircleSafeMovePosition(fromX, fromY, toX, toY, this.radius);
-    return buildingSafePos || {x: fromX, y: fromY};
+    // 直接检查目标位置是否可行走
+    if (window.collisionSystem.isPositionWalkable && window.collisionSystem.isPositionWalkable(toX, toY)) {
+        return {x: toX, y: toY};
+    }
+    
+    // 如果目标位置不可行走，返回起始位置
+    return {x: fromX, y: fromY};
 };
 
 // 待机行为
@@ -347,8 +352,8 @@ Zombie.prototype.idleBehavior = function(deltaTime) {
         this.targetX = this.x + Math.cos(this.direction) * targetDistance;
         this.targetY = this.y + Math.sin(this.direction) * targetDistance;
         
-        if (window.collisionSystem && window.collisionSystem.isCircleCollidingWithBuildings) {
-            if (window.collisionSystem.isCircleCollidingWithBuildings(this.targetX, this.targetY, this.radius)) {
+        if (window.collisionSystem && window.collisionSystem.isPositionWalkable) {
+            if (!window.collisionSystem.isPositionWalkable(this.targetX, this.targetY)) {
                 this.targetX = this.x;
                 this.targetY = this.y;
                 return;
@@ -687,8 +692,8 @@ var ZombieManager = {
         var zombieHeight = zombieWidth;
         
         // 检查建筑物碰撞
-        if (window.collisionSystem.isCircleCollidingWithBuildings && 
-            window.collisionSystem.isCircleCollidingWithBuildings(x, y, zombieWidth / 2)) {
+        if (window.collisionSystem.isPositionWalkable && 
+            !window.collisionSystem.isPositionWalkable(x, y)) {
             var collisionConfig = ConfigManager.get('COLLISION');
             var detectionConfig = ConfigManager.get('DETECTION');
             var safePosition = window.collisionSystem.generateGameSafePosition(

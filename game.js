@@ -112,10 +112,8 @@ function clearGameData() {
     
     // 清空碰撞系统
     if (window.collisionSystem) {
-        // 清空动态四叉树
-        if (window.collisionSystem.dynamicQuadTree) {
-            window.collisionSystem.dynamicQuadTree.clear();
-        }
+        // 简化版碰撞系统不需要清理四叉树
+        console.log('简化版碰撞系统，不需要清理四叉树');
         
         // 重置碰撞系统
         window.collisionSystem = null;
@@ -750,27 +748,9 @@ function performInitialRendering() {
         // 第六步：检查碰撞系统状态
         console.log('🔍 检查碰撞系统状态...');
         if (window.collisionSystem) {
-            // 检查静态四叉树中的建筑物数量
-            if (window.collisionSystem.staticQuadTree) {
-                var allBuildings = window.collisionSystem.staticQuadTree.getAllObjects();
-                console.log('✅ 静态四叉树中的建筑物数量:', allBuildings.length);
-                
-
-            } else {
-                console.warn('⚠️ 静态四叉树未初始化');
-            }
-            
-            // 检查动态四叉树中的对象数量
-            if (window.collisionSystem.dynamicQuadTree) {
-                var allDynamicObjects = window.collisionSystem.dynamicQuadTree.getAllObjects();
-                console.log('✅ 动态四叉树中的对象数量:', allDynamicObjects.length);
-                
-
-            } else {
-                console.warn('⚠️ 动态四叉树未初始化');
-            }
-            
-
+            // 简化版碰撞系统状态检查
+            console.log('✅ 简化版碰撞系统已初始化');
+            console.log('✅ 地图矩阵已加载，网格大小:', window.collisionSystem.gridCols, 'x', window.collisionSystem.gridRows);
         } else {
             console.warn('⚠️ 碰撞系统未初始化');
         }
