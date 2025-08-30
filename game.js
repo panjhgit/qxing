@@ -338,7 +338,7 @@ function initCharacterAndZombieSystems() {
         if (typeof window !== 'undefined') {
             window.objectPoolManager = objectPoolManager;
             window.memoryMonitor = memoryMonitor;
-            window.ConfigManager = ConfigManager;
+            window.ConfigManager = ConfigManager; // 🔴 修复：确保ConfigManager在角色创建前可用
         }
         
         // 初始化角色管理器
@@ -653,43 +653,54 @@ function performInitialRendering() {
 
         }
         
-        // 第二步：设置摄像机位置
-        console.log('📷 设置摄像机位置...');
-        if (gameEngine.viewSystem && gameEngine.viewSystem.camera) {
-            // 先创建主人物，然后根据主人物位置设置摄像机
-            var mainChar = null;
-            if (window.characterManager) {
-                // 使用碰撞系统生成安全的随机位置
-                var safePosition = null;
-                if (window.collisionSystem && window.collisionSystem.generateGameSafePosition) {
-                    // 尝试在南部公园区生成安全位置
-                    safePosition = window.collisionSystem.generateGameSafePosition(
-                        5000, 9600,  // 南部公园区中心
-                        100, 500,    // 最小距离100，最大距离500
-                        32, 48,      // 主人物尺寸
-                        16           // 安全半径
-                    );
-                    
-                    if (safePosition && safePosition.success) {
-                        console.log('✅ 生成安全位置成功:', safePosition);
-                    } else {
-                        console.warn('⚠️ 安全位置生成失败，使用备用位置');
-                        // 备用位置：南部公园区
-                        safePosition = {x: 5000, y: 9600, success: true};
-                    }
+        // 第二步：创建主人物（移到外层作用域）
+        console.log('👤 创建主人物...');
+        var mainChar = null;
+        if (window.characterManager) {
+            // 使用碰撞系统生成安全的随机位置
+            var safePosition = null;
+            if (window.collisionSystem && window.collisionSystem.generateGameSafePosition) {
+                // 尝试在南部公园区生成安全位置
+                safePosition = window.collisionSystem.generateGameSafePosition(
+                    5000, 9600,  // 南部公园区中心
+                    100, 500,    // 最小距离100，最大距离500
+                    32, 48,      // 主人物尺寸
+                    16           // 安全半径
+                );
+                
+                if (safePosition && safePosition.success) {
+                    console.log('✅ 生成安全位置成功:', safePosition);
                 } else {
-                    // 备用位置：南部公园区（第46-49行，完全空旷）
+                    console.warn('⚠️ 安全位置生成失败，使用备用位置');
+                    // 备用位置：南部公园区
                     safePosition = {x: 5000, y: 9600, success: true};
                 }
-                
-                mainChar = window.characterManager.createMainCharacter(safePosition.x, safePosition.y);
-                if (mainChar) {
-                    console.log('✅ 主人物创建成功:', mainChar.id, '位置:', safePosition.x, safePosition.y);
-                } else {
-                    console.error('❌ 主人物创建失败');
-                }
+            } else {
+                // 备用位置：南部公园区（第46-49行，完全空旷）
+                safePosition = {x: 5000, y: 9600, success: true};
             }
             
+            mainChar = window.characterManager.createMainCharacter(safePosition.x, safePosition.y);
+            if (mainChar) {
+                console.log('✅ 主人物创建成功:', mainChar.id, '位置:', safePosition.x, safePosition.y);
+                
+                // 🔴 验证：确认主人物已正确存储到角色管理器
+                var storedMainChar = window.characterManager.getMainCharacter();
+                if (storedMainChar) {
+                    console.log('✅ 主人物已正确存储到角色管理器:', storedMainChar.id);
+                } else {
+                    console.error('❌ 主人物未正确存储到角色管理器！');
+                }
+            } else {
+                console.error('❌ 主人物创建失败');
+            }
+        } else {
+            console.error('❌ 角色管理器不可用，无法创建主人物');
+        }
+        
+        // 第三步：设置摄像机位置
+        console.log('📷 设置摄像机位置...');
+        if (gameEngine.viewSystem && gameEngine.viewSystem.camera) {
             // 获取主人物当前位置，设置摄像机跟随
             if (mainChar && gameEngine.viewSystem.setFollowTarget) {
                 gameEngine.viewSystem.setFollowTarget(mainChar.x, mainChar.y);
@@ -701,13 +712,11 @@ function performInitialRendering() {
             } else {
                 console.warn('⚠️ 无法设置摄像机位置或跟随');
             }
-            
-
         } else {
             console.warn('⚠️ 视觉系统或摄像机未初始化');
         }
         
-        // 第三步：渲染角色
+        // 第四步：渲染角色
         console.log('👤 渲染角色...');
         if (gameEngine.viewSystem && window.characterManager) {
             // 主人物已经在上面创建了，这里只需要确认状态
@@ -720,7 +729,7 @@ function performInitialRendering() {
             console.warn('⚠️ 角色管理器或视觉系统未初始化');
         }
         
-        // 第四步：渲染僵尸
+        // 第五步：渲染僵尸
         console.log('🧟‍♂️ 渲染僵尸...');
         if (gameEngine.viewSystem && window.zombieManager) {
             // 创建初始僵尸（在南部公园区，远离建筑物）
@@ -739,13 +748,13 @@ function performInitialRendering() {
             console.warn('⚠️ 僵尸管理器或视觉系统未初始化');
         }
         
-        // 第五步：渲染UI元素
+        // 第六步：渲染UI元素
         console.log('🎮 渲染UI元素...');
         if (gameEngine.viewSystem && gameEngine.viewSystem.renderDebugInfo) {
             console.log('✅ UI元素渲染设置完成');
         }
         
-        // 第六步：检查碰撞系统状态
+        // 第七步：检查碰撞系统状态
         console.log('🔍 检查碰撞系统状态...');
         if (window.collisionSystem) {
             // 简化版碰撞系统状态检查
@@ -753,6 +762,19 @@ function performInitialRendering() {
             console.log('✅ 地图矩阵已加载，网格大小:', window.collisionSystem.gridCols, 'x', window.collisionSystem.gridRows);
         } else {
             console.warn('⚠️ 碰撞系统未初始化');
+        }
+        
+        // 第八步：最终验证主人物状态
+        console.log('🔍 最终验证主人物状态...');
+        if (window.characterManager) {
+            var finalMainChar = window.characterManager.getMainCharacter();
+            var allCharacters = window.characterManager.getAllCharacters();
+            console.log('🔍 最终状态检查:', {
+                hasMainCharacter: !!finalMainChar,
+                mainCharacterId: finalMainChar ? finalMainChar.id : 'N/A',
+                totalCharacters: allCharacters.length,
+                characterManager: !!window.characterManager
+            });
         }
         
         console.log('✅ 初始渲染完成');

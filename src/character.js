@@ -1081,10 +1081,10 @@ var CharacterManager = {
             return;
         }
         
-        // 创建角色对象池
+        // 创建角色对象池 - 修复：使用ROLE.MAIN作为默认角色类型
         this.objectPool = window.objectPoolManager.createPool('character', 
-            // 创建函数
-            () => new Character(ROLE.CIVILIAN, 0, 0),
+            // 创建函数 - 修复：使用ROLE.MAIN而不是ROLE.CIVILIAN
+            () => new Character(ROLE.MAIN, 0, 0),
             // 重置函数
             (character) => this.resetCharacter(character)
         );
@@ -1121,20 +1121,26 @@ var CharacterManager = {
     
     // 创建主人物
     createMainCharacter: function (x, y) {
+        console.log('🔍 CharacterManager.createMainCharacter: 开始创建主人物，参数:', {x: x, y: y});
+        
         var validationUtils = UtilsManager.getValidationUtils();
         
         // 使用验证工具检查参数
         if (!validationUtils.validatePosition(x, y)) {
-            console.error('无效的主人物位置:', x, y);
+            console.error('❌ 无效的主人物位置:', x, y);
             return null;
         }
+
+        console.log('✅ 位置参数验证通过');
 
         var mainChar = null;
         
         // 优先使用对象池
         if (this.objectPool) {
+            console.log('🔍 尝试从对象池获取主人物...');
             mainChar = this.objectPool.get();
             if (mainChar) {
+                console.log('✅ 从对象池获取到对象:', mainChar);
                 // 重新初始化主人物属性
                 mainChar.role = ROLE.MAIN;
                 mainChar.id = CHARACTER_ID.MAIN;
@@ -1144,20 +1150,35 @@ var CharacterManager = {
                 mainChar.initializeStateMachine();
                 
                 console.log('✅ 从对象池获取主人物:', mainChar.id, '位置:', x, y);
+            } else {
+                console.warn('⚠️ 对象池返回null');
             }
+        } else {
+            console.log('🔍 对象池不可用，将使用传统创建方式');
         }
         
         // 对象池不可用时，使用传统创建方式
         if (!mainChar) {
-            mainChar = new Character(ROLE.MAIN, x, y);
-            console.log('✅ 传统方式创建主人物:', mainChar.role, 'ID:', mainChar.id, '位置:', x, y);
+            console.log('🔍 使用传统方式创建主人物...');
+            try {
+                mainChar = new Character(ROLE.MAIN, x, y);
+                console.log('✅ 传统方式创建主人物成功:', mainChar);
+                console.log('✅ 传统方式创建主人物:', mainChar.role, 'ID:', mainChar.id, '位置:', mainChar.x, mainChar.y, 'hp:', mainChar.hp);
+            } catch (error) {
+                console.error('❌ 传统方式创建主人物失败:', error);
+                return null;
+            }
         }
 
         // 验证角色创建是否成功
+        console.log('🔍 验证角色创建结果...');
         if (!validationUtils.validateObject(mainChar, ['role', 'x', 'y', 'hp'])) {
-            console.error('主人物创建失败');
+            console.error('❌ 主人物创建失败，验证不通过');
+            console.error('🔍 主人物对象详情:', mainChar);
             return null;
         }
+
+        console.log('✅ 角色创建验证通过');
         
         // 🔴 重构：直接存储到内部存储，不再依赖四叉树
         this.mainCharacter = mainChar;
@@ -1167,8 +1188,18 @@ var CharacterManager = {
             hasMainCharacter: !!this.mainCharacter,
             mainCharacterId: this.mainCharacter ? this.mainCharacter.id : 'N/A',
             mainCharacterRole: this.mainCharacter ? this.mainCharacter.role : 'N/A',
-            mainCharacterType: this.mainCharacter ? this.mainCharacter.type : 'N/A'
+            mainCharacterType: this.mainCharacter ? this.mainCharacter.type : 'N/A',
+            mainCharacterHp: this.mainCharacter ? this.mainCharacter.hp : 'N/A'
         });
+        
+        // 🔴 验证：立即验证存储是否成功
+        var immediateCheck = this.getMainCharacter();
+        if (immediateCheck) {
+            console.log('✅ 立即验证成功：主人物已正确存储');
+        } else {
+            console.error('❌ 立即验证失败：主人物未正确存储！');
+        }
+        
         return mainChar;
     },
 
