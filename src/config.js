@@ -30,7 +30,6 @@
  * 3. 特殊检测范围 (SPECIAL_DETECTION)
  *    - MAIN_CHARACTER_PRIORITY_RANGE: 700px - 主人物优先检测范围（最高优先级）
  *    - PARTNER_DETECTION_RANGE: 200px - 伙伴检测范围
- *    - ZOMBIE_TO_ZOMBIE_DETECTION: 100px - 僵尸间检测范围
  *
  * 4. 检测行为配置 (BEHAVIOR)
  *    - DETECTION_FREQUENCY: 0.005 - 每帧检测概率(0.5%)
@@ -101,8 +100,6 @@ const GAME_CONFIG = {
         // 新增：碰撞间距配置
         COLLISION_MARGINS: {
             BUILDING: 1.1,              // 建筑物碰撞：1.1倍半径（额外10%空间）
-            ZOMBIE_TO_ZOMBIE: 1.5,      // 僵尸间重叠：1.5倍半径（50%额外空间）
-            ZOMBIE_TO_CHARACTER: 1.5,   // 僵尸与角色重叠：1.5倍半径（50%额外空间）
             CHARACTER_TO_CHARACTER: 1.3  // 角色间重叠：1.3倍半径（30%额外空间）
         }
     },
@@ -176,8 +173,7 @@ const GAME_CONFIG = {
             // 伙伴检测范围
             PARTNER_DETECTION_RANGE: 200,        // 200px范围内检测伙伴
 
-            // 僵尸间检测范围
-            ZOMBIE_TO_ZOMBIE_DETECTION: 100,    // 100px范围内检测其他僵尸
+
         },
 
         // 检测行为配置

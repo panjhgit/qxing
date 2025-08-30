@@ -1066,58 +1066,23 @@ Character.prototype.stopMovement = function() {
             );
             
             if (buildingSafePos) {
-                // 建筑物碰撞检测通过，现在检查是否与僵尸重叠
-                if (window.collisionSystem.isCharacterOverlappingWithZombies && window.zombieManager) {
-                    var allZombies = window.zombieManager.getAllZombies().filter(z => z.hp > 0);
-                    
-                    var zombieOverlap = window.collisionSystem.isCharacterOverlappingWithZombies(
-                        buildingSafePos.x, buildingSafePos.y, this.radius, allZombies, 0.1
-                    );
-                    
-                    if (!zombieOverlap) {
-                        // 移动安全，更新位置
-                        var oldX = this.x, oldY = this.y;
-                        this.x = buildingSafePos.x;
-                        this.y = buildingSafePos.y;
-                        this.status = STATUS.MOVING;
-                        
-                        // 通过四叉树更新位置
-                        if (window.collisionSystem && window.collisionSystem.updateCharacterPosition) {
-                            window.collisionSystem.updateCharacterPosition(this, oldX, oldY, this.x, this.y);
-                        } else if (window.collisionSystem && window.collisionSystem.updateDynamicObjectPosition) {
-                            // 兼容旧版本
-                            window.collisionSystem.updateDynamicObjectPosition(this, oldX, oldY, this.x, this.y);
-                        }
-                        
-                        // 记录移动类型（用于调试）
-                        if (buildingSafePos.type && buildingSafePos.type.startsWith('slide')) {
-                            console.log('角色墙体滑动:', buildingSafePos.type, '位置:', buildingSafePos.x.toFixed(2), buildingSafePos.y.toFixed(2));
-                        }
-                    } else {
-                        // 与僵尸重叠，停止移动
-                        this.status = STATUS.BLOCKED;
-                        console.log('角色移动被僵尸阻挡');
-                        return;
-                    }
-                } else {
-                    // 移动安全，更新位置
-                    var oldX = this.x, oldY = this.y;
-                    this.x = buildingSafePos.x;
-                    this.y = buildingSafePos.y;
-                    this.status = STATUS.MOVING;
-                    
-                    // 通过四叉树更新位置
-                    if (window.collisionSystem && window.collisionSystem.updateCharacterPosition) {
-                        window.collisionSystem.updateCharacterPosition(this, oldX, oldY, this.x, this.y);
-                    } else if (window.collisionSystem && window.collisionSystem.updateDynamicObjectPosition) {
-                        // 兼容旧版本
-                        window.collisionSystem.updateCharacterPosition(this, oldX, oldY, this.x, this.y);
-                    }
-                    
-                    // 记录移动类型（用于调试）
-                    if (buildingSafePos.type && buildingSafePos.type.startsWith('slide')) {
-                        console.log('角色墙体滑动:', buildingSafePos.type, '位置:', buildingSafePos.x.toFixed(2), buildingSafePos.y.toFixed(2));
-                    }
+                // 建筑物碰撞检测通过，直接移动（不再检查与僵尸的重叠）
+                var oldX = this.x, oldY = this.y;
+                this.x = buildingSafePos.x;
+                this.y = buildingSafePos.y;
+                this.status = STATUS.MOVING;
+                
+                // 通过四叉树更新位置
+                if (window.collisionSystem && window.collisionSystem.updateCharacterPosition) {
+                    window.collisionSystem.updateCharacterPosition(this, oldX, oldY, this.x, this.y);
+                } else if (window.collisionSystem && window.collisionSystem.updateDynamicObjectPosition) {
+                    // 兼容旧版本
+                    window.collisionSystem.updateDynamicObjectPosition(this, oldX, oldY, this.x, this.y);
+                }
+                
+                // 记录移动类型（用于调试）
+                if (buildingSafePos.type && buildingSafePos.type.startsWith('slide')) {
+                    console.log('角色墙体滑动:', buildingSafePos.type, '位置:', buildingSafePos.x.toFixed(2), buildingSafePos.y.toFixed(2));
                 }
             } else {
                 // 移动被阻挡，保持原位置
