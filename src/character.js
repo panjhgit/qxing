@@ -99,22 +99,22 @@ var Character = function (role, x, y) {
     }
 
     // 从配置获取对象尺寸
-    var objectSizes = ConfigManager.get('OBJECT_SIZES.CHARACTER');
-    this.width = objectSizes.WIDTH;         // 模型宽度
-    this.height = objectSizes.HEIGHT;       // 模型高度
+    var objectSizes = window.ConfigManager ? window.ConfigManager.get('OBJECT_SIZES.CHARACTER') : null;
+    this.width = objectSizes ? objectSizes.WIDTH : 32;         // 模型宽度
+    this.height = objectSizes ? objectSizes.HEIGHT : 48;       // 模型高度
     
     // 添加半径属性，用于圆形碰撞检测
     this.radius = this.width / 2;          // 碰撞半径（宽度的一半）
     
     // 从配置获取动画属性
-    var animationConfig = ConfigManager.get('ANIMATION');
+    var animationConfig = window.ConfigManager ? window.ConfigManager.get('ANIMATION') : null;
     this.animationFrame = 0;                // 动画帧
-    this.animationSpeed = animationConfig.DEFAULT_FRAME_RATE; // 动画速度
+    this.animationSpeed = animationConfig ? animationConfig.DEFAULT_FRAME_RATE : 60; // 动画速度
     
     // 从配置获取移动属性
-    var movementConfig = ConfigManager.get('MOVEMENT');
+    var movementConfig = window.ConfigManager ? window.ConfigManager.get('MOVEMENT') : null;
     this.isMoving = false;                  // 是否在移动
-    this.moveSpeed = movementConfig.CHARACTER_MOVE_SPEED;    // 移动速度
+    this.moveSpeed = movementConfig ? movementConfig.CHARACTER_MOVE_SPEED : 100;    // 移动速度
     this.targetX = x;                       // 目标X坐标
     this.targetY = y;                       // 目标Y坐标
 
@@ -127,63 +127,63 @@ var Character = function (role, x, y) {
 
 // 设置角色属性
 Character.prototype.setupRoleProperties = function() {
-    var combatConfig = ConfigManager.get('COMBAT');
-    var difficultyConfig = ConfigManager.getDifficultyConfig();
+    var combatConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT') : null;
+    var difficultyConfig = window.ConfigManager ? window.ConfigManager.getDifficultyConfig() : null;
     
     switch (this.role) {
         case ROLE.MAIN: // 主人物
-            this.hp = Math.round(100 * difficultyConfig.PLAYER_HP_BONUS);
-            this.attack = combatConfig.DEFAULT_ATTACK || 10;
+            this.hp = Math.round(100 * (difficultyConfig ? difficultyConfig.PLAYER_HP_BONUS : 1));
+            this.attack = combatConfig ? (combatConfig.DEFAULT_ATTACK || 10) : 10;
             this.weapon = WEAPON.NONE;
-            this.attackRange = combatConfig.MAX_ATTACK_RANGE;
+            this.attackRange = combatConfig ? combatConfig.MAX_ATTACK_RANGE : 120;
             this.icon = '👤';
             break;
 
         case ROLE.POLICE: // 警察
-            this.hp = Math.round(80 * difficultyConfig.PLAYER_HP_BONUS);
-            this.attack = combatConfig.DEFAULT_ATTACK || 10;
+            this.hp = Math.round(80 * (difficultyConfig ? difficultyConfig.PLAYER_HP_BONUS : 1));
+            this.attack = combatConfig ? (combatConfig.DEFAULT_ATTACK || 10) : 10;
             this.weapon = WEAPON.NONE;
-            this.attackRange = combatConfig.POLICE_ATTACK_RANGE || 100;
+            this.attackRange = combatConfig ? (combatConfig.POLICE_ATTACK_RANGE || 100) : 100;
             this.icon = '👮';
             break;
 
         case ROLE.CIVILIAN: // 平民
-            this.hp = Math.round(50 * difficultyConfig.PLAYER_HP_BONUS);
-            this.attack = combatConfig.DEFAULT_ATTACK || 5;
+            this.hp = Math.round(50 * (difficultyConfig ? difficultyConfig.PLAYER_HP_BONUS : 1));
+            this.attack = combatConfig ? (combatConfig.DEFAULT_ATTACK || 5) : 5;
             this.weapon = WEAPON.NONE;
-            this.attackRange = combatConfig.MIN_ATTACK_RANGE;
+            this.attackRange = combatConfig ? combatConfig.MIN_ATTACK_RANGE : 60;
             this.icon = '👨';
             break;
 
         case ROLE.DOCTOR: // 医生
-            this.hp = Math.round(60 * difficultyConfig.PLAYER_HP_BONUS);
-            this.attack = combatConfig.DEFAULT_ATTACK || 5;
+            this.hp = Math.round(60 * (difficultyConfig ? difficultyConfig.PLAYER_HP_BONUS : 1));
+            this.attack = combatConfig ? (combatConfig.DEFAULT_ATTACK || 5) : 5;
             this.weapon = WEAPON.NONE;
-            this.attackRange = combatConfig.DOCTOR_ATTACK_RANGE || 80;
+            this.attackRange = combatConfig ? (combatConfig.DOCTOR_ATTACK_RANGE || 80) : 80;
             this.icon = '👨‍⚕️';
             break;
 
         case ROLE.NURSE: // 护士
-            this.hp = Math.round(55 * difficultyConfig.PLAYER_HP_BONUS);
-            this.attack = combatConfig.DEFAULT_ATTACK || 5;
+            this.hp = Math.round(55 * (difficultyConfig ? difficultyConfig.PLAYER_HP_BONUS : 1));
+            this.attack = combatConfig ? (combatConfig.DEFAULT_ATTACK || 5) : 5;
             this.weapon = WEAPON.NONE;
-            this.attackRange = combatConfig.NURSE_ATTACK_RANGE || 60;
+            this.attackRange = combatConfig ? (combatConfig.NURSE_ATTACK_RANGE || 60) : 60;
             this.icon = '👩‍⚕️';
             break;
 
         case ROLE.CHEF: // 厨师
-            this.hp = Math.round(70 * difficultyConfig.PLAYER_HP_BONUS);
-            this.attack = combatConfig.DEFAULT_ATTACK || 5;
+            this.hp = Math.round(70 * (difficultyConfig ? difficultyConfig.PLAYER_HP_BONUS : 1));
+            this.attack = combatConfig ? (combatConfig.DEFAULT_ATTACK || 5) : 5;
             this.weapon = WEAPON.NONE;
-            this.attackRange = combatConfig.CHEF_ATTACK_RANGE || 70;
+            this.attackRange = combatConfig ? (combatConfig.CHEF_ATTACK_RANGE || 70) : 70;
             this.icon = '👨‍🍳';
             break;
 
         default:
-            this.hp = Math.round(50 * difficultyConfig.PLAYER_HP_BONUS);
-            this.attack = combatConfig.DEFAULT_ATTACK || 5;
+            this.hp = Math.round(50 * (difficultyConfig ? difficultyConfig.PLAYER_HP_BONUS : 1));
+            this.attack = combatConfig ? (combatConfig.DEFAULT_ATTACK || 5) : 5;
             this.weapon = WEAPON.NONE;
-            this.attackRange = combatConfig.MIN_ATTACK_RANGE;
+            this.attackRange = combatConfig ? combatConfig.MIN_ATTACK_RANGE : 60;
             this.icon = '❓';
     }
 };
@@ -670,7 +670,8 @@ Character.prototype.updateAttack = function(deltaTime) {
     
     // 检查攻击冷却
     this.attackCooldown += deltaTime;
-    var attackInterval = combatConfig.DEFAULT_ATTACK_INTERVAL || 1.0; // 从配置读取攻击间隔
+    var combatConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT') : null;
+    var attackInterval = combatConfig ? combatConfig.DEFAULT_ATTACK_INTERVAL : 1.0; // 从配置读取攻击间隔
     
     if (this.attackCooldown >= attackInterval) {
         // 执行攻击
@@ -852,7 +853,8 @@ Character.prototype.performAttack = function() {
 Character.prototype.playAttackAnimationWhileMoving = function(deltaTime) {
     // 检查攻击冷却
     this.attackCooldown += deltaTime;
-    var attackInterval = combatConfig.MOVING_ATTACK_INTERVAL || 0.8; // 从配置读取移动攻击间隔
+    var combatConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT') : null;
+    var attackInterval = combatConfig ? (combatConfig.MOVING_ATTACK_INTERVAL || 0.8) : 0.8; // 从配置读取移动攻击间隔
     
     if (this.attackCooldown >= attackInterval) {
         // 执行攻击（不停止移动）
@@ -1006,7 +1008,7 @@ Character.prototype.resetMovementState = function() {
 Character.prototype.playAttackAnimation = function() {
     // 设置攻击动画帧
     this.animationFrame = 0;
-    this.animationSpeed = animationConfig.ATTACK_ANIMATION_SPEED || 0.3; // 从配置读取攻击动画速度
+            this.animationSpeed = animationConfig ? (animationConfig.ATTACK_ANIMATION_SPEED || 0.3) : 0.3; // 从配置读取攻击动画速度
     
     console.log('主人物播放攻击动画');
 };
@@ -1015,7 +1017,7 @@ Character.prototype.playAttackAnimation = function() {
 Character.prototype.playDeathAnimation = function() {
     // 设置死亡动画帧
     this.animationFrame = 0;
-    this.animationSpeed = animationConfig.DEATH_ANIMATION_SPEED || 0.1; // 从配置读取死亡动画速度
+            this.animationSpeed = animationConfig ? (animationConfig.DEATH_ANIMATION_SPEED || 0.1) : 0.1; // 从配置读取死亡动画速度
     
     console.log('主人物播放死亡动画');
 };
@@ -1085,7 +1087,7 @@ Character.prototype.stopMovement = function() {
 
         var movementUtils = UtilsManager.getMovementUtils();
         var animationUtils = UtilsManager.getAnimationUtils();
-        var collisionConfig = ConfigManager.get('COLLISION');
+        var collisionConfig = window.ConfigManager ? window.ConfigManager.get('COLLISION') : null;
         
         // 使用移动工具计算移动向量 - 基于时间的匀速移动
         var moveVector = movementUtils.calculateMoveVector(
@@ -1117,7 +1119,7 @@ Character.prototype.stopMovement = function() {
         }
         
         // 检查移动距离是否过小（只有在移动距离确实很小时才停止）
-        if (moveVector.distance < (collisionConfig.MIN_MOVE_DISTANCE || 2)) {
+        if (moveVector.distance < (collisionConfig ? (collisionConfig.MIN_MOVE_DISTANCE || 2) : 2)) {
             console.log('移动距离过小，停止移动:', moveVector.distance);
             this.isMoving = false;
             this.status = STATUS.IDLE;
@@ -1171,7 +1173,7 @@ Character.prototype.stopMovement = function() {
             this.animationFrame = animationUtils.updateFrame(
                 this.animationFrame, 
                 this.animationSpeed * deltaTime, 
-                animationConfig.MAX_ANIMATION_FRAMES
+                animationConfig ? animationConfig.MAX_ANIMATION_FRAMES : 8
             );
         }
     };
@@ -1181,7 +1183,7 @@ Character.prototype.stopMovement = function() {
 // 更新动画 - 使用工具类
 Character.prototype.updateAnimation = function (deltaTime) {
     var animationUtils = UtilsManager.getAnimationUtils();
-    var animationConfig = ConfigManager.get('ANIMATION');
+            var animationConfig = window.ConfigManager ? window.ConfigManager.get('ANIMATION') : null;
     
     // 根据状态调整动画速度
     var baseSpeed = this.animationSpeed;
@@ -1209,11 +1211,11 @@ Character.prototype.updateAnimation = function (deltaTime) {
     this.animationFrame = animationUtils.updateFrame(
         this.animationFrame, 
         adjustedSpeed * deltaTime, 
-        animationConfig.MAX_ANIMATION_FRAMES
+                    animationConfig ? animationConfig.MAX_ANIMATION_FRAMES : 8
     );
     
     // 检查动画是否应该重置
-    if (animationUtils.shouldResetAnimation(this.animationFrame, animationConfig.MAX_ANIMATION_FRAMES)) {
+            if (animationUtils.shouldResetAnimation(this.animationFrame, animationConfig ? animationConfig.MAX_ANIMATION_FRAMES : 8)) {
         this.animationFrame = 0;
     }
     

@@ -485,9 +485,32 @@ function performInitialRendering() {
             // 先创建主人物，然后根据主人物位置设置摄像机
             var mainChar = null;
             if (window.characterManager) {
-                mainChar = window.characterManager.createMainCharacter(8000, 7500);
+                // 使用碰撞系统生成安全的随机位置
+                var safePosition = null;
+                if (window.collisionSystem && window.collisionSystem.generateGameSafePosition) {
+                    // 尝试在南部公园区生成安全位置
+                    safePosition = window.collisionSystem.generateGameSafePosition(
+                        5000, 9600,  // 南部公园区中心
+                        100, 500,    // 最小距离100，最大距离500
+                        32, 48,      // 主人物尺寸
+                        16           // 安全半径
+                    );
+                    
+                    if (safePosition && safePosition.success) {
+                        console.log('✅ 生成安全位置成功:', safePosition);
+                    } else {
+                        console.warn('⚠️ 安全位置生成失败，使用备用位置');
+                        // 备用位置：南部公园区
+                        safePosition = {x: 5000, y: 9600, success: true};
+                    }
+                } else {
+                    // 备用位置：南部公园区（第46-49行，完全空旷）
+                    safePosition = {x: 5000, y: 9600, success: true};
+                }
+                
+                mainChar = window.characterManager.createMainCharacter(safePosition.x, safePosition.y);
                 if (mainChar) {
-                    console.log('✅ 主人物创建成功:', mainChar.id);
+                    console.log('✅ 主人物创建成功:', mainChar.id, '位置:', safePosition.x, safePosition.y);
                 } else {
                     console.error('❌ 主人物创建失败');
                 }
@@ -533,10 +556,12 @@ function performInitialRendering() {
         // 第四步：渲染僵尸
         console.log('🧟‍♂️ 渲染僵尸...');
         if (gameEngine.viewSystem && window.zombieManager) {
-            // 创建初始僵尸
-            var testZombie = window.zombieManager.createZombie('skinny', 8200, 7700);
+            // 创建初始僵尸（在南部公园区，远离建筑物）
+            var zombieX = 4800;
+            var zombieY = 9400;
+            var testZombie = window.zombieManager.createZombie('skinny', zombieX, zombieY);
             if (testZombie) {
-                console.log('✅ 初始僵尸创建成功:', testZombie.id);
+                console.log('✅ 初始僵尸创建成功:', testZombie.id, '位置:', zombieX, zombieY);
             } else {
                 console.error('❌ 初始僵尸创建失败');
             }
@@ -599,8 +624,8 @@ function performInitialRendering() {
             
             // 测试碰撞检测
             if (window.collisionSystem.isCircleCollidingWithBuildings) {
-                var testX = 8000; // 主人物位置
-                var testY = 7500;
+                var testX = 5000; // 南部公园区测试位置
+                var testY = 9600;
                 var testRadius = 16;
                 var collisionResult = window.collisionSystem.isCircleCollidingWithBuildings(testX, testY, testRadius);
                 console.log('✅ 碰撞检测测试 - 位置:', testX, testY, '半径:', testRadius, '结果:', collisionResult);

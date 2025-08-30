@@ -1001,13 +1001,8 @@ GameEngine.prototype.update = function() {
     // 更新计时系统
     this.updateTimeSystem();
     
-    // 使用优化的四叉树更新策略
-    if (this.collisionSystem && this.collisionSystem.optimizedUpdateDynamicQuadTree) {
-        var characters = this.characterManager ? this.characterManager.getAllCharacters() : [];
-        var zombies = this.zombieManager ? this.zombieManager.getAllZombies().filter(z => z.hp > 0) : [];
-        this.collisionSystem.optimizedUpdateDynamicQuadTree(characters, zombies);
-    } else if (this.collisionSystem && this.collisionSystem.updateDynamicQuadTree) {
-        // 回退到原来的更新方法
+    // 更新动态四叉树
+    if (this.collisionSystem && this.collisionSystem.updateDynamicQuadTree) {
         var characters = this.characterManager ? this.characterManager.getAllCharacters() : [];
         var zombies = this.zombieManager ? this.zombieManager.getAllZombies().filter(z => z.hp > 0) : [];
         this.collisionSystem.updateDynamicQuadTree(characters, zombies);
@@ -1050,23 +1045,11 @@ GameEngine.prototype.update = function() {
     if (this.frameCount % 300 === 0) {
         this.logSystemStatus();
         
-        // 添加四叉树性能监控
-        if (this.collisionSystem && this.collisionSystem.getPerformanceStats) {
-            var perfStats = this.collisionSystem.getPerformanceStats();
-            var recommendations = this.collisionSystem.getPerformanceRecommendations();
-            
-            console.log('=== 四叉树性能统计 ===');
-            console.log('静态四叉树:', perfStats.staticQuadTree);
-            console.log('动态四叉树:', perfStats.dynamicQuadTree);
-            console.log('ID管理:', perfStats.idManagement);
-            console.log('对象类型分布:', perfStats.objectTypes);
-            
-            if (recommendations.length > 0) {
-                console.log('=== 性能优化建议 ===');
-                recommendations.forEach(function(rec, index) {
-                    console.log((index + 1) + '. ' + rec);
-                });
-            }
+        // 获取碰撞系统状态
+        if (this.collisionSystem) {
+            var characterCount = this.collisionSystem.getDynamicObjectCountByType('character');
+            var zombieCount = this.collisionSystem.getDynamicObjectCountByType('zombie');
+            console.log('碰撞系统状态: 角色数量:', characterCount, '僵尸数量:', zombieCount);
         }
     }
 },
@@ -1078,9 +1061,10 @@ GameEngine.prototype.logSystemStatus = function() {
     console.log('游戏状态:', this.gameState);
     console.log('时间系统:', this.getTimeInfo());
     
+    // 记录系统状态
     if (this.collisionSystem) {
-        var lifecycleStats = this.collisionSystem.getObjectLifecycleStats();
-        console.log('对象生命周期统计:', lifecycleStats);
+        var stats = this.collisionSystem.getStats ? this.collisionSystem.getStats() : {};
+        console.log('碰撞系统状态:', stats);
     }
     
     if (this.characterManager) {
