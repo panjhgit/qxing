@@ -203,6 +203,17 @@ const GAME_CONFIG = {
         }
     },
 
+    // 时间系统配置
+    TIME_SYSTEM: {
+        DAY_DURATION: 10,              // 一天的长度（秒）- 白天5秒，晚上5秒
+        DAY_PHASE_DURATION: 5,         // 白天/夜晚阶段长度（秒）
+        ZOMBIES_PER_DAY: 10,           // 每天刷新的僵尸数量
+        SPAWN_RANGE: {
+            MIN_DISTANCE: 500,         // 僵尸生成最小距离（px）
+            MAX_DISTANCE: 700          // 僵尸生成最大距离（px）
+        }
+    },
+
     // 对象尺寸配置
     OBJECT_SIZES: {
         CHARACTER: {
@@ -224,6 +235,17 @@ const GAME_CONFIG = {
         QUADTREE_MAX_OBJECTS: 8,        // 四叉树最大对象数
         QUADTREE_MAX_DEPTH: 6,          // 四叉树最大深度
         CACHE_CLEANUP_THRESHOLD: 1000,  // 缓存清理阈值
+        
+        // 新增：分帧更新策略配置
+        BATCH_UPDATE: {
+            BATCH_SIZE: 5,              // 僵尸分为5个批次
+            HIGH_PRIORITY_RANGE: 500,   // 高优先级范围：500px内
+            MEDIUM_PRIORITY_RANGE: 800, // 中优先级范围：500-800px
+            LOW_PRIORITY_RANGE: Infinity, // 低优先级范围：800px外
+            HIGH_UPDATE_FREQUENCY: 1,   // 高优先级：每帧更新
+            MEDIUM_UPDATE_FREQUENCY: 2, // 中优先级：每2帧更新
+            LOW_UPDATE_FREQUENCY: 3     // 低优先级：每3帧更新
+        },
         
         // 新增：性能优化配置
         OPTIMIZATION: {
@@ -282,10 +304,29 @@ const ConfigValidator = {
         return config;
     },
 
+    // 验证时间系统配置
+    validateTimeSystemConfig: function (config) {
+        if (config.TIME_SYSTEM.DAY_DURATION <= 0) {
+            console.warn('一天的长度必须大于0，使用默认值');
+            config.TIME_SYSTEM.DAY_DURATION = 10;
+        }
+        if (config.TIME_SYSTEM.ZOMBIES_PER_DAY <= 0) {
+            console.warn('每天僵尸数量必须大于0，使用默认值');
+            config.TIME_SYSTEM.ZOMBIES_PER_DAY = 10;
+        }
+        if (config.TIME_SYSTEM.SPAWN_RANGE.MIN_DISTANCE >= config.TIME_SYSTEM.SPAWN_RANGE.MAX_DISTANCE) {
+            console.warn('僵尸生成范围无效，使用默认值');
+            config.TIME_SYSTEM.SPAWN_RANGE.MIN_DISTANCE = 500;
+            config.TIME_SYSTEM.SPAWN_RANGE.MAX_DISTANCE = 700;
+        }
+        return config;
+    },
+
     // 验证所有配置
     validateAll: function (config) {
         this.validateMovementConfig(config);
         this.validateAnimationConfig(config);
+        this.validateTimeSystemConfig(config);
         return config;
     }
 };

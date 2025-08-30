@@ -780,11 +780,28 @@ Zombie.prototype.calculateNewTarget = function () {
 
 // 更新动画 - 使用工具类
 Zombie.prototype.updateAnimation = function (deltaTime) {
-    var animationUtils = UtilsManager.getAnimationUtils();
-    var animationConfig = ConfigManager.get('ANIMATION');
-
-    if (this.state === ZOMBIE_STATE.WALKING || this.state === ZOMBIE_STATE.CHASING) {
-        this.animationFrame = animationUtils.updateFrame(this.animationFrame, this.animationSpeed * deltaTime, animationConfig.MAX_ANIMATION_FRAMES);
+    // 更新动画帧
+    this.animationFrame += this.animationSpeed * deltaTime;
+    
+    // 根据状态设置动画
+    switch (this.state) {
+        case ZOMBIE_STATE.IDLE:
+            // 待机动画
+            break;
+        case ZOMBIE_STATE.CHASING:
+            // 追击动画
+            break;
+        case ZOMBIE_STATE.ATTACKING:
+            // 攻击动画
+            break;
+        case ZOMBIE_STATE.DEAD:
+            // 死亡动画
+            break;
+    }
+    
+    // 限制动画帧范围
+    if (this.animationFrame >= 1.0) {
+        this.animationFrame = 0;
     }
 };
 
@@ -1055,7 +1072,43 @@ Zombie.prototype.drawHealthBar = function (ctx, x, y) {
 
 // 僵尸管理器 - 重构版本：只负责游戏逻辑，四叉树负责对象管理
 var ZombieManager = {
-    maxZombies: ConfigManager.get('PERFORMANCE.MAX_ZOMBIES'), difficulty: 1,
+    // 僵尸管理器配置
+    maxZombies: 100,
+    difficulty: 1,
+    
+    // 分帧更新策略配置
+    updateStrategy: {
+        batchSize: ConfigManager.get('PERFORMANCE.BATCH_UPDATE.BATCH_SIZE') || 5,
+        currentBatch: 0,
+        frameCounter: 0,
+        priorityRanges: {
+            high: ConfigManager.get('PERFORMANCE.BATCH_UPDATE.HIGH_PRIORITY_RANGE') || 500,
+            medium: ConfigManager.get('PERFORMANCE.BATCH_UPDATE.MEDIUM_PRIORITY_RANGE') || 800,
+            low: ConfigManager.get('PERFORMANCE.BATCH_UPDATE.LOW_PRIORITY_RANGE') || Infinity
+        },
+        updateFrequencies: {
+            high: ConfigManager.get('PERFORMANCE.BATCH_UPDATE.HIGH_UPDATE_FREQUENCY') || 1,
+            medium: ConfigManager.get('PERFORMANCE.BATCH_UPDATE.MEDIUM_UPDATE_FREQUENCY') || 2,
+            low: ConfigManager.get('PERFORMANCE.BATCH_UPDATE.LOW_UPDATE_FREQUENCY') || 3
+        }
+    },
+
+    // 初始化僵尸管理器
+    init: function () {
+        console.log('🧟‍♂️ 初始化僵尸管理器...');
+        
+        // 初始化分帧更新系统
+        this.initBatchUpdateSystem();
+        
+        // 设置默认配置
+        this.maxZombies = this.maxZombies || 100;
+        this.difficulty = this.difficulty || 1;
+        
+        console.log('✅ 僵尸管理器初始化完成');
+        console.log('- 最大僵尸数量:', this.maxZombies);
+        console.log('- 难度级别:', this.difficulty);
+        console.log('- 分帧更新策略:', this.updateStrategy);
+    },
 
     // 创建僵尸 - 通过四叉树管理
     createZombie: function (type, x, y) {
@@ -1391,91 +1444,169 @@ var ZombieManager = {
         return {x: x, y: y};
     },
 
+    // 初始化分帧更新系统
+    initBatchUpdateSystem: function() {
+        this.updateStrategy.currentBatch = 0;
+        this.updateStrategy.frameCounter = 0;
+        console.log('分帧更新系统初始化完成，批次大小:', this.updateStrategy.batchSize);
+    },
 
-    // 更新所有僵尸 - 通过四叉树获取僵尸列表
-    updateAllZombies: function (characters, deltaTime) {
-        var performanceUtils = UtilsManager.getPerformanceUtils();
-
-        // 验证输入参数
-        if (!Array.isArray(characters)) {
-            console.error('角色列表无效:', characters);
-            return;
-        }
-
-        if (!performanceUtils.isValidNumber(deltaTime) || deltaTime <= 0) {
-            console.error('时间增量无效:', deltaTime);
-            return;
-        }
-
-        // 从四叉树获取所有僵尸
-        var zombies = [];
-        if (window.collisionSystem && window.collisionSystem.getAllZombies) {
-            zombies = window.collisionSystem.getAllZombies();
+    // 获取僵尸的更新优先级
+    getZombieUpdatePriority: function(zombie, mainCharacter) {
+        if (!mainCharacter) return 'low';
+        
+        var distance = Math.sqrt(Math.pow(zombie.x - mainCharacter.x, 2) + Math.pow(zombie.y - mainCharacter.y, 2));
+        
+        if (distance <= this.updateStrategy.priorityRanges.high) {
+            return 'high';
+        } else if (distance <= this.updateStrategy.priorityRanges.medium) {
+            return 'medium';
         } else {
-            console.warn('无法从四叉树获取僵尸列表');
+            return 'low';
+        }
+    },
+
+    // 检查僵尸是否应该在此帧更新
+    shouldUpdateZombieThisFrame: function(zombie, mainCharacter) {
+        var priority = this.getZombieUpdatePriority(zombie, mainCharacter);
+        var frameCounter = this.updateStrategy.frameCounter;
+        var frequency = this.updateStrategy.updateFrequencies[priority] || 1;
+        
+        return frameCounter % frequency === 0;
+    },
+
+    // 分帧更新所有僵尸
+    updateAllZombies: function(characters, deltaTime) {
+        if (!window.collisionSystem) {
+            console.warn('碰撞系统未初始化，无法更新僵尸');
             return;
         }
 
-        console.log('更新僵尸，数量:', zombies.length, '角色数量:', characters.length);
-
-        // 使用性能工具测量更新时间
+        var performanceUtils = UtilsManager.getPerformanceUtils();
         performanceUtils.startTimer('updateAllZombies');
 
-        // 更新僵尸
-        zombies.forEach((zombie, index) => {
-            // 检查僵尸对象有效性
-            if (!zombie || typeof zombie !== 'object') {
-                console.error('发现无效僵尸对象:', zombie, '索引:', index);
-                return;
-            }
+        // 获取主人物
+        var mainCharacter = null;
+        if (characters && characters.length > 0) {
+            mainCharacter = characters.find(c => c.role === 1);
+        }
 
-            // 检查僵尸基本属性
-            if (zombie.hp === undefined || zombie.state === undefined) {
-                console.error('僵尸缺少基本属性:', zombie.type, zombie.id, 'hp:', zombie.hp, 'state:', zombie.state);
-                return;
-            }
+        if (!mainCharacter) {
+            console.warn('未找到主人物，无法进行优先级调度');
+            return;
+        }
 
-            // 调试：记录僵尸的生命值状态
-            if (zombie.hp <= 0) {
-                console.log('僵尸生命值异常:', zombie.type, zombie.id, 'hp:', zombie.hp, 'maxHp:', zombie.maxHp, 'state:', zombie.state);
-            }
+        // 获取所有僵尸
+        var allZombies = window.collisionSystem.getAllZombies();
+        var activeZombies = allZombies.filter(z => z.hp > 0);
 
-            // 只更新活着的僵尸
-            if (zombie.hp > 0 && zombie.state !== ZOMBIE_STATE.DEAD) {
-                try {
-                    zombie.update(deltaTime, characters);
-                } catch (error) {
-                    console.error('僵尸更新出错:', zombie.type, zombie.id, '错误:', error);
-                    // 出错时设置为待机状态
-                    zombie.state = ZOMBIE_STATE.IDLE;
-                }
-            }
+        if (activeZombies.length === 0) {
+            performanceUtils.endTimer('updateAllZombies');
+            return;
+        }
+
+        // 按优先级分组僵尸
+        var priorityGroups = {
+            high: [],    // 高优先级：每帧更新
+            medium: [],  // 中优先级：每2帧更新
+            low: []      // 低优先级：每3帧更新
+        };
+
+        activeZombies.forEach(zombie => {
+            var priority = this.getZombieUpdatePriority(zombie, mainCharacter);
+            priorityGroups[priority].push(zombie);
         });
 
-        // 清理死亡僵尸 - 通过四叉树管理
-        var deadZombies = zombies.filter(zombie => zombie.hp <= 0 || zombie.state === ZOMBIE_STATE.DEAD);
-        if (deadZombies.length > 0) {
-            console.log('发现死亡僵尸，数量:', deadZombies.length);
-            deadZombies.forEach(zombie => {
-                console.log('死亡僵尸详情:', zombie.type, zombie.id, 'hp:', zombie.hp, 'maxHp:', zombie.maxHp, 'state:', zombie.state);
+        console.log('僵尸优先级分组:', {
+            high: priorityGroups.high.length,
+            medium: priorityGroups.medium.length,
+            low: priorityGroups.low.length,
+            total: activeZombies.length
+        });
 
-                // 通过四叉树销毁僵尸对象
-                if (window.collisionSystem && window.collisionSystem.destroyZombieObject) {
-                    try {
-                        window.collisionSystem.destroyZombieObject(zombie);
-                        console.log('死亡僵尸已通过四叉树销毁:', zombie.type, zombie.id);
-                    } catch (error) {
-                        console.error('四叉树销毁僵尸失败:', zombie.type, zombie.id, '错误:', error);
-                    }
-                } else {
-                    console.error('四叉树不支持僵尸对象销毁');
-                }
-            });
+        // 更新当前批次的僵尸
+        var updatedCount = this.updateCurrentBatch(priorityGroups, mainCharacter, deltaTime);
+
+        // 更新帧计数器和批次
+        this.updateStrategy.frameCounter++;
+        if (this.updateStrategy.frameCounter % this.updateStrategy.batchSize === 0) {
+            this.updateStrategy.currentBatch = (this.updateStrategy.currentBatch + 1) % this.updateStrategy.batchSize;
         }
 
         var updateTime = performanceUtils.endTimer('updateAllZombies');
+        
+        // 性能监控
         if (updateTime > 16) { // 超过16ms（60fps）
             console.warn('僵尸更新耗时过长:', updateTime.toFixed(2), 'ms');
+        }
+
+        if (updatedCount > 0) {
+            console.log(`分帧更新完成 - 批次: ${this.updateStrategy.currentBatch}, 更新数量: ${updatedCount}, 耗时: ${updateTime.toFixed(2)}ms`);
+        }
+    },
+
+    // 更新当前批次的僵尸
+    updateCurrentBatch: function(priorityGroups, mainCharacter, deltaTime) {
+        var updatedCount = 0;
+        var currentBatch = this.updateStrategy.currentBatch;
+        var batchSize = this.updateStrategy.batchSize;
+
+        // 更新高优先级僵尸（每帧都更新）
+        priorityGroups.high.forEach(zombie => {
+            if (this.shouldUpdateZombieThisFrame(zombie, mainCharacter)) {
+                this.updateSingleZombie(zombie, mainCharacter, deltaTime);
+                updatedCount++;
+            }
+        });
+
+        // 更新中优先级僵尸（每2帧更新）
+        priorityGroups.medium.forEach(zombie => {
+            if (this.shouldUpdateZombieThisFrame(zombie, mainCharacter)) {
+                this.updateSingleZombie(zombie, mainCharacter, deltaTime);
+                updatedCount++;
+            }
+        });
+
+        // 更新低优先级僵尸（每3帧更新）
+        priorityGroups.low.forEach(zombie => {
+            if (this.shouldUpdateZombieThisFrame(zombie, mainCharacter)) {
+                this.updateSingleZombie(zombie, mainCharacter, deltaTime);
+                updatedCount++;
+            }
+        });
+
+        return updatedCount;
+    },
+
+    // 更新单个僵尸
+    updateSingleZombie: function(zombie, mainCharacter, deltaTime) {
+        try {
+            if (!zombie || zombie.hp <= 0) return;
+
+            // 检查僵尸是否应该在此帧更新
+            if (!this.shouldUpdateZombieThisFrame(zombie, mainCharacter)) {
+                return;
+            }
+
+            // 更新僵尸AI逻辑
+            if (typeof zombie.updateAI === 'function') {
+                zombie.updateAI(mainCharacter, deltaTime);
+            } else {
+                // 回退到原来的更新方法
+                zombie.update(mainCharacter, deltaTime);
+            }
+
+            // 更新僵尸位置（如果位置发生变化）
+            if (zombie._lastX !== zombie.x || zombie._lastY !== zombie.y) {
+                if (window.collisionSystem && window.collisionSystem.updateZombiePosition) {
+                    window.collisionSystem.updateZombiePosition(zombie, zombie._lastX || zombie.x, zombie._lastY || zombie.y, zombie.x, zombie.y);
+                }
+                zombie._lastX = zombie.x;
+                zombie._lastY = zombie.y;
+            }
+
+        } catch (error) {
+            console.error('更新僵尸时发生错误:', error, zombie);
         }
     },
 
@@ -1559,6 +1690,72 @@ var ZombieManager = {
         }
 
         return zombies;
+    },
+
+    // 获取分帧更新系统统计
+    getBatchUpdateStats: function() {
+        return {
+            currentBatch: this.updateStrategy.currentBatch,
+            frameCounter: this.updateStrategy.frameCounter,
+            batchSize: this.updateStrategy.batchSize,
+            priorityRanges: this.updateStrategy.priorityRanges
+        };
+    },
+
+    // 获取僵尸优先级分布统计
+    getPriorityDistribution: function() {
+        if (!window.collisionSystem) return null;
+        
+        var allZombies = window.collisionSystem.getAllZombies();
+        var activeZombies = allZombies.filter(z => z.hp > 0);
+        
+        var distribution = {
+            high: 0,
+            medium: 0,
+            low: 0,
+            total: activeZombies.length
+        };
+        
+        if (window.characterManager) {
+            var mainCharacter = window.characterManager.getMainCharacter();
+            if (mainCharacter) {
+                activeZombies.forEach(zombie => {
+                    var priority = this.getZombieUpdatePriority(zombie, mainCharacter);
+                    distribution[priority]++;
+                });
+            }
+        }
+        
+        return distribution;
+    },
+
+    // 获取性能统计
+    getPerformanceStats: function() {
+        var priorityDist = this.getPriorityDistribution();
+        var batchStats = this.getBatchUpdateStats();
+        
+        return {
+            priorityDistribution: priorityDist,
+            batchUpdateStats: batchStats,
+            updateStrategy: this.updateStrategy,
+            maxZombies: this.maxZombies,
+            difficulty: this.difficulty
+        };
+    },
+
+    // 输出性能报告
+    logPerformanceReport: function() {
+        var stats = this.getPerformanceStats();
+        
+        console.log('=== 僵尸管理器性能报告 ===');
+        console.log('优先级分布:', stats.priorityDistribution);
+        console.log('分帧更新统计:', stats.batchUpdateStats);
+        console.log('更新策略:', stats.updateStrategy);
+        console.log('配置:', {
+            maxZombies: stats.maxZombies,
+            difficulty: stats.difficulty
+        });
+        console.log('========================');
     }
 };
 
@@ -1717,8 +1914,209 @@ Zombie.prototype.isTargetValid = function () {
     return true;
 };
 
+// 僵尸AI更新方法（支持优先级调度）
+Zombie.prototype.updateAI = function(mainCharacter, deltaTime) {
+    if (!mainCharacter || this.hp <= 0) return;
+
+    // 更新帧计数器
+    this.frameCount = (this.frameCount || 0) + 1;
+
+    // 计算到主角的距离
+    var distanceToPlayer = Math.sqrt(Math.pow(this.x - mainCharacter.x, 2) + Math.pow(this.y - mainCharacter.y, 2));
+    
+    // 根据距离决定AI行为复杂度
+    if (distanceToPlayer <= 500) {
+        // 高优先级：近距离，完整AI逻辑
+        this.updateHighPriorityAI(mainCharacter, deltaTime);
+    } else if (distanceToPlayer <= 800) {
+        // 中优先级：中等距离，简化AI逻辑
+        this.updateMediumPriorityAI(mainCharacter, deltaTime);
+    } else {
+        // 低优先级：远距离，基础AI逻辑
+        this.updateLowPriorityAI(mainCharacter, deltaTime);
+    }
+};
+
+// 高优先级AI更新（每帧执行，完整逻辑）
+Zombie.prototype.updateHighPriorityAI = function(mainCharacter, deltaTime) {
+    // 完整的状态机更新
+    if (this.stateMachine) {
+        this.stateMachine.update(deltaTime);
+    }
+    
+    // 完整的移动更新
+    this.updateMovement(deltaTime);
+    
+    // 完整的动画更新
+    this.updateAnimation(deltaTime);
+    
+    // 完整的攻击检测
+    this.checkAttackConditions(mainCharacter);
+    
+    // 完整的声音效果
+    this.updateSoundEffects();
+};
+
+// 中优先级AI更新（每2帧执行，简化逻辑）
+Zombie.prototype.updateMediumPriorityAI = function(mainCharacter, deltaTime) {
+    // 简化的状态机更新
+    if (this.stateMachine && this.frameCount % 2 === 0) {
+        this.stateMachine.update(deltaTime);
+    }
+    
+    // 简化的移动更新
+    this.updateMovement(deltaTime);
+    
+    // 简化的动画更新
+    if (this.frameCount % 2 === 0) {
+        this.updateAnimation(deltaTime);
+    }
+    
+    // 简化的攻击检测
+    if (this.frameCount % 2 === 0) {
+        this.checkAttackConditions(mainCharacter);
+    }
+    
+    // 不更新声音效果（节省性能）
+};
+
+// 低优先级AI更新（每3帧执行，基础逻辑）
+Zombie.prototype.updateLowPriorityAI = function(mainCharacter, deltaTime) {
+    // 基础的状态机更新
+    if (this.stateMachine && this.frameCount % 3 === 0) {
+        this.stateMachine.update(deltaTime);
+    }
+    
+    // 基础的移动更新
+    if (this.frameCount % 3 === 0) {
+        this.updateMovement(deltaTime);
+    }
+    
+    // 基础的动画更新
+    if (this.frameCount % 3 === 0) {
+        this.updateAnimation(deltaTime);
+    }
+    
+    // 基础的攻击检测
+    if (this.frameCount % 3 === 0) {
+        this.checkAttackConditions(mainCharacter);
+    }
+    
+    // 不更新声音效果（节省性能）
+};
+
+// 检查攻击条件
+Zombie.prototype.checkAttackConditions = function(mainCharacter) {
+    if (!mainCharacter || this.hp <= 0) return;
+    
+    var distance = Math.sqrt(Math.pow(this.x - mainCharacter.x, 2) + Math.pow(this.y - mainCharacter.y, 2));
+    
+    if (distance <= this.attackRange && this.state !== ZOMBIE_STATE.ATTACKING) {
+        this.state = ZOMBIE_STATE.ATTACKING;
+        this.targetCharacter = mainCharacter;
+        console.log('僵尸进入攻击状态:', this.id, '距离:', distance.toFixed(1));
+    }
+};
+
+// 更新声音效果
+Zombie.prototype.updateSoundEffects = function() {
+    // 这里可以添加声音效果逻辑
+    // 例如：僵尸移动、攻击、死亡等音效
+};
+
+// 帧计数器（用于优先级调度）
+Zombie.prototype.frameCount = 0;
+
 // 导出枚举和类
 export {ZOMBIE_TYPE, ZOMBIE_STATE};
 export {ZombieManager};
 export default Zombie;
+
+// 更新僵尸移动
+Zombie.prototype.updateMovement = function(deltaTime) {
+    if (!this.targetCharacter || this.hp <= 0) return;
+    
+    // 计算到目标的距离
+    var deltaX = this.targetCharacter.x - this.x;
+    var deltaY = this.targetCharacter.y - this.y;
+    var distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+    
+    // 如果距离太近，停止移动
+    if (distance <= this.attackRange) {
+        this.state = ZOMBIE_STATE.ATTACKING;
+        return;
+    }
+    
+    // 如果距离太远，开始追击
+    if (distance > this.detectionRange) {
+        this.state = ZOMBIE_STATE.IDLE;
+        return;
+    }
+    
+    // 追击目标
+    if (distance > this.attackRange) {
+        this.state = ZOMBIE_STATE.CHASING;
+        
+        // 计算移动方向
+        var dirX = deltaX / distance;
+        var dirY = deltaY / distance;
+        
+        // 更新位置
+        var moveDistance = this.moveSpeed * deltaTime;
+        this.x += dirX * moveDistance;
+        this.y += dirY * moveDistance;
+        
+        // 更新目标位置
+        this.targetX = this.x;
+        this.targetY = this.y;
+    }
+};
+
+// 获取僵尸性能统计
+Zombie.prototype.getPerformanceStats = function() {
+    return {
+        id: this.id,
+        type: this.zombieType,
+        priority: this.getCurrentPriority(),
+        updateFrequency: this.getUpdateFrequency(),
+        distanceToPlayer: this.getDistanceToPlayer(),
+        state: this.state,
+        hp: this.hp
+    };
+};
+
+// 获取当前优先级
+Zombie.prototype.getCurrentPriority = function() {
+    if (!window.characterManager) return 'unknown';
+    
+    var mainCharacter = window.characterManager.getMainCharacter();
+    if (!mainCharacter) return 'unknown';
+    
+    var distance = Math.sqrt(Math.pow(this.x - mainCharacter.x, 2) + Math.pow(this.y - mainCharacter.y, 2));
+    
+    if (distance <= 500) return 'high';
+    if (distance <= 800) return 'medium';
+    return 'low';
+};
+
+// 获取更新频率
+Zombie.prototype.getUpdateFrequency = function() {
+    var priority = this.getCurrentPriority();
+    switch (priority) {
+        case 'high': return 'every frame';
+        case 'medium': return 'every 2 frames';
+        case 'low': return 'every 3 frames';
+        default: return 'unknown';
+    }
+};
+
+// 获取到玩家的距离
+Zombie.prototype.getDistanceToPlayer = function() {
+    if (!window.characterManager) return -1;
+    
+    var mainCharacter = window.characterManager.getMainCharacter();
+    if (!mainCharacter) return -1;
+    
+    return Math.sqrt(Math.pow(this.x - mainCharacter.x, 2) + Math.pow(this.y - mainCharacter.y, 2));
+};
 

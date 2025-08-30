@@ -8,6 +8,9 @@
  * - 输入系统：处理触摸输入和游戏控制
  */
 
+// 导入配置管理器
+import { ConfigManager } from './config.js';
+
 // 触摸摇杆控制器
 var TouchJoystick = function(canvas, ctx) {
     this.canvas = canvas;
@@ -295,9 +298,9 @@ var GameEngine = function(canvas, ctx) {
     this.timeSystem = {
         day: 1,              // 当前天数
         isDay: true,         // 是否为白天
-        dayTime: 0,          // 当前时段计时器（0-30秒）
+        dayTime: 0,          // 当前时段计时器（0-10秒）
         currentTime: 0,      // 当前时间（秒）
-        dayDuration: 30,     // 一天的长度（秒）
+        dayDuration: 10,     // 一天的长度（秒）- 白天5秒，晚上5秒（默认值，稍后从配置更新）
         food: 5              // 食物数量
     };
     
@@ -387,10 +390,62 @@ var GameEngine = function(canvas, ctx) {
     this.init();
 };
 
+// 测试配置管理器是否正常工作
+GameEngine.prototype.testConfigManager = function() {
+    console.log('🧪 开始测试配置管理器...');
+    
+    try {
+        // 测试基本配置获取
+        var timeSystemConfig = ConfigManager.get('TIME_SYSTEM');
+        console.log('✅ 时间系统配置获取成功:', timeSystemConfig);
+        
+        // 测试具体配置项
+        var dayDuration = ConfigManager.get('TIME_SYSTEM.DAY_DURATION');
+        var zombiesPerDay = ConfigManager.get('TIME_SYSTEM.ZOMBIES_PER_DAY');
+        var minDistance = ConfigManager.get('TIME_SYSTEM.SPAWN_RANGE.MIN_DISTANCE');
+        var maxDistance = ConfigManager.get('TIME_SYSTEM.SPAWN_RANGE.MAX_DISTANCE');
+        
+        console.log('✅ 配置项测试结果:');
+        console.log('  - 一天长度:', dayDuration, '秒');
+        console.log('  - 每天僵尸数:', zombiesPerDay, '个');
+        console.log('  - 生成最小距离:', minDistance, 'px');
+        console.log('  - 生成最大距离:', maxDistance, 'px');
+        
+        // 验证配置值
+        if (dayDuration === 10 && zombiesPerDay === 10 && minDistance === 500 && maxDistance === 700) {
+            console.log('✅ 所有配置值都正确！');
+        } else {
+            console.warn('⚠️ 部分配置值不正确，请检查配置文件');
+        }
+        
+    } catch (error) {
+        console.error('❌ 配置测试失败:', error);
+    }
+    
+    console.log('🧪 配置测试完成');
+};
+
 // 初始化游戏引擎
 GameEngine.prototype.init = function() {
     // 初始化触摸摇杆
     this.joystick = new TouchJoystick(this.canvas, this.ctx);
+    
+    // 从配置更新时间系统设置
+    if (typeof ConfigManager !== 'undefined' && ConfigManager.get) {
+        try {
+            this.timeSystem.dayDuration = ConfigManager.get('TIME_SYSTEM.DAY_DURATION') || 10;
+            console.log('✅ 从配置更新时间系统设置，一天长度:', this.timeSystem.dayDuration, '秒');
+            
+            // 测试配置是否正常工作
+            this.testConfigManager();
+        } catch (error) {
+            console.warn('⚠️ 无法从配置获取时间系统设置，使用默认值:', error);
+            this.timeSystem.dayDuration = 10;
+        }
+    } else {
+        console.warn('⚠️ ConfigManager未定义，使用默认时间系统设置');
+        this.timeSystem.dayDuration = 10;
+    }
     
     // 初始化视觉系统
     if (typeof ViewSystem !== 'undefined') {
@@ -447,6 +502,12 @@ GameEngine.prototype.setSystems = function(mapSystem, characterManager, menuSyst
     console.log('- this.characterManager:', !!this.characterManager);
     console.log('- this.zombieManager:', !!this.zombieManager);
     console.log('- this.collisionSystem:', !!this.collisionSystem);
+    
+    // 初始化僵尸管理器
+    if (this.zombieManager && typeof this.zombieManager.init === 'function') {
+        this.zombieManager.init();
+        console.log('✅ 僵尸管理器初始化完成');
+    }
     
     // 同步初始化NavMesh导航系统
     var navResult = this.initNavigationSystem();
@@ -713,8 +774,8 @@ GameEngine.prototype.updateTimeSystem = function() {
         this.timeSystem.day++;
         console.log('新的一天开始，当前天数:', this.timeSystem.day);
         
-        // 每天开始时刷新一只僵尸
-        this.spawnOneZombiePerDay();
+        // 每天开始时刷新僵尸
+        this.spawnZombiesPerDay();
     }
     
     // 移除每5秒刷新的逻辑，改为每天刷新一只
@@ -737,17 +798,39 @@ GameEngine.prototype.getTeamSize = function() {
 
 // 获取时间系统信息
 GameEngine.prototype.getTimeInfo = function() {
+    var dayProgress = this.timeSystem.currentTime / this.timeSystem.dayDuration;
+    var timeSystemConfig = null;
+    var zombiesPerDay = 10; // 默认值
+    
+    // 尝试从配置获取参数
+    if (typeof ConfigManager !== 'undefined' && ConfigManager.get) {
+        try {
+            timeSystemConfig = ConfigManager.get('TIME_SYSTEM');
+            zombiesPerDay = timeSystemConfig ? timeSystemConfig.ZOMBIES_PER_DAY : 10;
+        } catch (error) {
+            console.warn('⚠️ 无法从配置获取时间系统配置，使用默认值:', error);
+        }
+    } else {
+        console.warn('⚠️ ConfigManager未定义，使用默认时间系统配置');
+    }
+    
     return {
         day: this.timeSystem.day,
         isDay: this.timeSystem.isDay,
-        dayTime: this.timeSystem.dayTime,
+        dayTime: this.timeSystem.currentTime,
+        dayDuration: this.timeSystem.dayDuration,
+        dayProgress: Math.round(dayProgress * 100), // 百分比
+        phase: this.timeSystem.isDay ? '白天' : '夜晚',
+        phaseProgress: Math.round((dayProgress % 0.5) * 200), // 白天/夜晚阶段进度
         food: this.timeSystem.food,
-        teamSize: this.getTeamSize()
+        teamSize: this.getTeamSize(),
+        zombiesPerDay: zombiesPerDay,
+        nextZombieSpawn: Math.ceil(this.timeSystem.dayDuration - this.timeSystem.currentTime)
     };
 };
 
-// 每天刷新一只僵尸
-GameEngine.prototype.spawnOneZombiePerDay = function() {
+// 每天刷新10只僵尸
+GameEngine.prototype.spawnZombiesPerDay = function() {
     if (!this.zombieManager || !this.characterManager) {
         console.log('GameEngine: 僵尸管理器或角色管理器未初始化，跳过僵尸刷新');
         return;
@@ -759,11 +842,27 @@ GameEngine.prototype.spawnOneZombiePerDay = function() {
         return;
     }
     
-    console.log('GameEngine: 新的一天开始，刷新一只僵尸，当前天数:', this.timeSystem.day, '主人物位置:', mainChar.x, mainChar.y);
+    console.log('GameEngine: 新的一天开始，刷新僵尸，当前天数:', this.timeSystem.day, '主人物位置:', mainChar.x, mainChar.y);
     
-    // 每天只刷新一只僵尸
-    var zombiesToCreate = 1;
-    console.log('GameEngine: 需要创建', zombiesToCreate, '只僵尸，在人物700px范围内');
+    // 每天刷新僵尸
+    var zombiesToCreate = 10; // 默认值
+    var minDistance = 500; // 默认值
+    var maxDistance = 700; // 默认值
+    
+    // 尝试从配置获取参数
+    if (typeof ConfigManager !== 'undefined' && ConfigManager.get) {
+        try {
+            zombiesToCreate = ConfigManager.get('TIME_SYSTEM.ZOMBIES_PER_DAY') || 10;
+            minDistance = ConfigManager.get('TIME_SYSTEM.SPAWN_RANGE.MIN_DISTANCE') || 500;
+            maxDistance = ConfigManager.get('TIME_SYSTEM.SPAWN_RANGE.MAX_DISTANCE') || 700;
+        } catch (error) {
+            console.warn('⚠️ 无法从配置获取僵尸刷新参数，使用默认值:', error);
+        }
+    } else {
+        console.warn('⚠️ ConfigManager未定义，使用默认僵尸刷新参数');
+    }
+    
+    console.log('GameEngine: 需要创建', zombiesToCreate, '只僵尸，在人物', minDistance, '-', maxDistance, 'px范围内');
     
     // 创建僵尸批次
     this.createZombieBatchAroundPlayer(zombiesToCreate, mainChar);
@@ -780,9 +879,24 @@ GameEngine.prototype.spawnOneZombiePerDay = function() {
     }
 },
 
-// 分批创建僵尸（性能优化）- 在人物700px范围内生成
+// 分批创建僵尸（性能优化）- 在人物指定范围内生成
 GameEngine.prototype.createZombieBatchAroundPlayer = function(batchSize, mainChar) {
-    console.log('GameEngine: 创建僵尸批次，数量:', batchSize, '在人物位置:', mainChar.x, mainChar.y, '700px范围内');
+    var minDistance = 500; // 默认值
+    var maxDistance = 700; // 默认值
+    
+    // 尝试从配置获取参数
+    if (typeof ConfigManager !== 'undefined' && ConfigManager.get) {
+        try {
+            minDistance = ConfigManager.get('TIME_SYSTEM.SPAWN_RANGE.MIN_DISTANCE') || 500;
+            maxDistance = ConfigManager.get('TIME_SYSTEM.SPAWN_RANGE.MAX_DISTANCE') || 700;
+        } catch (error) {
+            console.warn('⚠️ 无法从配置获取僵尸生成范围参数，使用默认值:', error);
+        }
+    } else {
+        console.warn('⚠️ ConfigManager未定义，使用默认僵尸生成范围参数');
+    }
+    
+    console.log('GameEngine: 创建僵尸批次，数量:', batchSize, '在人物位置:', mainChar.x, mainChar.y, minDistance, '-', maxDistance, 'px范围内');
     
     var createdZombies = [];
     var maxAttempts = 100; // 每个僵尸最多尝试100次找位置
@@ -794,9 +908,24 @@ GameEngine.prototype.createZombieBatchAroundPlayer = function(batchSize, mainCha
         while (!zombieCreated && attempts < maxAttempts) {
             attempts++;
             
-            // 在距离主人物500-700px的位置随机生成（避免太近或太远）
+            // 在距离主人物指定范围内随机生成（避免太近或太远）
             var angle = Math.random() * Math.PI * 2; // 随机角度
-            var distance = 500 + Math.random() * 200; // 500-700px之间
+            var minDistance = 500; // 默认值
+            var maxDistance = 700; // 默认值
+            
+            // 尝试从配置获取参数
+            if (typeof ConfigManager !== 'undefined' && ConfigManager.get) {
+                try {
+                    minDistance = ConfigManager.get('TIME_SYSTEM.SPAWN_RANGE.MIN_DISTANCE') || 500;
+                    maxDistance = ConfigManager.get('TIME_SYSTEM.SPAWN_RANGE.MAX_DISTANCE') || 700;
+                } catch (error) {
+                    console.warn('⚠️ 无法从配置获取僵尸生成范围参数，使用默认值:', error);
+                }
+            } else {
+                console.warn('⚠️ ConfigManager未定义，使用默认僵尸生成范围参数');
+            }
+            
+            var distance = minDistance + Math.random() * (maxDistance - minDistance);
             
             // 使用ZOMBIE_TYPE枚举，确保类型一致性
             var zombieTypes = ['skinny', 'fat', 'fast', 'tank', 'boss'];
@@ -870,9 +999,24 @@ GameEngine.prototype.createZombieBatchAroundPlayer = function(batchSize, mainCha
 
 // 检查僵尸生成位置是否有效
 GameEngine.prototype.isValidZombieSpawnPosition = function(x, y, mainChar, existingZombies) {
-    // 1. 检查是否在有效范围内（500-700px）
+    // 1. 检查是否在有效范围内（使用配置文件中的参数）
+    var minDistance = 500; // 默认值
+    var maxDistance = 700; // 默认值
+    
+    // 尝试从配置获取参数
+    if (typeof ConfigManager !== 'undefined' && ConfigManager.get) {
+        try {
+            minDistance = ConfigManager.get('TIME_SYSTEM.SPAWN_RANGE.MIN_DISTANCE') || 500;
+            maxDistance = ConfigManager.get('TIME_SYSTEM.SPAWN_RANGE.MAX_DISTANCE') || 700;
+        } catch (error) {
+            console.warn('⚠️ 无法从配置获取僵尸生成范围参数，使用默认值:', error);
+        }
+    } else {
+        console.warn('⚠️ ConfigManager未定义，使用默认僵尸生成范围参数');
+    }
+    
     var distanceFromMain = Math.sqrt(Math.pow(x - mainChar.x, 2) + Math.pow(y - mainChar.y, 2));
-    if (distanceFromMain < 500 || distanceFromMain > 700) {
+    if (distanceFromMain < minDistance || distanceFromMain > maxDistance) {
         return false;
     }
     
@@ -952,13 +1096,8 @@ GameEngine.prototype.update = function() {
     // 更新计时系统
     this.updateTimeSystem();
     
-    // 使用优化的四叉树更新策略
-    if (this.collisionSystem && this.collisionSystem.optimizedUpdateDynamicQuadTree) {
-        var characters = this.characterManager ? this.characterManager.getAllCharacters() : [];
-        var zombies = this.zombieManager ? this.zombieManager.getAllZombies().filter(z => z.hp > 0) : [];
-        this.collisionSystem.optimizedUpdateDynamicQuadTree(characters, zombies);
-    } else if (this.collisionSystem && this.collisionSystem.updateDynamicQuadTree) {
-        // 回退到原来的更新方法
+    // 更新四叉树（使用可用的方法）
+    if (this.collisionSystem && this.collisionSystem.updateDynamicQuadTree) {
         var characters = this.characterManager ? this.characterManager.getAllCharacters() : [];
         var zombies = this.zombieManager ? this.zombieManager.getAllZombies().filter(z => z.hp > 0) : [];
         this.collisionSystem.updateDynamicQuadTree(characters, zombies);
@@ -1002,23 +1141,17 @@ GameEngine.prototype.update = function() {
     if (this.frameCount % 300 === 0) {
         this.logSystemStatus();
         
-        // 添加四叉树性能监控
-        if (this.collisionSystem && this.collisionSystem.getPerformanceStats) {
-            var perfStats = this.collisionSystem.getPerformanceStats();
-            var recommendations = this.collisionSystem.getPerformanceRecommendations();
-            
-            console.log('=== 四叉树性能统计 ===');
-            console.log('静态四叉树:', perfStats.staticQuadTree);
-            console.log('动态四叉树:', perfStats.dynamicQuadTree);
-            console.log('ID管理:', perfStats.idManagement);
-            console.log('对象类型分布:', perfStats.objectTypes);
-            
-            if (recommendations.length > 0) {
-                console.log('=== 性能优化建议 ===');
-                recommendations.forEach(function(rec, index) {
-                    console.log((index + 1) + '. ' + rec);
-                });
-            }
+        // 添加四叉树性能监控（使用可用的方法）
+        if (this.collisionSystem && this.collisionSystem.getObjectLifecycleStats) {
+            var lifecycleStats = this.collisionSystem.getObjectLifecycleStats();
+            console.log('=== 四叉树对象生命周期统计 ===');
+            console.log('总对象数:', lifecycleStats.totalObjects);
+            console.log('类型分布:', lifecycleStats.typeStats);
+        }
+        
+        // 添加僵尸管理器性能监控
+        if (this.zombieManager && typeof this.zombieManager.logPerformanceReport === 'function') {
+            this.zombieManager.logPerformanceReport();
         }
     }
 },
