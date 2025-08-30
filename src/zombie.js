@@ -1,11 +1,11 @@
 /**
- * 僵尸模块 - 重构版本 (zombie.js)
- *
- * 重构内容：
- * - 四叉树成为僵尸管理的核心
- * - ZombieManager只负责游戏逻辑
- * - 对象的创建、删除、位置更新都通过四叉树进行
- * - 确保数据的一致性和系统的可靠性
+ * 僵尸模块 - 优化版本 (zombie.js)
+ * 
+ * 优化内容：
+ * - 合并重复的属性设置逻辑
+ * - 删除未使用的工具方法
+ * - 简化性能优化逻辑
+ * - 统一距离计算和状态管理
  */
 
 import ConfigManager from './config.js';
@@ -13,266 +13,133 @@ import UtilsManager from './utils.js';
 
 // 僵尸类型枚举
 const ZOMBIE_TYPE = {
-    SKINNY: 'skinny',      // 瘦僵尸
-    FAT: 'fat',            // 胖僵尸
-    BOSS: 'boss',          // 僵尸Boss
-    FAST: 'fast',          // 快速僵尸
-    TANK: 'tank'           // 坦克僵尸
+    SKINNY: 'skinny',
+    FAT: 'fat',
+    BOSS: 'boss',
+    FAST: 'fast',
+    TANK: 'tank'
 };
 
 // 僵尸状态枚举
 const ZOMBIE_STATE = {
-    IDLE: 'idle',          // 待机
-    WALKING: 'walking',    // 行走
-    ATTACKING: 'attacking', // 攻击
-    DEAD: 'dead',          // 死亡
-    CHASING: 'chasing'     // 追击
+    IDLE: 'idle',
+    WALKING: 'walking',
+    ATTACKING: 'attacking',
+    DEAD: 'dead',
+    CHASING: 'chasing'
+};
+
+// 僵尸配置模板
+const ZOMBIE_CONFIGS = {
+    [ZOMBIE_TYPE.SKINNY]: { hp: 30, attack: 15, size: 32, color: '#8B4513', attackRange: 40, detectionRange: 200 },
+    [ZOMBIE_TYPE.FAT]: { hp: 60, attack: 25, size: 48, color: '#654321', attackRange: 50, detectionRange: 200 },
+    [ZOMBIE_TYPE.BOSS]: { hp: 200, attack: 50, size: 48, color: '#8B0000', attackRange: 80, detectionRange: 300 },
+    [ZOMBIE_TYPE.FAST]: { hp: 20, attack: 10, size: 32, color: '#228B22', attackRange: 30, detectionRange: 250 },
+    [ZOMBIE_TYPE.TANK]: { hp: 150, attack: 35, size: 48, color: '#2F4F4F', attackRange: 60, detectionRange: 150 }
 };
 
 // 基础僵尸类
-var Zombie = function (type, x, y) {
-    // 获取工具类
-    var validationUtils = UtilsManager.getValidationUtils();
-    var mathUtils = UtilsManager.getMathUtils();
-
+var Zombie = function(type, x, y) {
     // 验证参数
-    if (!validationUtils.validatePosition(x, y)) {
-        console.error('无效的僵尸位置:', x, y);
-        x = 100;
-        y = 100; // 使用默认位置
-    }
-
     if (!Object.values(ZOMBIE_TYPE).includes(type)) {
-        console.error('无效的僵尸类型:', type);
-        type = ZOMBIE_TYPE.SKINNY; // 使用默认类型
+        type = ZOMBIE_TYPE.SKINNY;
     }
-
-    // 基础属性 - 统一类型为'zombie'，用zombieType区分具体类型
-    this.type = 'zombie';           // 统一类型标识，用于四叉树识别
-    this.zombieType = type;         // 具体僵尸类型（skinny, fat, boss等）
-
-    // 使用Object.defineProperty保护type属性，防止被意外修改
-    Object.defineProperty(this, 'type', {
-        value: 'zombie', writable: false, configurable: false
-    });
-    this.x = x;
-    this.y = y;
-    this.id = Date.now() + Math.random(); // 唯一ID
-
-    // 根据类型设置属性
+    
+    // 基础属性
+    this.type = 'zombie';
+    this.zombieType = type;
+    this.x = x || 100;
+    this.y = y || 100;
+    this.id = Date.now() + Math.random();
+    
+    // 设置属性
     this.setupProperties();
-
+    
     // AI状态
     this.state = ZOMBIE_STATE.IDLE;
-    this.targetX = this.x;  // 修复：使用this.x而不是x
-    this.targetY = this.y;  // 修复：使用this.y而不是y
+    this.targetX = this.x;
+    this.targetY = this.y;
     this.targetCharacter = null;
     
-    // 🔴 新增：高性能管理相关属性
-    this.isActive = false;           // 是否处于活跃状态
-    this.activationDistance = 0;     // 激活距离（距离玩家的距离）
-    this.updateBatch = 0;            // 更新批次（0-4）
-    this.lastUpdateFrame = 0;        // 上次更新的帧数
-    this.updateInterval = 1;         // 更新间隔（1=每帧，2=每2帧，3=每3帧）
-    this.isRendered = false;         // 是否被渲染
-
-    // 从配置获取攻击属性
+    // 性能相关
+    this.isActive = false;
+    this.updateInterval = 1;
+    
+    // 战斗属性
     var combatConfig = ConfigManager.get('COMBAT');
     this.lastAttackTime = 0;
     this.attackCooldown = combatConfig.DEFAULT_ATTACK_COOLDOWN;
-
-    // 从配置获取动画属性
+    
+    // 动画属性
     var animationConfig = ConfigManager.get('ANIMATION');
     this.animationFrame = 0;
     this.animationSpeed = animationConfig.DEFAULT_FRAME_RATE;
-    this.direction = 0; // 朝向角度
-
-    // 验证僵尸属性设置
-    console.log('僵尸初始化完成:', this.zombieType, 'ID:', this.id, '位置:', this.x, this.y);
-    
-    // 🔴 新增：初始化僵尸的移动状态
-    this.initializeMovementState();
+    this.direction = 0;
 };
 
-// 设置僵尸属性 - 使用配置管理
-Zombie.prototype.setupProperties = function () {
-    var movementConfig = ConfigManager.get('MOVEMENT');
-    var detectionConfig = ConfigManager.get('DETECTION');
-    var objectSizes = ConfigManager.get('OBJECT_SIZES.ZOMBIE');
+// 设置僵尸属性 - 使用配置模板
+Zombie.prototype.setupProperties = function() {
     var difficultyConfig = ConfigManager.getDifficultyConfig();
-
-    // 基础配置
-    var baseConfig = {
-        moveSpeed: movementConfig.ZOMBIE_MOVE_SPEED,
-        detectionRange: detectionConfig.ZOMBIE_DETECTION_RANGE,
-        mainCharacterDetectionRange: detectionConfig.MAIN_CHARACTER_DETECTION,
-        icon: '🧟‍♂️'
-    };
-
-    // 从配置文件获取僵尸类型特定配置
-    var zombieTypeConfig = detectionConfig.ZOMBIE_TYPES[this.zombieType] || detectionConfig.ZOMBIE_TYPES.DEFAULT;
+    var config = ZOMBIE_CONFIGS[this.zombieType] || ZOMBIE_CONFIGS[ZOMBIE_TYPE.SKINNY];
     
-    // 🔴 优化：初始化僵尸移动状态
-    Zombie.prototype.initializeMovementState = function() {
-        this.currentMoveSpeed = this.moveSpeed;
-    };
-
-    switch (this.zombieType) {
-        case ZOMBIE_TYPE.SKINNY:
-            this.hp = Math.round(30 * difficultyConfig.ZOMBIE_HP_MULTIPLIER);
-            this.maxHp = this.hp;
-            this.attack = Math.round(15 * difficultyConfig.ZOMBIE_ATTACK_MULTIPLIER);
-            this.moveSpeed = baseConfig.moveSpeed;
-            // 🔴 修复：攻击范围 = 两个半径 + 10%缓冲距离
-            var baseAttackRange = zombieTypeConfig.ATTACK_RANGE;        // 从配置读取：40px
-            this.attackRange = baseAttackRange + (this.radius || 16) + 16 + Math.round(baseAttackRange * 0.1); // 僵尸半径 + 人物半径 + 10%缓冲
-            this.detectionRange = zombieTypeConfig.DETECTION_RANGE;  // 从配置读取：200px
-            this.mainCharacterDetectionRange = baseConfig.mainCharacterDetectionRange;
-            this.icon = baseConfig.icon;
-            this.color = '#8B4513';
-            this.size = objectSizes.SKINNY.WIDTH;
-            this.width = objectSizes.SKINNY.WIDTH;
-            this.height = objectSizes.SKINNY.HEIGHT;
-            this.radius = this.width / 2; // 碰撞半径（宽度的一半）
-            break;
-
-        case ZOMBIE_TYPE.FAT:
-            this.hp = Math.round(60 * difficultyConfig.ZOMBIE_HP_MULTIPLIER);
-            this.maxHp = this.hp;
-            this.attack = Math.round(25 * difficultyConfig.ZOMBIE_ATTACK_MULTIPLIER);
-            this.moveSpeed = baseConfig.moveSpeed;
-            // 🔴 修复：攻击范围 = 两个半径 + 10%缓冲距离
-            var baseAttackRange = zombieTypeConfig.ATTACK_RANGE;        // 从配置读取：50px
-            this.attackRange = baseAttackRange + (this.radius || 24) + 16 + Math.round(baseAttackRange * 0.1); // 僵尸半径 + 人物半径 + 10%缓冲
-            this.detectionRange = zombieTypeConfig.DETECTION_RANGE;  // 从配置读取：200px
-            this.mainCharacterDetectionRange = baseConfig.mainCharacterDetectionRange;
-            this.icon = baseConfig.icon;
-            this.color = '#654321';
-            this.size = objectSizes.FAT.WIDTH;
-            this.width = objectSizes.FAT.WIDTH;
-            this.height = objectSizes.FAT.HEIGHT;
-            this.radius = this.width / 2; // 碰撞半径（宽度的一半）
-            break;
-
-        case ZOMBIE_TYPE.BOSS:
-            this.hp = Math.round(200 * difficultyConfig.ZOMBIE_HP_MULTIPLIER);
-            this.maxHp = this.hp;
-            this.attack = Math.round(50 * difficultyConfig.ZOMBIE_ATTACK_MULTIPLIER);
-            this.moveSpeed = baseConfig.moveSpeed;
-            // 🔴 修复：攻击范围 = 两个半径 + 10%缓冲距离
-            var baseAttackRange = zombieTypeConfig.ATTACK_RANGE;        // 从配置读取：80px
-            this.attackRange = baseAttackRange + (this.radius || 24) + 16 + Math.round(baseAttackRange * 0.1); // 僵尸半径 + 人物半径 + 10%缓冲
-            this.detectionRange = zombieTypeConfig.DETECTION_RANGE;  // 从配置读取：300px
-            this.mainCharacterDetectionRange = baseConfig.mainCharacterDetectionRange;
-            this.icon = baseConfig.icon;
-            this.color = '#8B0000';
-            this.size = objectSizes.BOSS.WIDTH;
-            this.width = objectSizes.BOSS.WIDTH;
-            this.height = objectSizes.BOSS.HEIGHT;
-            this.radius = this.width / 2; // 碰撞半径（宽度的一半）
-            break;
-
-        case ZOMBIE_TYPE.FAST:
-            this.hp = Math.round(20 * difficultyConfig.ZOMBIE_HP_MULTIPLIER);
-            this.maxHp = this.hp;
-            this.attack = Math.round(10 * difficultyConfig.ZOMBIE_ATTACK_MULTIPLIER);
-            this.moveSpeed = baseConfig.moveSpeed;
-            // 🔴 修复：攻击范围 = 两个半径 + 10%缓冲距离
-            var baseAttackRange = zombieTypeConfig.ATTACK_RANGE;        // 从配置读取：30px
-            this.attackRange = baseAttackRange + (this.radius || 16) + 16 + Math.round(baseAttackRange * 0.1); // 僵尸半径 + 人物半径 + 10%缓冲
-            this.detectionRange = zombieTypeConfig.DETECTION_RANGE;  // 从配置读取：250px
-            this.mainCharacterDetectionRange = baseConfig.mainCharacterDetectionRange;
-            this.icon = baseConfig.icon;
-            this.color = '#228B22';
-            this.size = objectSizes.FAST.WIDTH;
-            this.width = objectSizes.FAST.WIDTH;
-            this.height = objectSizes.FAST.HEIGHT;
-            this.radius = this.width / 2; // 碰撞半径（宽度的一半）
-            break;
-
-        case ZOMBIE_TYPE.TANK:
-            this.hp = Math.round(150 * difficultyConfig.ZOMBIE_HP_MULTIPLIER);
-            this.maxHp = this.hp;
-            this.attack = Math.round(35 * difficultyConfig.ZOMBIE_ATTACK_MULTIPLIER);
-            this.moveSpeed = baseConfig.moveSpeed;
-            // 🔴 修复：攻击范围 = 两个半径 + 10%缓冲距离
-            var baseAttackRange = zombieTypeConfig.ATTACK_RANGE;        // 从配置读取：60px
-            this.attackRange = baseAttackRange + (this.radius || 24) + 16 + Math.round(baseAttackRange * 0.1); // 僵尸半径 + 人物半径 + 10%缓冲
-            this.detectionRange = zombieTypeConfig.DETECTION_RANGE;  // 从配置读取：150px
-            this.mainCharacterDetectionRange = baseConfig.mainCharacterDetectionRange;
-            this.icon = baseConfig.icon;
-            this.color = '#2F4F4F';
-            this.size = objectSizes.TANK.WIDTH;
-            this.width = objectSizes.TANK.WIDTH;
-            this.height = objectSizes.TANK.HEIGHT;
-            this.radius = this.width / 2; // 碰撞半径（宽度的一半）
-            break;
-
-        default:
-            this.hp = Math.round(40 * difficultyConfig.ZOMBIE_HP_MULTIPLIER);
-            this.maxHp = this.hp;
-            this.attack = Math.round(20 * difficultyConfig.ZOMBIE_ATTACK_MULTIPLIER);
-            this.moveSpeed = baseConfig.moveSpeed;
-            // 🔴 修复：攻击范围 = 两个半径 + 10%缓冲距离
-            var baseAttackRange = zombieTypeConfig.ATTACK_RANGE;        // 从配置读取：45px
-            this.attackRange = baseAttackRange + (this.radius || 16) + 16 + Math.round(baseAttackRange * 0.1); // 僵尸半径 + 人物半径 + 10%缓冲
-            this.detectionRange = zombieTypeConfig.DETECTION_RANGE;  // 从配置读取：200px
-            this.mainCharacterDetectionRange = baseConfig.mainCharacterDetectionRange;
-            this.icon = baseConfig.icon;
-            this.color = '#696969';
-            this.size = objectSizes.DEFAULT.WIDTH;
-            this.width = objectSizes.DEFAULT.WIDTH;
-            this.height = objectSizes.DEFAULT.HEIGHT;
-            this.radius = this.width / 2; // 碰撞半径（宽度的一半）
-    }
+    // 应用难度系数
+    this.hp = Math.round(config.hp * difficultyConfig.ZOMBIE_HP_MULTIPLIER);
+    this.maxHp = this.hp;
+    this.attack = Math.round(config.attack * difficultyConfig.ZOMBIE_ATTACK_MULTIPLIER);
+    
+    // 基础属性
+    this.size = config.size;
+    this.width = config.size;
+    this.height = config.size;
+    this.radius = this.size / 2;
+    this.color = config.color;
+    this.icon = '🧟‍♂️';
+    
+    // 移动和检测
+    var movementConfig = ConfigManager.get('MOVEMENT');
+    this.moveSpeed = movementConfig.ZOMBIE_MOVE_SPEED;
+    this.currentMoveSpeed = this.moveSpeed;
+    
+    // 攻击和检测范围
+    this.attackRange = config.attackRange + this.radius + 16 + Math.round(config.attackRange * 0.1);
+    this.detectionRange = config.detectionRange;
+    
+    var detectionConfig = ConfigManager.get('DETECTION');
+    this.mainCharacterDetectionRange = detectionConfig.MAIN_CHARACTER_DETECTION;
 };
 
-// 🔴 优化：统一的僵尸更新方法（合并update和updateAI）
-Zombie.prototype.update = function (deltaTime, characters, currentFrame = 0) {
-    // 验证僵尸基本状态
-    if (!this.hp || this.hp <= 0) {
+// 统一的僵尸更新方法
+Zombie.prototype.update = function(deltaTime, characters, currentFrame = 0) {
+    // 检查死亡状态
+    if (this.hp <= 0) {
         if (this.state !== ZOMBIE_STATE.DEAD) {
             this.state = ZOMBIE_STATE.DEAD;
             this.onEnterDead();
         }
         return false;
     }
-
-    // 验证僵尸坐标
-    var mathUtils = UtilsManager.getMathUtils();
-    if (!mathUtils.isValidNumber(this.x) || !mathUtils.isValidNumber(this.y)) {
-        return false;
-    }
-
-    // 🔴 高性能管理：活性范围检查
+    
+    // 活性检查
     if (characters && characters.length > 0) {
         var mainCharacter = characters.find(c => c.role === 1);
-        if (mainCharacter) {
-            if (!this.updateActivationStatus(mainCharacter.x, mainCharacter.y, currentFrame)) {
-                return false; // 不需要更新
-            }
+        if (mainCharacter && !this.updateActivationStatus(mainCharacter.x, mainCharacter.y)) {
+            return false;
         }
     }
-
-    // 性能优化：使用帧间隔更新，减少CPU负载 - 但确保独立行为
+    
+    // 帧间隔更新
     if (!this._updateFrame) this._updateFrame = 0;
     this._updateFrame++;
-
-    // 根据僵尸类型和状态决定更新频率 - 减少间隔，提高响应性
-    var updateInterval = this.getUpdateInterval();
-    if (this._updateFrame % updateInterval !== 0) {
-        // 跳过这一帧的更新，只更新动画
+    
+    if (this._updateFrame % this.updateInterval !== 0) {
         this.updateAnimation(deltaTime);
         return false;
     }
-
-    // 更新白天/夜晚状态
-    this.updateDayNightState();
-
-    // 寻找目标（使用优化的检测逻辑）
+    
+    // 寻找目标
     this.findTarget(characters);
-
-    // 根据状态执行相应行为
+    
+    // 执行状态行为
     switch (this.state) {
         case ZOMBIE_STATE.CHASING:
             this.chaseTarget(deltaTime);
@@ -289,1282 +156,567 @@ Zombie.prototype.update = function (deltaTime, characters, currentFrame = 0) {
         case ZOMBIE_STATE.DEAD:
             this.updateDead(deltaTime);
             break;
-        default:
-            this.state = ZOMBIE_STATE.IDLE;
-            break;
     }
-
-    // 更新动画
-    this.updateAnimation(deltaTime);
     
-    return true; // 已更新
+    this.updateAnimation(deltaTime);
+    return true;
 };
 
-// 获取僵尸更新间隔（性能优化）
-Zombie.prototype.getUpdateInterval = function () {
-    // 🔴 修复：使用正确的僵尸类型枚举，确保所有僵尸都能连续移动
-    switch (this.zombieType) {
-        case ZOMBIE_TYPE.FAST:
-            return 1; // 快速僵尸每帧更新
-        case ZOMBIE_TYPE.BOSS:
-            return 1; // Boss僵尸每帧更新（提高响应性）
-        case ZOMBIE_TYPE.TANK:
-            return 1; // 🔴 修复：坦克僵尸也每帧更新，避免卡住
-        default:
-            return 1; // 其他僵尸每帧更新（提高响应性）
-    }
-};
-
-// 更新白天/夜晚状态
-Zombie.prototype.updateDayNightState = function () {
-    // 检查游戏时间系统
-    if (window.gameEngine && window.gameEngine.getTimeInfo) {
-        var timeInfo = window.gameEngine.getTimeInfo();
-        if (timeInfo) {
-            this.isDay = timeInfo.isDay;
-
-            // 根据白天/夜晚调整移动速度
-            if (this.isDay) {
-                this.currentMoveSpeed = this.moveSpeed; // 白天正常速度
-            } else {
-                this.currentMoveSpeed = this.moveSpeed * (movementConfig.NIGHT_SPEED_MULTIPLIER || 1.67); // 从配置读取夜晚速度倍数
-            }
-        }
-    } else {
-        this.currentMoveSpeed = this.moveSpeed; // 默认速度
-    }
+// 获取更新间隔
+Zombie.prototype.getUpdateInterval = function() {
+    return 1; // 所有僵尸每帧更新，提高响应性
 };
 
 // 进入死亡状态
-Zombie.prototype.onEnterDead = function () {
-    this.deathAnimationTime = 0; // 死亡动画计时器
-    this.deathAnimationDuration = animationConfig.DEATH_ANIMATION_DURATION || 2.0; // 从配置读取死亡动画持续时间
-
-    // 停止移动
+Zombie.prototype.onEnterDead = function() {
+    this.deathAnimationTime = 0;
+    this.deathAnimationDuration = 2.0;
     this.isMoving = false;
     this.targetCharacter = null;
-
-    // 概率掉落资源
-    this.dropResources();
-
-
 };
 
 // 更新死亡状态
-Zombie.prototype.updateDead = function (deltaTime) {
+Zombie.prototype.updateDead = function(deltaTime) {
     this.deathAnimationTime += deltaTime;
-
-    // 死亡动画持续2秒后销毁
     if (this.deathAnimationTime >= this.deathAnimationDuration) {
-
         this.destroy();
     }
 };
 
-// 概率掉落资源
-Zombie.prototype.dropResources = function () {
-    var dropChance = 0.3; // 30%概率掉落资源
-
-    if (Math.random() < dropChance) {
-        var resourceType = Math.random() < 0.6 ? 'food' : 'health'; // 60%概率口粮，40%概率血包
-
-        // 创建资源对象（这里只是标记，实际资源管理需要单独的系统）
-        this.droppedResource = {
-            type: resourceType, x: this.x, y: this.y, value: resourceType === 'food' ? 1 : 20 // 口粮+1，血包+20
-        };
-
-
-    }
-};
-
 // 销毁僵尸
-Zombie.prototype.destroy = function () {
-
-
-    // 从四叉树中移除
+Zombie.prototype.destroy = function() {
     if (window.collisionSystem && window.collisionSystem.destroyZombieObject) {
         window.collisionSystem.destroyZombieObject(this);
     }
-
-    // 标记为已销毁
     this._destroyed = true;
 };
 
-// 寻找目标 - 使用工具类
-Zombie.prototype.findTarget = function (characters) {
-    // 首先检查当前目标是否仍然有效
+// 寻找目标
+Zombie.prototype.findTarget = function(characters) {
     if (!this.isTargetValid()) {
-        // 目标无效，寻找新的目标
         this.findNearestEnemy();
     }
-
-    // 如果没有目标，尝试寻找新目标
-    if (!this.targetCharacter) {
-        this.findNearestEnemy();
-    }
-
-    // 根据目标距离决定状态
+    
     if (this.targetCharacter) {
-        var mathUtils = UtilsManager.getMathUtils();
-        var distance = mathUtils.distance(this.x, this.y, this.targetCharacter.x, this.targetCharacter.y);
-
+        var distance = this.getDistanceTo(this.targetCharacter.x, this.targetCharacter.y);
+        
         if (distance <= this.attackRange) {
-            // 在攻击范围内，切换到攻击状态
-            if (this.state !== ZOMBIE_STATE.ATTACKING) {
-                this.state = ZOMBIE_STATE.ATTACKING;
-            }
+            this.state = ZOMBIE_STATE.ATTACKING;
         } else if (distance <= this.detectionRange) {
-            // 在检测范围内，切换到追逐状态
-            if (this.state !== ZOMBIE_STATE.CHASING) {
-                this.state = ZOMBIE_STATE.CHASING;
-            }
+            this.state = ZOMBIE_STATE.CHASING;
         } else {
-            // 超出检测范围，切换到待机状态
-            if (this.state !== ZOMBIE_STATE.IDLE) {
-                this.state = ZOMBIE_STATE.IDLE;
-            }
-        }
-    } else {
-        // 没有目标，切换到待机状态
-        if (this.state !== ZOMBIE_STATE.IDLE) {
             this.state = ZOMBIE_STATE.IDLE;
         }
+    } else {
+        this.state = ZOMBIE_STATE.IDLE;
     }
 };
 
-// 追击目标 - 使用工具类
-Zombie.prototype.chaseTarget = function (deltaTime) {
-    // 检查目标是否仍然有效
+// 追击目标
+Zombie.prototype.chaseTarget = function(deltaTime) {
     if (!this.isTargetValid()) {
-        // 目标无效，重新寻找目标
         this.findNearestEnemy();
-
         if (!this.targetCharacter) {
             this.state = ZOMBIE_STATE.IDLE;
             return;
         }
     }
-
-    // 更新目标位置
+    
     this.targetX = this.targetCharacter.x;
     this.targetY = this.targetCharacter.y;
-
-    var mathUtils = UtilsManager.getMathUtils();
-    var distance = mathUtils.distance(this.x, this.y, this.targetCharacter.x, this.targetCharacter.y);
-
+    
+    var distance = this.getDistanceTo(this.targetCharacter.x, this.targetCharacter.y);
+    
     if (distance <= this.attackRange) {
-        // 进入攻击范围，切换到攻击状态
         this.state = ZOMBIE_STATE.ATTACKING;
         return;
     }
-
+    
     if (distance > this.detectionRange) {
-        // 超出检测范围，切换到待机状态
-                    this.state = ZOMBIE_STATE.IDLE;
+        this.state = ZOMBIE_STATE.IDLE;
         return;
     }
-
-    // 继续追逐目标
+    
     this.moveTowards(this.targetX, this.targetY, deltaTime);
 };
 
 // 攻击目标
-Zombie.prototype.attackTarget = function (deltaTime) {
-    // 检查目标是否仍然有效
+Zombie.prototype.attackTarget = function(deltaTime) {
     if (!this.isTargetValid()) {
-        // 目标无效，重新寻找目标
         this.findNearestEnemy();
-
         if (!this.targetCharacter) {
             this.state = ZOMBIE_STATE.IDLE;
             return;
         }
     }
-
-    // 检查目标是否还在攻击范围内
-    var mathUtils = UtilsManager.getMathUtils();
-    var distance = mathUtils.distance(this.x, this.y, this.targetCharacter.x, this.targetCharacter.y);
-
+    
+    var distance = this.getDistanceTo(this.targetCharacter.x, this.targetCharacter.y);
+    
     if (distance > this.attackRange) {
-        // 目标超出攻击范围，切换到追击状态
         this.state = ZOMBIE_STATE.CHASING;
         return;
     }
-
-    // 执行攻击
+    
     var currentTime = Date.now();
     if (currentTime - this.lastAttackTime >= this.attackCooldown) {
-        // 对目标造成伤害
         this.targetCharacter.takeDamage(this.attack);
         this.lastAttackTime = currentTime;
-
-        console.log('僵尸攻击成功:', this.id, '目标:', this.targetCharacter.role === 1 ? '主人物' : '伙伴', '伤害:', this.attack, '距离:', distance.toFixed(2));
-
-        // 播放攻击动画
-        this.playAttackAnimation();
     }
 };
 
-// 播放攻击动画
-Zombie.prototype.playAttackAnimation = function () {
-    // 设置攻击动画帧
-    this.animationFrame = 0;
-    this.animationSpeed = animationConfig.ZOMBIE_ATTACK_ANIMATION_SPEED || 0.4; // 从配置读取僵尸攻击动画速度
-
-    console.log('僵尸播放攻击动画:', this.zombieType, this.id);
-};
-
-// 向目标移动 - 使用工具类
-Zombie.prototype.moveTowards = function (targetX, targetY, deltaTime) {
-    var mathUtils = UtilsManager.getMathUtils();
-    var movementUtils = UtilsManager.getMovementUtils();
-    var collisionConfig = ConfigManager.get('COLLISION');
-
-    // 验证输入参数
-    if (!mathUtils.isValidNumber(targetX) || !mathUtils.isValidNumber(targetY) || !mathUtils.isValidNumber(deltaTime) || !mathUtils.isValidNumber(this.x) || !mathUtils.isValidNumber(this.y)) {
-
-        return;
-    }
-
-    // 计算到目标的距离
-    var distanceToTarget = mathUtils.distance(this.x, this.y, targetX, targetY);
-
-    // 如果距离目标很近（攻击范围内），停止移动
+// 向目标移动
+Zombie.prototype.moveTowards = function(targetX, targetY, deltaTime) {
+    var distanceToTarget = this.getDistanceTo(targetX, targetY);
+    
     if (distanceToTarget <= this.attackRange) {
         this.state = ZOMBIE_STATE.ATTACKING;
         return;
     }
-
-    // 计算移动方向（始终朝向目标）
-    this.direction = mathUtils.angle(this.x, this.y, targetX, targetY);
-
-    // 使用当前移动速度（考虑白天/夜晚）
-    var currentSpeed = this.currentMoveSpeed || this.moveSpeed;
-
-    // 计算移动向量
-    var moveVector = movementUtils.calculateMoveVector(this.x, this.y, targetX, targetY, currentSpeed, deltaTime);
-
-    // 验证移动向量
-    if (!moveVector || !mathUtils.isValidNumber(moveVector.x) || !mathUtils.isValidNumber(moveVector.y)) {
-
-        return;
-    }
-
-    if (moveVector.distance > 0) {
-
-
-        // 获取所有僵尸和人物列表（排除自己）
-        var allZombies = [];
-        var allCharacters = [];
-
-        if (window.zombieManager && window.zombieManager.getAllZombies) {
-            allZombies = window.zombieManager.getAllZombies().filter(z => z.hp > 0 && z.id !== this.id);
-        }
-
-        if (window.characterManager && window.characterManager.getAllCharacters) {
-            allCharacters = window.characterManager.getAllCharacters();
-        }
-
-        // 尝试移动到目标位置，如果失败则寻找替代位置
-        var finalPosition = this.tryMoveToPosition(this.x, this.y, this.x + moveVector.x, this.y + moveVector.y, targetX, targetY, allZombies, allCharacters);
-
+    
+    this.direction = Math.atan2(targetY - this.y, targetX - this.x);
+    var moveDistance = this.currentMoveSpeed * deltaTime;
+    
+    if (moveDistance > 0) {
+        var newX = this.x + Math.cos(this.direction) * moveDistance;
+        var newY = this.y + Math.sin(this.direction) * moveDistance;
+        
+        // 检查碰撞
+        var finalPosition = this.checkCollision(this.x, this.y, newX, newY);
         if (finalPosition) {
             var oldX = this.x, oldY = this.y;
             this.x = finalPosition.x;
             this.y = finalPosition.y;
-
-            // 通过四叉树更新位置
-            if (window.collisionSystem && window.collisionSystem.updateZombiePosition) {
-                window.collisionSystem.updateZombiePosition(this, oldX, oldY, this.x, this.y);
-            } else if (window.collisionSystem && window.collisionSystem.updateDynamicObjectPosition) {
-                // 兼容旧版本
+            
+            // 更新四叉树位置
+            if (window.collisionSystem && window.collisionSystem.updateDynamicObjectPosition) {
                 window.collisionSystem.updateDynamicObjectPosition(this, oldX, oldY, this.x, this.y);
             }
-
-
+            
             this.state = ZOMBIE_STATE.WALKING;
-        } else {
-            // 无法移动，尝试绕行
-
-            this.tryCircumventObstacle(targetX, targetY, allZombies, allCharacters);
         }
     }
 };
 
-// 尝试移动到指定位置
-Zombie.prototype.tryMoveToPosition = function (fromX, fromY, toX, toY, targetX, targetY, allZombies, allCharacters) {
+// 检查碰撞
+Zombie.prototype.checkCollision = function(fromX, fromY, toX, toY) {
     if (!window.collisionSystem) {
         return {x: toX, y: toY};
     }
-
-    // 首先检查建筑物碰撞
+    
     var buildingSafePos = window.collisionSystem.getCircleSafeMovePosition(fromX, fromY, toX, toY, this.radius);
-
-    if (!buildingSafePos) {
-        return null; // 建筑物碰撞无法解决
-    }
-
-    // 直接返回建筑物安全位置
-    return buildingSafePos;
+    return buildingSafePos || {x: fromX, y: fromY};
 };
 
-// 尝试绕行障碍物
-Zombie.prototype.tryCircumventObstacle = function (targetX, targetY, allZombies, allCharacters) {
-    // 计算到目标的方向
-    var deltaX = targetX - this.x;
-    var deltaY = targetY - this.y;
-    var distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-
-    if (distance === 0) return;
-
-    // 尝试多个角度的绕行路径
-    var angles = [45, -45, 90, -90, 135, -135]; // 6个绕行角度
-    var searchRadius = Math.min(distance * 0.3, 100); // 绕行半径
-
-    for (var i = 0; i < angles.length; i++) {
-        var angle = (angles[i] * Math.PI) / 180; // 转换为弧度
-        var offsetX = this.x + Math.cos(angle) * searchRadius;
-        var offsetY = this.y + Math.sin(angle) * searchRadius;
-
-        // 检查绕行位置是否安全（只检查建筑物）
-        if (this.isPositionSafe(offsetX, offsetY, allZombies, allCharacters)) {
-            // 尝试从绕行位置到目标
-            var pathToTarget = this.tryMoveToPosition(offsetX, offsetY, targetX, targetY, targetX, targetY, allZombies, allCharacters);
-
-            if (pathToTarget && pathToTarget.x !== offsetX && pathToTarget.y !== offsetY) {
-                // 绕行成功，移动到绕行位置
-                var oldX = this.x, oldY = this.y;
-                this.x = offsetX;
-                this.y = offsetY;
-
-                // 通过四叉树更新位置
-                if (window.collisionSystem && window.collisionSystem.updateZombiePosition) {
-                    window.collisionSystem.updateZombiePosition(this, oldX, oldY, this.x, this.y);
-                } else if (window.collisionSystem && window.collisionSystem.updateDynamicObjectPosition) {
-                    // 兼容旧版本
-                    window.collisionSystem.updateDynamicObjectPosition(this, oldX, oldY, this.x, this.y);
-                }
-
-                console.log('僵尸绕行成功:', this.zombieType, '绕行位置:', offsetX.toFixed(2), offsetY.toFixed(2));
-                this.state = ZOMBIE_STATE.WALKING;
-                return;
-            }
-        }
-    }
-
-    console.log('僵尸无法绕行，保持静止');
-};
-
-
-// 检查位置是否安全（只检查建筑物）
-Zombie.prototype.isPositionSafe = function (x, y, allZombies, allCharacters) {
-    if (!window.collisionSystem) return true;
-
-    // 检查建筑物碰撞
-    if (window.collisionSystem.isCircleCollidingWithBuildings) {
-        if (window.collisionSystem.isCircleCollidingWithBuildings(x, y, this.radius)) {
-            return false;
-        }
-    }
-
-    return true;
-};
-
-// 待机行为 - 使用工具类
-Zombie.prototype.idleBehavior = function (deltaTime) {
-    var mathUtils = UtilsManager.getMathUtils();
-    var collisionConfig = ConfigManager.get('COLLISION');
+// 待机行为
+Zombie.prototype.idleBehavior = function(deltaTime) {
     var detectionConfig = ConfigManager.get('DETECTION');
-
-    // 从配置文件读取主人物优先检测范围（最高优先级）
     var mainCharacterPriorityRange = detectionConfig.SPECIAL_DETECTION.MAIN_CHARACTER_PRIORITY_RANGE;
-
-    // 检查是否在主人物优先检测范围内（优先检测）
+    
+    // 检查主人物
     if (window.characterManager && window.characterManager.getAllCharacters) {
         var allCharacters = window.characterManager.getAllCharacters();
         var mainCharacter = allCharacters.find(c => c.role === 1 && c.hp > 0);
-
+        
         if (mainCharacter) {
-            // 验证主人物坐标
-            if (!mathUtils.isValidNumber(mainCharacter.x) || !mathUtils.isValidNumber(mainCharacter.y)) {
-                console.error('待机检测中主人物坐标无效:', mainCharacter.x, mainCharacter.y);
-                return;
-            }
-
-            var distance = mathUtils.distance(this.x, this.y, mainCharacter.x, mainCharacter.y);
+            var distance = this.getDistanceTo(mainCharacter.x, mainCharacter.y);
             if (distance <= mainCharacterPriorityRange) {
-                // 发现主人物，开始追逐
                 this.targetCharacter = mainCharacter;
                 this.targetX = mainCharacter.x;
                 this.targetY = mainCharacter.y;
                 this.state = ZOMBIE_STATE.CHASING;
-                console.log('僵尸待机中发现主人物，开始追逐，距离:', distance, 'px，优先检测范围:', mainCharacterPriorityRange, 'px，目标位置:', this.targetX, this.targetY);
                 return;
             }
         }
     }
-
-    // 随机游荡（模拟"徘徊"）
-    var detectionFrequency = detectionConfig.BEHAVIOR.DETECTION_FREQUENCY;
-    if (Math.random() < detectionFrequency) { // 从配置读取检测频率
-        this.direction = Math.random() * Math.PI * 2;
-        var targetDistance = 50 + Math.random() * 100; // 50-150px随机距离
-        this.targetX = this.x + Math.cos(this.direction) * targetDistance;
-        this.targetY = this.y + Math.sin(this.direction) * targetDistance;
-
-        // 检查目标位置是否安全（不在建筑物内）
-        if (window.collisionSystem) {
-            var allZombies = [];
-            var allCharacters = [];
-
-            if (window.zombieManager && window.zombieManager.getAllZombies) {
-                allZombies = window.zombieManager.getAllZombies().filter(z => z.hp > 0 && z.id !== this.id);
-            }
-
-            if (window.characterManager && window.characterManager.getAllCharacters) {
-                allCharacters = window.characterManager.getAllCharacters();
-            }
-
-            // 使用新的专门优化方法检查目标位置是否安全
-            var buildingCollision = window.collisionSystem.isCircleCollidingWithBuildings && window.collisionSystem.isCircleCollidingWithBuildings(this.targetX, this.targetY, this.radius);
-
-            if (buildingCollision) {
-                console.log('僵尸目标位置不安全，重新计算路径');
-                this.calculateNewTarget();
-                return;
-            }
-        }
-
-        this.state = ZOMBIE_STATE.WALKING;
-        console.log('僵尸开始随机游荡，目标位置:', this.targetX, this.targetY);
-    }
-};
-
-// 计算新的游荡目标
-Zombie.prototype.calculateNewTarget = function () {
-    var attempts = 0;
-    var maxAttempts = 10;
-
-    while (attempts < maxAttempts) {
+    
+    // 随机游荡
+    if (Math.random() < 0.1) {
         this.direction = Math.random() * Math.PI * 2;
         var targetDistance = 50 + Math.random() * 100;
         this.targetX = this.x + Math.cos(this.direction) * targetDistance;
         this.targetY = this.y + Math.sin(this.direction) * targetDistance;
-
-        // 检查新位置是否安全
+        
         if (window.collisionSystem && window.collisionSystem.isCircleCollidingWithBuildings) {
-            if (!window.collisionSystem.isCircleCollidingWithBuildings(this.targetX, this.targetY, this.radius)) {
-                console.log('僵尸找到安全的游荡目标:', this.targetX, this.targetY);
+            if (window.collisionSystem.isCircleCollidingWithBuildings(this.targetX, this.targetY, this.radius)) {
+                this.targetX = this.x;
+                this.targetY = this.y;
                 return;
             }
-        } else {
-            // 如果无法检查碰撞，直接使用
-            return;
         }
-
-        attempts++;
+        
+        this.state = ZOMBIE_STATE.WALKING;
     }
-
-    // 如果找不到安全位置，保持当前位置
-    this.targetX = this.x;
-    this.targetY = this.y;
-    console.log('僵尸无法找到安全的游荡目标，保持当前位置');
 };
 
-// 更新动画 - 使用工具类
-Zombie.prototype.updateAnimation = function (deltaTime) {
-    var animationUtils = UtilsManager.getAnimationUtils();
-    var animationConfig = ConfigManager.get('ANIMATION');
-
+// 更新动画
+Zombie.prototype.updateAnimation = function(deltaTime) {
     if (this.state === ZOMBIE_STATE.WALKING || this.state === ZOMBIE_STATE.CHASING) {
-        this.animationFrame = animationUtils.updateFrame(this.animationFrame, this.animationSpeed * deltaTime, animationConfig.MAX_ANIMATION_FRAMES);
+        var animationConfig = ConfigManager.get('ANIMATION');
+        this.animationFrame += this.animationSpeed * deltaTime;
+        if (this.animationFrame >= animationConfig.MAX_ANIMATION_FRAMES) {
+            this.animationFrame = 0;
+        }
     }
 };
 
 // 受到伤害
-Zombie.prototype.takeDamage = function (damage) {
-    var validationUtils = UtilsManager.getValidationUtils();
-
-    // 验证伤害值
-    if (!validationUtils.validateRange(damage, 0, 1000, '伤害值')) {
-        console.warn('无效的伤害值:', damage);
-        return this.hp;
-    }
-
-    // 检查僵尸是否已经死亡
-    if (this.hp <= 0) {
-
-        return this.hp;
-    }
-
-    // 记录受伤前的状态
-    var oldHp = this.hp;
+Zombie.prototype.takeDamage = function(damage) {
+    if (this.hp <= 0) return this.hp;
+    
     var oldState = this.state;
-
-    // 应用伤害
     this.hp -= damage;
     if (this.hp < 0) this.hp = 0;
-
-    console.log('僵尸受伤:', this.zombieType, this.id, 'hp:', oldHp, '->', this.hp, '伤害:', damage);
-
-    // 如果僵尸死亡，设置状态为死亡
+    
     if (this.hp <= 0) {
         this.state = ZOMBIE_STATE.DEAD;
-        
         return this.hp;
     }
-
+    
     // 受伤时短暂停止移动
     if (this.state === ZOMBIE_STATE.WALKING || this.state === ZOMBIE_STATE.CHASING) {
         this.state = ZOMBIE_STATE.IDLE;
-        console.log('僵尸受伤停止移动:', this.zombieType, this.id, '状态:', oldState, '->', this.state);
-
-        // 同步恢复移动状态
-        if (this && this.hp > 0 && this.state !== ZOMBIE_STATE.DEAD) {
-            this.state = ZOMBIE_STATE.CHASING;
-            console.log('僵尸恢复移动:', this.zombieType, this.id, '状态:', this.state);
-        } else {
-            console.log('僵尸无法恢复移动:', this.zombieType, this.id, 'hp:', this.hp, 'state:', this.state);
-        }
+        
+        // 延迟恢复移动
+        setTimeout(() => {
+            if (this.hp > 0 && this.state !== ZOMBIE_STATE.DEAD) {
+                this.state = ZOMBIE_STATE.CHASING;
+            }
+        }, 500);
     }
-
+    
     return this.hp;
 };
 
-
-// 渲染僵尸
-Zombie.prototype.render = function (ctx, cameraX, cameraY) {
-    if (this.hp <= 0) {
-        // 死亡状态：只渲染死亡动画和资源掉落
-        this.renderDead(ctx, cameraX, cameraY);
-        return;
-    }
-
-    // 计算屏幕坐标
-    var screenX = ctx.canvas.width / 2 + (this.x - cameraX) * 0.6;
-    var screenY = ctx.canvas.height / 2 + (this.y - cameraY) * 0.6;
-
-    // 检查是否在屏幕范围内
-    if (screenX < -100 || screenX > ctx.canvas.width + 100 || screenY < -100 || screenY > ctx.canvas.height + 100) {
-        return;
-    }
-
-    // 绘制阴影 - 改为椭圆形阴影
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
-    ctx.beginPath();
-    ctx.ellipse(screenX, screenY + this.size / 2 + 3, this.size / 2, 3, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // 绘制僵尸主体（圆形设计）
-    var bodyY = screenY - this.size / 2;
-
-    // 身体 - 改为圆形
-    ctx.fillStyle = this.color;
-    ctx.beginPath();
-    ctx.arc(screenX, bodyY + this.size / 2, this.size / 2, 0, Math.PI * 2);
-    ctx.fill();
-
-    // 头部 - 改为圆形
-    ctx.fillStyle = '#654321';
-    ctx.beginPath();
-    ctx.arc(screenX, bodyY + this.size / 6, this.size / 3, 0, Math.PI * 2);
-    ctx.fill();
-
-    // 绘制图标
-    ctx.font = Math.floor(this.size / 2) + 'px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#000';
-    ctx.fillText(this.icon, screenX, bodyY + this.size / 2);
-
-    // 绘制血条
-    this.drawHealthBar(ctx, screenX, bodyY - 10);
-
-    // 绘制状态指示器
-    this.drawStateIndicator(ctx, screenX, bodyY - 7.5);
-
-    // 绘制白天/夜晚状态指示
-    this.drawDayNightIndicator(ctx, screenX, bodyY - 15);
-};
-
-// 渲染死亡状态的僵尸
-Zombie.prototype.renderDead = function (ctx, cameraX, cameraY) {
-    // 计算屏幕坐标
-    var screenX = ctx.canvas.width / 2 + (this.x - cameraX) * 0.6;
-    var screenY = ctx.canvas.height / 2 + (this.y - cameraY) * 0.6;
-
-    // 检查是否在屏幕范围内
-    if (screenX < -100 || screenX > ctx.canvas.width + 100 || screenY < -100 || screenY > ctx.canvas.height + 100) {
-        return;
-    }
-
-    // 死亡动画：逐渐变透明
-    var alpha = Math.max(0, 1 - (this.deathAnimationTime / this.deathAnimationDuration));
-    ctx.globalAlpha = alpha;
-
-    // 绘制死亡状态的僵尸（灰色）
-    var bodyY = screenY - this.size / 2;
-
-    // 身体 - 死亡状态为灰色
-    ctx.fillStyle = '#808080';
-    ctx.beginPath();
-    ctx.arc(screenX, bodyY + this.size / 2, this.size / 2, 0, Math.PI * 2);
-    ctx.fill();
-
-    // 头部 - 死亡状态为深灰色
-    ctx.fillStyle = '#404040';
-    ctx.beginPath();
-    ctx.arc(screenX, bodyY + this.size / 6, this.size / 3, 0, Math.PI * 2);
-    ctx.fill();
-
-    // 绘制死亡图标
-    ctx.font = Math.floor(this.size / 2) + 'px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#000';
-    ctx.fillText('💀', screenX, bodyY + this.size / 2);
-
-    // 恢复透明度
-    ctx.globalAlpha = 1.0;
-
-    // 渲染掉落的资源
-    if (this.droppedResource) {
-        this.renderDroppedResource(ctx, screenX, screenY);
-    }
-};
-
-// 渲染掉落的资源
-Zombie.prototype.renderDroppedResource = function (ctx, screenX, screenY) {
-    var resourceY = screenY + this.size + 10;
-
-    // 资源图标
-    var icon = this.droppedResource.type === 'food' ? '🍖' : '❤️';
-    var color = this.droppedResource.type === 'food' ? '#FFD700' : '#FF0000';
-
-    ctx.font = '16px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillStyle = color;
-    ctx.fillText(icon, screenX, resourceY);
-
-    // 资源价值
-    ctx.font = '12px Arial';
-    ctx.fillStyle = '#FFFFFF';
-    ctx.strokeStyle = '#000000';
-    ctx.lineWidth = 1;
-    ctx.strokeText('+' + this.droppedResource.value, screenX, resourceY + 15);
-    ctx.fillText('+' + this.droppedResource.value, screenX, resourceY + 15);
-};
-
-// 绘制状态指示器
-Zombie.prototype.drawStateIndicator = function (ctx, x, y) {
-    var indicatorSize = 4;
-
-    switch (this.state) {
-        case ZOMBIE_STATE.CHASING:
-            ctx.fillStyle = '#FF0000'; // 红色：追击
-            break;
-        case ZOMBIE_STATE.ATTACKING:
-            ctx.fillStyle = '#FF6600'; // 橙色：攻击
-            break;
-        case ZOMBIE_STATE.WALKING:
-            ctx.fillStyle = '#FFFF00'; // 黄色：移动
-            break;
-        case ZOMBIE_STATE.IDLE:
-            ctx.fillStyle = '#00FF00'; // 绿色：待机
-            break;
-        default:
-            ctx.fillStyle = '#FFFFFF'; // 白色：未知状态
-    }
-
-    ctx.beginPath();
-    ctx.arc(x, y, indicatorSize, 0, Math.PI * 2);
-    ctx.fill();
-
-    // 状态指示器边框
-    ctx.strokeStyle = '#000000';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-};
-
-// 绘制白天/夜晚状态指示
-Zombie.prototype.drawDayNightIndicator = function (ctx, x, y) {
-    if (this.isDay === undefined) return;
-    // 白天/夜晚状态指示器
-    var indicatorSize = 3;
-
-    if (this.isDay) {
-        // 白天：太阳图标
-        ctx.fillStyle = '#FFD700';
-        ctx.beginPath();
-        ctx.arc(x - 8, y, indicatorSize, 0, Math.PI * 2);
-        ctx.fill();
-
-        // 太阳光芒
-        ctx.strokeStyle = '#FFD700';
-        ctx.lineWidth = 1;
-        for (var i = 0; i < 8; i++) {
-            var angle = (i / 8) * Math.PI * 2;
-            var startX = x - 8 + Math.cos(angle) * (indicatorSize + 2);
-            var startY = y + Math.sin(angle) * (indicatorSize + 2);
-            var endX = x - 8 + Math.cos(angle) * (indicatorSize + 5);
-            var endY = y + Math.sin(angle) * (indicatorSize + 5);
-            ctx.beginPath();
-            ctx.moveTo(startX, startY);
-            ctx.lineTo(endX, endY);
-            ctx.stroke();
+// 寻找最近的敌人
+Zombie.prototype.findNearestEnemy = function() {
+    if (!window.characterManager) return;
+    
+    var allCharacters = window.characterManager.getAllCharacters().filter(c => c.hp > 0);
+    if (allCharacters.length === 0) return;
+    
+    var nearestEnemy = null;
+    var nearestDistance = Infinity;
+    
+    for (var i = 0; i < allCharacters.length; i++) {
+        var character = allCharacters[i];
+        var distance = this.getDistanceTo(character.x, character.y);
+        
+        var priority = character.role === 1 ? 0 : 1;
+        
+        if (distance <= this.detectionRange && 
+            (distance < nearestDistance || 
+             (distance === nearestDistance && priority < (nearestEnemy ? (nearestEnemy.role === 1 ? 0 : 1) : 1)))) {
+            nearestDistance = distance;
+            nearestEnemy = character;
         }
-    } else {
-        // 夜晚：月亮图标
-        ctx.fillStyle = '#C0C0C0';
-        ctx.beginPath();
-        ctx.arc(x - 8, y, indicatorSize, 0, Math.PI * 2);
-        ctx.fill();
-
-        // 月亮阴影
-        ctx.fillStyle = '#000000';
-        ctx.beginPath();
-        ctx.arc(x - 8 + 1, y - 1, indicatorSize - 1, 0, Math.PI * 2);
-        ctx.fill();
+    }
+    
+    if (this.targetCharacter !== nearestEnemy) {
+        this.targetCharacter = nearestEnemy;
+        if (this.targetCharacter) {
+            this.targetX = this.targetCharacter.x;
+            this.targetY = this.targetCharacter.y;
+        }
     }
 };
 
-// 绘制血条
-Zombie.prototype.drawHealthBar = function (ctx, x, y) {
-    var barWidth = this.size;
-    var barHeight = 4;
-    var healthPercent = this.hp / this.maxHp;
-
-    // 血条背景
-    ctx.fillStyle = '#FF0000';
-    ctx.fillRect(x - barWidth / 2, y, barWidth, barHeight);
-
-    // 血条
-    ctx.fillStyle = '#00FF00';
-    ctx.fillRect(x - barWidth / 2, y, barWidth * healthPercent, barHeight);
-
-    // 血条边框
-    ctx.strokeStyle = '#000000';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(x - barWidth / 2, y, barWidth, barHeight);
+// 检查目标是否有效
+Zombie.prototype.isTargetValid = function() {
+    if (!this.targetCharacter) return false;
+    
+    if (this.targetCharacter.hp <= 0) {
+        this.targetCharacter = null;
+        this.targetX = this.x;
+        this.targetY = this.y;
+        return false;
+    }
+    
+    var distance = this.getDistanceTo(this.targetCharacter.x, this.targetCharacter.y);
+    
+    if (distance > this.detectionRange) {
+        this.targetCharacter = null;
+        this.targetX = this.x;
+        this.targetY = this.y;
+        return false;
+    }
+    
+    this.targetX = this.targetCharacter.x;
+    this.targetY = this.targetCharacter.y;
+    return true;
 };
 
-// 僵尸管理器 - 重构版本：只负责游戏逻辑，四叉树负责对象管理
+// 更新活性状态
+Zombie.prototype.updateActivationStatus = function(playerX, playerY) {
+    var distance = this.getDistanceTo(playerX, playerY);
+    this.isActive = distance <= 1200;
+    
+    if (this.isActive) {
+        this.updateInterval = 1;
+        if (this.state === ZOMBIE_STATE.IDLE && this.targetCharacter) {
+            this.state = ZOMBIE_STATE.CHASING;
+        }
+        return true;
+    } else {
+        this.updateInterval = 5;
+        return false;
+    }
+};
+
+// 工具方法
+Zombie.prototype.getDistanceTo = function(targetX, targetY) {
+    var dx = this.x - targetX;
+    var dy = this.y - targetY;
+    return Math.sqrt(dx * dx + dy * dy);
+};
+
+// 僵尸管理器
 var ZombieManager = {
-    maxZombies: ConfigManager.get('PERFORMANCE.MAX_ZOMBIES'), difficulty: 1,
-
-    // 创建僵尸 - 通过四叉树管理
-    createZombie: function (type, x, y) {
-        var validationUtils = UtilsManager.getValidationUtils();
-        var performanceUtils = UtilsManager.getPerformanceUtils();
-
-        // 检查四叉树中的僵尸数量
+    maxZombies: ConfigManager.get('PERFORMANCE.MAX_ZOMBIES'),
+    
+    // 创建僵尸
+    createZombie: function(type, x, y) {
         if (!window.collisionSystem) {
-            console.error('碰撞系统未初始化，无法创建僵尸');
+            console.error('碰撞系统未初始化');
             return null;
         }
-
+        
         var currentZombieCount = window.collisionSystem.getDynamicObjectCountByType('zombie');
         if (currentZombieCount >= this.maxZombies) {
-            console.warn('僵尸数量已达上限:', this.maxZombies);
+            console.warn('僵尸数量已达上限');
             return null;
         }
-
-        // 如果没有传入坐标，生成随机坐标
+        
         if (x === undefined || y === undefined) {
-            console.log('僵尸创建未传入坐标，生成随机坐标');
             var randomPos = this.generateRandomSpawnPosition();
             if (randomPos) {
                 x = randomPos.x;
                 y = randomPos.y;
-                console.log('生成随机坐标:', x, y);
             } else {
-                console.error('无法生成随机坐标');
                 return null;
             }
         }
-
-        // 使用性能工具测量创建时间
-        return performanceUtils.measureFunction('createZombie', function () {
-            // 使用统一的生成位置验证机制
-            var validatedPosition = this.validateSpawnPosition(x, y, type);
-            if (!validatedPosition) {
-                console.warn('无法找到有效的僵尸生成位置');
-                return null;
+        
+        var validatedPosition = this.validateSpawnPosition(x, y, type);
+        if (!validatedPosition) {
+            return null;
+        }
+        
+        x = validatedPosition.x;
+        y = validatedPosition.y;
+        
+        var zombie = new Zombie(type, x, y);
+        
+        if (window.collisionSystem.createZombieObject) {
+            var createdZombie = window.collisionSystem.createZombieObject(zombie);
+            if (createdZombie) {
+                this.initializeZombieTarget(createdZombie);
+                return createdZombie;
             }
-
-            x = validatedPosition.x;
-            y = validatedPosition.y;
-
-            var zombie = new Zombie(type, x, y);
-
-            // 验证僵尸创建是否成功
-            if (!zombie || zombie.hp === undefined || zombie.hp <= 0) {
-                console.error('僵尸创建失败或生命值异常:', zombie);
-                return null;
-            }
-
-            // 确保僵尸有正确的type属性
-            if (!zombie.type || zombie.type !== 'zombie') {
-                console.warn('僵尸type属性不正确，重新设置为zombie:', zombie.type);
-                zombie.type = 'zombie'; // 确保type始终为'zombie'
-            }
-
-            // 确保zombieType属性正确
-            if (!zombie.zombieType) {
-                console.warn('僵尸zombieType属性缺失，设置为传入的类型:', type);
-                zombie.zombieType = type;
-            }
-
-            // 添加详细的僵尸属性验证
-            console.log('=== 僵尸属性验证 ===');
-            console.log('type属性:', zombie.type, '(应该是zombie)');
-            console.log('zombieType属性:', zombie.zombieType, '(应该是', type, ')');
-            console.log('id属性:', zombie.id);
-            console.log('位置属性:', zombie.x, zombie.y);
-            console.log('生命值属性:', zombie.hp, zombie.maxHp);
-            console.log('状态属性:', zombie.state);
-            console.log('尺寸属性:', zombie.size, zombie.width, zombie.height);
-            console.log('图标属性:', zombie.icon);
-            console.log('==================');
-
-            // 验证关键属性
-            if (zombie.type !== 'zombie') {
-                console.error('❌ 僵尸type属性错误:', zombie.type);
-                return null;
-            }
-
-            if (!zombie.zombieType) {
-                console.error('❌ 僵尸zombieType属性缺失');
-                return null;
-            }
-
-            if (!zombie.id) {
-                console.error('❌ 僵尸id属性缺失');
-                return null;
-            }
-
-            if (zombie.x === undefined || zombie.y === undefined) {
-                console.error('❌ 僵尸位置属性缺失:', zombie.x, zombie.y);
-                return null;
-            }
-
-            console.log('僵尸创建成功:', zombie.zombieType, zombie.id, 'hp:', zombie.hp, 'maxHp:', zombie.maxHp, '位置:', x, y);
-            console.log('僵尸完整属性:', {
-                id: zombie.id,
-                type: zombie.type,
-                zombieType: zombie.zombieType,
-                x: zombie.x,
-                y: zombie.y,
-                hp: zombie.hp,
-                maxHp: zombie.maxHp,
-                state: zombie.state,
-                size: zombie.size,
-                color: zombie.color,
-                icon: zombie.icon
-            });
-
-            // 通过四叉树创建僵尸（四叉树负责对象管理）
-            console.log('ZombieManager.createZombie: 准备通过四叉树创建僵尸');
-            console.log('僵尸对象详情:', {
-                id: zombie.id,
-                type: zombie.type,
-                zombieType: zombie.zombieType,
-                x: zombie.x,
-                y: zombie.y,
-                hp: zombie.hp,
-                state: zombie.state,
-                icon: zombie.icon,
-                hasQuadTreeId: !!zombie._quadTreeId
-            });
-
-
-            if (window.collisionSystem.createZombieObject) {
-                console.log('ZombieManager.createZombie: 调用四叉树createZombieObject方法');
-                var createdZombie = window.collisionSystem.createZombieObject(zombie);
-                if (createdZombie) {
-                    console.log('ZombieManager.createZombie: 四叉树创建僵尸成功:', zombie.zombieType, zombie.id);
-                    console.log('创建后的僵尸对象:', {
-                        id: createdZombie.id,
-                        type: createdZombie.type,
-                        zombieType: createdZombie.zombieType,
-                        x: createdZombie.x,
-                        y: createdZombie.y,
-                        hp: createdZombie.hp,
-                        hasQuadTreeId: !!createdZombie._quadTreeId,
-                        quadTreeId: createdZombie._quadTreeId,
-                        quadTreeType: createdZombie._quadTreeType
-                    });
-
-                    // 立即为僵尸设置目标，确保渲染正常
-                    this.initializeZombieTarget(createdZombie);
-
-                    return createdZombie;
-                } else {
-                    console.error('ZombieManager.createZombie: 四叉树创建僵尸失败:', zombie.zombieType, zombie.id);
-                    console.error('失败原因: createZombieObject返回null或false');
-                    return null;
-                }
-            } else {
-                console.error('ZombieManager.createZombie: 四叉树不支持僵尸对象创建，可用方法:', Object.keys(window.collisionSystem));
-                return null;
-            }
-        }.bind(this));
+        }
+        
+        return null;
     },
-
+    
     // 生成随机生成位置
-    generateRandomSpawnPosition: function () {
-        if (!window.collisionSystem) {
-            console.warn('碰撞系统未初始化，使用默认位置');
-            return {x: 1000, y: 1000};
-        }
-
-        // 获取地图尺寸
-        var mapWidth = 10000; // 默认地图宽度
-        var mapHeight = 10000; // 默认地图高度
-
+    generateRandomSpawnPosition: function() {
+        var mapWidth = 10000;
+        var mapHeight = 10000;
+        
         if (window.mapSystem) {
             mapWidth = window.mapSystem.mapWidth || mapWidth;
             mapHeight = window.mapSystem.mapHeight || mapHeight;
         }
-
-        // 生成随机坐标（避开中心区域）
+        
         var centerX = mapWidth / 2;
         var centerY = mapHeight / 2;
-        var minDistance = 500; // 最小距离中心500px
-        var maxDistance = Math.min(mapWidth, mapHeight) / 2 - 1000; // 最大距离边界1000px
-
-        for (var attempt = 0; attempt < 50; attempt++) {
-            var angle = Math.random() * Math.PI * 2;
-            var distance = minDistance + Math.random() * (maxDistance - minDistance);
-
-            var testX = centerX + Math.cos(angle) * distance;
-            var testY = centerY + Math.sin(angle) * distance;
-
-            // 检查位置是否在建筑物外
-            if (window.collisionSystem.isCircleCollidingWithBuildings) {
-                if (!window.collisionSystem.isCircleCollidingWithBuildings(testX, testY, 16)) {
-                    console.log('找到随机生成位置:', testX, testY);
-                    return {x: testX, y: testY};
-                }
-            } else {
-                // 如果无法检查建筑物碰撞，直接返回
-                return {x: testX, y: testY};
+        var minDistance = 500;
+        var maxDistance = Math.min(mapWidth, mapHeight) / 2 - 1000;
+        
+        // 使用碰撞系统的安全位置生成方法
+        if (window.collisionSystem && window.collisionSystem.generateGameSafePosition) {
+            var safePosition = window.collisionSystem.generateGameSafePosition(
+                centerX, centerY, minDistance, maxDistance, 32, 48, true
+            );
+            if (safePosition && safePosition.success) {
+                return {x: safePosition.x, y: safePosition.y};
             }
         }
-
-        console.warn('无法找到合适的随机位置，使用边缘位置');
+        
+        // 备用方案：直接返回边缘位置
         return {x: 1000, y: 1000};
     },
-
+    
     // 初始化僵尸目标
-    initializeZombieTarget: function (zombie) {
+    initializeZombieTarget: function(zombie) {
         if (!zombie) return;
-
-        // 获取主人物位置作为目标
+        
         var mainChar = null;
         if (window.characterManager && window.characterManager.getMainCharacter) {
             mainChar = window.characterManager.getMainCharacter();
         }
-
+        
         if (mainChar && mainChar.hp > 0) {
-            // 设置主人物为目标
             zombie.targetCharacter = mainChar;
             zombie.targetX = mainChar.x;
             zombie.targetY = mainChar.y;
-
-            // 计算到目标的距离
+            
             var distance = Math.sqrt(Math.pow(zombie.x - mainChar.x, 2) + Math.pow(zombie.y - mainChar.y, 2));
-
+            
             if (distance <= zombie.attackRange) {
                 zombie.state = ZOMBIE_STATE.ATTACKING;
-            } else if (distance <= 700) { // 700px内开始追逐
+            } else if (distance <= 700) {
                 zombie.state = ZOMBIE_STATE.CHASING;
             } else {
                 zombie.state = ZOMBIE_STATE.IDLE;
             }
-
-            console.log('僵尸目标初始化完成:', {
-                zombieId: zombie.id,
-                zombieType: zombie.type,
-                targetDistance: distance,
-                state: zombie.state,
-                targetX: zombie.targetX,
-                targetY: zombie.targetY
-            });
         } else {
-            // 如果没有主人物，设置随机游荡目标
             var randomAngle = Math.random() * Math.PI * 2;
             var randomDistance = 200 + Math.random() * 300;
-
+            
             zombie.targetX = zombie.x + Math.cos(randomAngle) * randomDistance;
             zombie.targetY = zombie.y + Math.sin(randomAngle) * randomDistance;
             zombie.state = ZOMBIE_STATE.IDLE;
-
-            console.log('僵尸设置随机游荡目标:', {
-                zombieId: zombie.id,
-                zombieType: zombie.type,
-                targetX: zombie.targetX,
-                targetY: zombie.targetY,
-                state: zombie.state
-            });
         }
     },
-
-    // 统一的生成位置验证机制
-    validateSpawnPosition: function (x, y, zombieType) {
-        var validationUtils = UtilsManager.getValidationUtils();
-        var collisionConfig = ConfigManager.get('COLLISION');
-        var detectionConfig = ConfigManager.get('DETECTION');
-
+    
+    // 验证生成位置
+    validateSpawnPosition: function(x, y, zombieType) {
         if (!window.collisionSystem) {
             return {x: x, y: y};
         }
-
-        var zombieWidth = 32; // 僵尸默认宽度
-        var zombieHeight = 32; // 僵尸默认高度
-
-        // 根据僵尸类型调整尺寸
-        if (zombieType === 'fat' || zombieType === 'boss') {
-            zombieWidth = 48;
-            zombieHeight = 48;
-        }
-
-        // 验证步骤1：检查是否在建筑物内
-        if (window.collisionSystem.isCircleCollidingWithBuildings && window.collisionSystem.isCircleCollidingWithBuildings(x, y, zombieWidth / 2)) {
-            console.log('僵尸生成位置在建筑物内，寻找安全位置');
-            var safePosition = window.collisionSystem.generateGameSafePosition(x, y, collisionConfig.SAFE_SPAWN_DISTANCE, detectionConfig.MAX_SPAWN_SEARCH_RADIUS, zombieWidth, zombieHeight);
+        
+        var zombieWidth = zombieType === 'fat' || zombieType === 'boss' ? 48 : 32;
+        var zombieHeight = zombieWidth;
+        
+        // 检查建筑物碰撞
+        if (window.collisionSystem.isCircleCollidingWithBuildings && 
+            window.collisionSystem.isCircleCollidingWithBuildings(x, y, zombieWidth / 2)) {
+            var collisionConfig = ConfigManager.get('COLLISION');
+            var detectionConfig = ConfigManager.get('DETECTION');
+            var safePosition = window.collisionSystem.generateGameSafePosition(
+                x, y, collisionConfig.SAFE_SPAWN_DISTANCE, 
+                detectionConfig.MAX_SPAWN_SEARCH_RADIUS, zombieWidth, zombieHeight
+            );
             if (safePosition) {
                 x = safePosition.x;
                 y = safePosition.y;
             } else {
-                console.warn('无法找到建筑物外的安全位置');
                 return null;
             }
         }
-
-
-
-        // 验证步骤3：检查是否与角色重叠（新增）
+        
+        // 检查与角色距离
         if (window.characterManager && window.characterManager.getAllCharacters) {
             var characters = window.characterManager.getAllCharacters();
-            var minSafeDistance = 100; // 与角色的最小安全距离
-
+            var minSafeDistance = 100;
+            
             for (var i = 0; i < characters.length; i++) {
                 var char = characters[i];
                 if (char && char.hp > 0) {
                     var distance = Math.sqrt(Math.pow(x - char.x, 2) + Math.pow(y - char.y, 2));
-
+                    
                     if (distance < minSafeDistance) {
-                        console.log('僵尸生成位置与角色距离过近，寻找新位置');
-                        // 计算远离角色的新位置
                         var angle = Math.atan2(y - char.y, x - char.x);
                         var newX = char.x + Math.cos(angle) * minSafeDistance;
                         var newY = char.y + Math.sin(angle) * minSafeDistance;
-
-                        // 使用碰撞系统验证新位置
+                        
                         if (window.collisionSystem.generateGameSafePosition) {
-                            var safePosition = window.collisionSystem.generateGameSafePosition(newX, newY, collisionConfig.SAFE_SPAWN_DISTANCE, detectionConfig.MAX_SPAWN_SEARCH_RADIUS, zombieWidth, zombieHeight);
+                            var collisionConfig = ConfigManager.get('COLLISION');
+                            var detectionConfig = ConfigManager.get('DETECTION');
+                            var safePosition = window.collisionSystem.generateGameSafePosition(
+                                newX, newY, collisionConfig.SAFE_SPAWN_DISTANCE, 
+                                detectionConfig.MAX_SPAWN_SEARCH_RADIUS, zombieWidth, zombieHeight
+                            );
                             if (safePosition) {
                                 x = safePosition.x;
                                 y = safePosition.y;
-                                console.log('找到与角色安全距离的位置:', x, y);
                                 break;
                             }
                         } else {
                             x = newX;
                             y = newY;
-                            console.log('调整到与角色安全距离的位置:', x, y);
                             break;
                         }
                     }
                 }
             }
         }
-
-
-
+        
         return {x: x, y: y};
     },
-
-
-    // 🔴 重构：高性能僵尸更新系统 - 分帧更新策略
-    updateAllZombies: function (characters, deltaTime, currentFrame = 0) {
-        var performanceUtils = UtilsManager.getPerformanceUtils();
-
-        // 验证输入参数
+    
+    // 更新所有僵尸
+    updateAllZombies: function(characters, deltaTime, currentFrame = 0) {
         if (!Array.isArray(characters)) {
-            console.error('角色列表无效:', characters);
             return;
         }
-
-        if (!performanceUtils.isValidNumber(deltaTime) || deltaTime <= 0) {
-            console.error('时间增量无效:', deltaTime);
-            return;
-        }
-
-        // 获取主人物位置（用于距离计算）
+        
         var mainCharacter = characters.find(c => c.role === 1);
         if (!mainCharacter) {
-            console.warn('🔍 updateAllZombies: 从角色列表未找到主人物，尝试从角色管理器获取...');
-            
-            // 尝试从角色管理器获取主人物
             if (window.characterManager && window.characterManager.getMainCharacter) {
                 mainCharacter = window.characterManager.getMainCharacter();
-                if (mainCharacter) {
-                    console.log('✅ updateAllZombies: 从角色管理器找到主人物:', {
-                        id: mainCharacter.id,
-                        hp: mainCharacter.hp,
-                        x: mainCharacter.x,
-                        y: mainCharacter.y
-                    });
-                } else {
-                    console.error('❌ updateAllZombies: 从角色管理器也未找到主人物');
-                }
-            } else {
-                console.warn('updateAllZombies: 角色管理器不可用');
             }
-        } else {
-            console.log('✅ updateAllZombies: 从角色列表找到主人物:', {
-                id: mainCharacter.id,
-                hp: mainCharacter.hp,
-                x: mainCharacter.x,
-                y: mainCharacter.y
-            });
         }
         
         if (!mainCharacter) {
-            console.warn('⚠️ 未找到主人物，无法进行距离计算');
             return;
         }
-
-        // 从四叉树获取所有僵尸
+        
         var zombies = [];
         if (window.collisionSystem && window.collisionSystem.getAllZombies) {
             zombies = window.collisionSystem.getAllZombies();
         } else {
-            console.warn('无法从四叉树获取僵尸列表');
             return;
         }
-
-        // 🔴 优化分帧更新策略：减少批次数量，提高更新频率
+        
         var activeZombies = zombies.filter(zombie => 
             zombie && zombie.hp > 0 && zombie.state !== ZOMBIE_STATE.DEAD
         );
         
-        var totalActiveZombies = activeZombies.length;
-        var currentBatch = currentFrame % 3; // 减少到3个批次，每帧更新1个批次
-        
-        // 计算当前批次应该更新的僵尸
+        var currentBatch = currentFrame % 2; // 简化为2个批次
         var zombiesToUpdate = activeZombies.filter((zombie, index) => 
-            index % 3 === currentBatch
+            index % 2 === currentBatch
         );
-
-        console.log('🔴 优化分帧更新策略:', {
-            '当前帧': currentFrame,
-            '当前批次': currentBatch,
-            '总活跃僵尸': totalActiveZombies,
-            '本帧更新数量': zombiesToUpdate.length,
-            '更新频率': '每3帧循环，每帧更新1/3僵尸'
-        });
-
-        // 使用性能工具测量更新时间
-        performanceUtils.startTimer('updateAllZombies');
-
-        // 🔴 优先级调度：根据距离设置更新间隔
+        
         var updatedCount = 0;
-        var skippedCount = 0;
-        
-        zombiesToUpdate.forEach((zombie, index) => {
-            // 检查僵尸对象有效性
-            if (!zombie || typeof zombie !== 'object') {
-                console.error('发现无效僵尸对象:', zombie, '索引:', index);
-                return;
-            }
-
-            // 检查僵尸基本属性
-            if (zombie.hp === undefined || zombie.state === undefined) {
-                console.error('僵尸缺少基本属性:', zombie.type, zombie.id, 'hp:', zombie.hp, 'state:', zombie.state);
-                return;
-            }
-
-                    // 🔴 优化：使用统一的更新方法，确保独立行为
-        try {
-            // 为每个僵尸添加独立的更新标识
-            zombie._lastUpdateTime = Date.now();
-            zombie._updateCount = (zombie._updateCount || 0) + 1;
-            
-            var wasUpdated = zombie.update(deltaTime, characters, currentFrame);
-            if (wasUpdated) {
-                updatedCount++;
-                // 记录僵尸独立行为
-                if (zombie.state === ZOMBIE_STATE.CHASING || zombie.state === ZOMBIE_STATE.ATTACKING) {
-                    console.log('✅ 僵尸独立行动:', zombie.zombieType, zombie.id, '状态:', zombie.state, '更新次数:', zombie._updateCount);
+        zombiesToUpdate.forEach(zombie => {
+            try {
+                if (zombie.update(deltaTime, characters, currentFrame)) {
+                    updatedCount++;
                 }
-            } else {
-                skippedCount++;
+            } catch (error) {
+                console.error('僵尸更新出错:', zombie.type, zombie.id, '错误:', error);
+                zombie.state = ZOMBIE_STATE.IDLE;
             }
-        } catch (error) {
-            console.error('僵尸更新出错:', zombie.type, zombie.id, '错误:', error);
-            zombie.state = ZOMBIE_STATE.IDLE;
-        }
         });
-
-        // 清理死亡僵尸 - 通过四叉树管理
+        
+        // 清理死亡僵尸
         var deadZombies = zombies.filter(zombie => zombie.hp <= 0 || zombie.state === ZOMBIE_STATE.DEAD);
-        if (deadZombies.length > 0) {
-            console.log('发现死亡僵尸，数量:', deadZombies.length);
-            deadZombies.forEach(zombie => {
-                // 通过四叉树销毁僵尸对象
-                if (window.collisionSystem && window.collisionSystem.destroyZombieObject) {
-                    try {
-                        window.collisionSystem.destroyZombieObject(zombie);
-                    } catch (error) {
-                        console.error('四叉树销毁僵尸失败:', zombie.type, zombie.id, '错误:', error);
-                    }
+        deadZombies.forEach(zombie => {
+            if (window.collisionSystem && window.collisionSystem.destroyZombieObject) {
+                try {
+                    window.collisionSystem.destroyZombieObject(zombie);
+                } catch (error) {
+                    console.error('销毁僵尸失败:', zombie.type, zombie.id, '错误:', error);
                 }
-            });
-        }
-
-        var updateTime = performanceUtils.endTimer('updateAllZombies');
-        
-        // 🔴 优化：简化的性能统计
-        console.log('🔴 僵尸更新性能统计:', {
-            '更新时间': updateTime.toFixed(2) + 'ms',
-            '更新数量': updatedCount,
-            '跳过数量': skippedCount,
-            '总活跃僵尸': totalActiveZombies
+            }
         });
-        
-        if (updateTime > 16) { // 超过16ms（60fps）
-            console.warn('僵尸更新耗时过长:', updateTime.toFixed(2), 'ms');
-        }
     },
-
-    // 获取所有僵尸 - 从四叉树获取
-    getAllZombies: function () {
-        console.log('ZombieManager.getAllZombies: 开始获取僵尸列表');
-
+    
+    // 获取所有僵尸
+    getAllZombies: function() {
         if (!window.collisionSystem) {
-            console.warn('ZombieManager.getAllZombies: 碰撞系统未初始化');
             return [];
         }
-
+        
         if (!window.collisionSystem.getAllZombies) {
-            console.warn('ZombieManager.getAllZombies: 四叉树不支持getAllZombies方法');
             return [];
         }
-
-        var zombies = window.collisionSystem.getAllZombies();
-        console.log('ZombieManager.getAllZombies: 从四叉树获取到僵尸数量:', zombies.length);
-
-        if (zombies.length === 0) {
-            console.warn('ZombieManager.getAllZombies: 四叉树中没有找到僵尸');
-        }
-
-        return zombies;
+        
+        return window.collisionSystem.getAllZombies();
     },
     
-
-    
-    // 🔴 优化：获取活跃僵尸列表（用于渲染）
+    // 获取活跃僵尸
     getActiveZombies: function(mainCharacter) {
         if (!mainCharacter) return [];
         
@@ -1573,303 +725,29 @@ var ZombieManager = {
             zombie && 
             zombie.hp > 0 && 
             zombie.state !== ZOMBIE_STATE.DEAD &&
-            zombie.shouldRender && 
-            zombie.shouldRender(mainCharacter.x, mainCharacter.y)
+            zombie.isActive
         );
     },
     
-    // 🔴 优化：简化的批次信息
+    // 获取批次信息
     getBatchInfo: function(currentFrame) {
         var allZombies = this.getAllZombies();
         var activeZombies = allZombies.filter(zombie => 
             zombie && zombie.hp > 0 && zombie.state !== ZOMBIE_STATE.DEAD
         );
         
-        var currentBatch = currentFrame % 3; // 更新为3个批次
+        var currentBatch = currentFrame % 2;
         
         return {
             totalActive: activeZombies.length,
             currentBatch: currentBatch,
-            nextBatch: (currentBatch + 1) % 3, // 更新为3个批次
-            batchSize: 3 // 批次大小
+            nextBatch: (currentBatch + 1) % 2,
+            batchSize: 2
         };
     }
 };
 
-// 寻找最近的敌人（角色或伙伴）- 性能优化版本
-Zombie.prototype.findNearestEnemy = function () {
-    if (!window.characterManager) return;
-
-    var allCharacters = window.characterManager.getAllCharacters().filter(c => c.hp > 0);
-    if (allCharacters.length === 0) return;
-
-    var mathUtils = UtilsManager.getMathUtils();
-    var nearestEnemy = null;
-    var nearestDistance = Infinity;
-
-    // 性能优化：使用空间分区减少计算量
-    var detectionRange = this.detectionRange || 700;
-    var myX = this.x;
-    var myY = this.y;
-
-    // 快速预筛选：只检查在检测范围内的角色
-    var candidates = [];
-    for (var i = 0; i < allCharacters.length; i++) {
-        var character = allCharacters[i];
-
-        // 使用曼哈顿距离进行快速预筛选（比欧几里得距离快）
-        var manhattanDistance = Math.abs(myX - character.x) + Math.abs(myY - character.y);
-        if (manhattanDistance <= detectionRange * 1.5) { // 1.5倍作为预筛选范围
-            candidates.push(character);
-        }
-    }
-
-    // 如果预筛选后候选者很少，直接计算精确距离
-    if (candidates.length <= 3) {
-        for (var i = 0; i < candidates.length; i++) {
-            var character = candidates[i];
-            var distance = mathUtils.distance(myX, myY, character.x, character.y);
-
-            // 优先选择主人物，其次是伙伴
-            var priority = character.role === 1 ? 0 : 1;
-
-            if (distance <= detectionRange && (distance < nearestDistance || (distance === nearestDistance && priority < (nearestEnemy ? (nearestEnemy.role === 1 ? 0 : 1) : 1)))) {
-                nearestDistance = distance;
-                nearestEnemy = character;
-            }
-        }
-    } else {
-        // 候选者较多时，使用分层检测策略
-        var primaryCandidates = candidates.filter(c => c.role === 1); // 主人物优先
-        var secondaryCandidates = candidates.filter(c => c.role !== 1); // 伙伴其次
-
-        // 先检查主人物
-        if (primaryCandidates.length > 0) {
-            nearestEnemy = this.findNearestInGroup(primaryCandidates, myX, myY, detectionRange);
-            if (nearestEnemy) {
-                nearestDistance = mathUtils.distance(myX, myY, nearestEnemy.x, nearestEnemy.y);
-            }
-        }
-
-        // 如果没有主人物，检查伙伴
-        if (!nearestEnemy && secondaryCandidates.length > 0) {
-            nearestEnemy = this.findNearestInGroup(secondaryCandidates, myX, myY, detectionRange);
-        }
-    }
-
-    // 如果当前目标无效或不是最近的，更新目标
-    if (!this.targetCharacter || this.targetCharacter.hp <= 0 || this.targetCharacter !== nearestEnemy) {
-
-        this.targetCharacter = nearestEnemy;
-
-        if (this.targetCharacter) {
-            this.targetX = this.targetCharacter.x;
-            this.targetY = this.targetCharacter.y;
-
-        } else {
-
-        }
-    }
-};
-
-// 在指定组中寻找最近的敌人（性能优化）
-Zombie.prototype.findNearestInGroup = function (characters, myX, myY, maxRange) {
-    if (characters.length === 0) return null;
-
-    var mathUtils = UtilsManager.getMathUtils();
-    var nearest = null;
-    var nearestDistance = Infinity;
-
-    // 使用四叉树优化空间查询（如果可用）
-    if (window.collisionSystem && window.collisionSystem.queryRange) {
-        var nearbyObjects = window.collisionSystem.queryRange(myX, myY, maxRange);
-        var nearbyCharacters = nearbyObjects.filter(obj => obj.type === 'character' && characters.some(c => c.id === obj.id));
-
-        for (var i = 0; i < nearbyCharacters.length; i++) {
-            var character = nearbyCharacters[i];
-            var distance = mathUtils.distance(myX, myY, character.x, character.y);
-
-            if (distance < nearestDistance) {
-                nearestDistance = distance;
-                nearest = character;
-            }
-        }
-    } else {
-        // 回退到传统方法，但使用缓存优化
-        for (var i = 0; i < characters.length; i++) {
-            var character = characters[i];
-
-            // 使用缓存的坐标（如果可用）
-            var charX = character._cachedX !== undefined ? character._cachedX : character.x;
-            var charY = character._cachedY !== undefined ? character._cachedY : character.y;
-
-            var distance = mathUtils.distance(myX, myY, charX, charY);
-
-            if (distance <= maxRange && distance < nearestDistance) {
-                nearestDistance = distance;
-                nearest = character;
-            }
-
-            // 缓存坐标（减少重复计算）
-            character._cachedX = charX;
-            character._cachedY = charY;
-        }
-    }
-
-    return nearest;
-};
-
-// 检查当前目标是否仍然有效
-Zombie.prototype.isTargetValid = function () {
-    if (!this.targetCharacter) return false;
-
-    // 检查目标是否还活着
-    if (this.targetCharacter.hp <= 0) {
-
-        this.targetCharacter = null;
-        this.targetX = this.x;
-        this.targetY = this.y;
-        return false;
-    }
-
-    // 检查目标是否在检测范围内
-    var mathUtils = UtilsManager.getMathUtils();
-    var distance = mathUtils.distance(this.x, this.y, this.targetCharacter.x, this.targetCharacter.y);
-
-    if (distance > this.detectionRange) {
-
-        this.targetCharacter = null;
-        this.targetX = this.x;
-        this.targetY = this.y;
-        return false;
-    }
-
-    // 更新目标位置
-    this.targetX = this.targetCharacter.x;
-    this.targetY = this.targetCharacter.y;
-
-    return true;
-};
-
-// 🔴 优化：僵尸活性范围管理 - 确保独立行动
-Zombie.prototype.updateActivationStatus = function(playerX, playerY, currentFrame) {
-    var mathUtils = UtilsManager.getMathUtils();
-    this.activationDistance = mathUtils.distance(this.x, this.y, playerX, playerY);
-    
-    // 活性范围机制：仅激活玩家周围1200px范围内的僵尸
-    var wasActive = this.isActive;
-    this.isActive = this.activationDistance <= 1200;
-    
-    // 根据距离设置更新间隔 - 减少间隔，提高响应性
-    if (this.isActive) {
-        if (this.activationDistance <= 500) {
-            this.updateInterval = 1;      // 500px内每帧更新
-        } else if (this.activationDistance <= 800) {
-            this.updateInterval = 1;      // 500-800px每帧更新（提高响应性）
-        } else {
-            this.updateInterval = 2;      // 800px外每2帧更新（提高响应性）
-        }
-        
-        // 确保僵尸能够移动 - 更智能的状态转换
-        if (this.state === ZOMBIE_STATE.IDLE && this.targetCharacter) {
-            this.state = ZOMBIE_STATE.CHASING;
-        }
-        
-        // 记录更新帧数，确保僵尸能独立更新
-        this.lastUpdateFrame = currentFrame;
-        
-        return true; // 活跃僵尸总是允许更新
-    } else {
-        this.updateInterval = 5;          // 休眠状态每5帧更新一次（而不是999）
-        return false; // 休眠僵尸跳过更新
-    }
-};
-
-
-
-// 🔴 优化：检查是否应该渲染
-Zombie.prototype.shouldRender = function(playerX, playerY) {
-    var renderDistance = Math.sqrt(
-        Math.pow(this.x - playerX, 2) + 
-        Math.pow(this.y - playerY, 2)
-    );
-    
-    this.isRendered = renderDistance <= 1200;
-    return this.isRendered;
-};
-
-// 🔴 新增：公共工具方法 - 消除重复逻辑
-// 1. 统一距离计算方法
-Zombie.prototype.getDistanceTo = function(targetX, targetY) {
-    var mathUtils = UtilsManager.getMathUtils();
-    return mathUtils.distance(this.x, this.y, targetX, targetY);
-};
-
-Zombie.prototype.getDistanceToTarget = function() {
-    if (!this.targetCharacter) return Infinity;
-    return this.getDistanceTo(this.targetCharacter.x, this.targetCharacter.y);
-};
-
-// 2. 统一状态切换方法
-Zombie.prototype.setState = function(newState) {
-    if (this.state !== newState) {
-        this.state = newState;
-        return true; // 状态发生变化
-    }
-    return false; // 状态未变化
-};
-
-// 3. 统一目标验证和重置方法
-Zombie.prototype.validateAndResetTarget = function() {
-    if (!this.isTargetValid()) {
-        this.findNearestEnemy();
-        
-        if (!this.targetCharacter) {
-            this.setState(ZOMBIE_STATE.IDLE);
-            return false;
-        }
-        return true;
-    }
-    return true;
-};
-
-// 4. 统一四叉树位置更新方法
-Zombie.prototype.updateQuadTreePosition = function(oldX, oldY, newX, newY) {
-    if (window.collisionSystem && window.collisionSystem.updateZombiePosition) {
-        window.collisionSystem.updateZombiePosition(this, oldX, oldY, newX, newY);
-    } else if (window.collisionSystem && window.collisionSystem.updateDynamicObjectPosition) {
-        window.collisionSystem.updateDynamicObjectPosition(this, oldX, oldY, newX, newY);
-    }
-};
-
-// 5. 统一位置安全检查方法
-Zombie.prototype.isPositionSafeInternal = function(x, y) {
-    if (!window.collisionSystem) return true;
-    
-    if (window.collisionSystem.isCircleCollidingWithBuildings) {
-        return !window.collisionSystem.isCircleCollidingWithBuildings(x, y, this.radius);
-    }
-    
-    return true;
-};
-
-// 6. 统一距离范围检查方法
-Zombie.prototype.isInRange = function(distance, range) {
-    return distance <= range;
-};
-
-// 7. 统一目标状态决策方法
-Zombie.prototype.decideTargetState = function(distance) {
-    if (this.isInRange(distance, this.attackRange)) {
-        return ZOMBIE_STATE.ATTACKING;
-    } else if (this.isInRange(distance, this.detectionRange)) {
-        return ZOMBIE_STATE.CHASING;
-    } else {
-        return ZOMBIE_STATE.IDLE;
-    }
-};
-
-// 导出枚举和类
+// 导出
 export {ZOMBIE_TYPE, ZOMBIE_STATE};
 export {ZombieManager};
 export default Zombie;

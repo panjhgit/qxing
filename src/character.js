@@ -284,55 +284,17 @@ Character.prototype.setupMainCharacterStateMachine = function() {
 Character.prototype.setupPartnerStateMachine = function() {
     const sm = this.stateMachine;
     
-    // 添加状态转换规则
+    // 简化的伙伴状态机：只保留必要的状态
     sm.addTransition(PARTNER_STATES.INIT, PARTNER_STATES.FOLLOW, () => {
-        // 主人物靠近跟随者距离20px
         return this.isMainCharacterNearby(20);
     });
     
-    sm.addTransition(PARTNER_STATES.IDLE, PARTNER_STATES.FOLLOW, () => {
-        // 主人物移动
-        return this.isMainCharacterMoving();
-    });
-    
-    sm.addTransition(PARTNER_STATES.IDLE, PARTNER_STATES.ATTACK, () => {
-        // 100px 内有僵尸
-        return this.hasZombieInRange(100);
-    });
-    
     sm.addTransition(PARTNER_STATES.FOLLOW, PARTNER_STATES.IDLE, () => {
-        // 主人物停止移动且无僵尸
-        return !this.isMainCharacterMoving() && !this.hasZombieInRange(50);
+        return !this.isMainCharacterMoving();
     });
     
-    sm.addTransition(PARTNER_STATES.FOLLOW, PARTNER_STATES.ATTACK, () => {
-        // 主人物停止移动且50px内有僵尸
-        return !this.isMainCharacterMoving() && this.hasZombieInRange(50);
-    });
-    
-    sm.addTransition(PARTNER_STATES.FOLLOW, PARTNER_STATES.AVOID, () => {
-        // 检测到拥堵
-        return this.detectCongestion();
-    });
-    
-    sm.addTransition(PARTNER_STATES.ATTACK, PARTNER_STATES.FOLLOW, () => {
-        // 主人物移动（打断攻击）
+    sm.addTransition(PARTNER_STATES.IDLE, PARTNER_STATES.FOLLOW, () => {
         return this.isMainCharacterMoving();
-    });
-    
-    sm.addTransition(PARTNER_STATES.ATTACK, PARTNER_STATES.IDLE, () => {
-        // 僵尸死亡或超出范围
-        return !this.hasZombieInRange(50);
-    });
-    
-    sm.addTransition(PARTNER_STATES.AVOID, PARTNER_STATES.FOLLOW, () => {
-        // 避障完成且主人物仍在移动
-        return this.isAvoidanceComplete() && this.isMainCharacterMoving();
-    });
-    
-    sm.addTransition(PARTNER_STATES.AVOID, PARTNER_STATES.ATTACK, () => {
-        // 避障完成且主人物停止且50px内有僵尸
-        return this.isAvoidanceComplete() && !this.isMainCharacterMoving() && this.hasZombieInRange(50);
     });
     
     // 添加死亡状态转换
@@ -340,57 +302,37 @@ Character.prototype.setupPartnerStateMachine = function() {
         return this.hp <= 0;
     });
     
-    sm.addTransition(PARTNER_STATES.IDLE, PARTNER_STATES.DIE, () => {
-        return this.hp <= 0;
-    });
-    
     sm.addTransition(PARTNER_STATES.FOLLOW, PARTNER_STATES.DIE, () => {
         return this.hp <= 0;
     });
     
-    sm.addTransition(PARTNER_STATES.ATTACK, PARTNER_STATES.DIE, () => {
+    sm.addTransition(PARTNER_STATES.IDLE, PARTNER_STATES.DIE, () => {
         return this.hp <= 0;
     });
     
-    sm.addTransition(PARTNER_STATES.AVOID, PARTNER_STATES.DIE, () => {
-        return this.hp <= 0;
-    });
-    
-    // 添加状态行为
+    // 简化的状态行为
     sm.addBehavior(PARTNER_STATES.INIT, 
-        this.onEnterInit.bind(this),      // 进入初始状态
-        this.onUpdateInit.bind(this),     // 更新初始状态
-        this.onExitInit.bind(this)        // 退出初始状态
+        this.onEnterIdle.bind(this),      // 复用待机行为
+        this.onUpdateIdle.bind(this),     
+        this.onExitIdle.bind(this)        
     );
     
     sm.addBehavior(PARTNER_STATES.IDLE, 
-        this.onEnterIdle.bind(this),      // 进入待机
-        this.onUpdateIdle.bind(this),     // 更新待机
-        this.onExitIdle.bind(this)        // 退出待机
+        this.onEnterIdle.bind(this),      
+        this.onUpdateIdle.bind(this),     
+        this.onExitIdle.bind(this)        
     );
     
     sm.addBehavior(PARTNER_STATES.FOLLOW, 
-        this.onEnterFollow.bind(this),    // 进入跟随
-        this.onUpdateFollow.bind(this),   // 更新跟随
-        this.onExitFollow.bind(this)      // 退出跟随
-    );
-    
-    sm.addBehavior(PARTNER_STATES.ATTACK, 
-        this.onEnterAttack.bind(this),    // 进入攻击
-        this.onUpdateAttack.bind(this),   // 更新攻击
-        this.onExitAttack.bind(this)      // 退出攻击
-    );
-    
-    sm.addBehavior(PARTNER_STATES.AVOID, 
-        this.onEnterAvoid.bind(this),     // 进入避障
-        this.onUpdateAvoid.bind(this),    // 更新避障
-        this.onExitAvoid.bind(this)       // 退出避障
+        this.onEnterMove.bind(this),      // 复用移动行为
+        this.onUpdateMove.bind(this),     
+        this.onExitMove.bind(this)        
     );
     
     sm.addBehavior(PARTNER_STATES.DIE, 
-        this.onEnterDie.bind(this),       // 进入死亡
-        this.onUpdateDie.bind(this),      // 更新死亡
-        this.onExitDie.bind(this)         // 退出死亡
+        this.onEnterDie.bind(this),       
+        this.onUpdateDie.bind(this),      
+        this.onExitDie.bind(this)         
     );
 };
 
@@ -466,80 +408,7 @@ Character.prototype.isMainCharacterMoving = function() {
     return mainChar.stateMachine && mainChar.stateMachine.isInState(MAIN_CHARACTER_STATES.MOVE);
 };
 
-// 检测拥堵
-Character.prototype.detectCongestion = function() {
-    if (!window.characterManager) return false;
-    
-    const mainChar = window.characterManager.getMainCharacter();
-    if (!mainChar) return false;
-    
-    const mathUtils = UtilsManager.getMathUtils();
-    const distance = mathUtils.distance(this.x, this.y, mainChar.x, mainChar.y);
-    
-    // 检查主人物移动方向是否朝向自身
-    if (mainChar.stateMachine && mainChar.stateMachine.isInState(MAIN_CHARACTER_STATES.MOVE)) {
-        const angleToPartner = mathUtils.angle(mainChar.x, mainChar.y, this.x, this.y);
-        const mainCharAngle = mathUtils.angle(mainChar.x, mainChar.y, mainChar.targetX, mainChar.targetY);
-        const angleDiff = Math.abs(angleToPartner - mainCharAngle);
-        
-        // 如果角度差小于45度且距离小于80px，认为拥堵
-        if (angleDiff < Math.PI / 4 && distance < 80) {
-            // 多伙伴协同：优先让离主人物最近的伙伴进入避障状态
-            return this.shouldEnterAvoidance(mainChar);
-        }
-    }
-    
-    return false;
-};
 
-// 判断是否应该进入避障状态（多伙伴协同逻辑）
-Character.prototype.shouldEnterAvoidance = function(mainChar) {
-    if (!window.characterManager) return true;
-    
-    const allCharacters = window.characterManager.getAllCharacters();
-    const partners = allCharacters.filter(char => 
-        char.role !== 1 && // 不是主人物
-        char.hp > 0 && // 活着
-        char.id !== this.id // 不是自己
-    );
-    
-    if (partners.length === 0) return true; // 没有其他伙伴，直接避障
-    
-    const mathUtils = UtilsManager.getMathUtils();
-    const myDistance = mathUtils.distance(this.x, this.y, mainChar.x, mainChar.y);
-    
-    // 检查是否有其他伙伴距离主人物更近
-    for (let i = 0; i < partners.length; i++) {
-        const partner = partners[i];
-        const partnerDistance = mathUtils.distance(partner.x, partner.y, mainChar.x, mainChar.y);
-        
-        // 如果其他伙伴距离更近，且也在拥堵范围内，让它们优先避障
-        if (partnerDistance < myDistance && partnerDistance < 80) {
-            // 检查其他伙伴是否已经在避障状态
-            if (partner.stateMachine && partner.stateMachine.isInState(PARTNER_STATES.AVOID)) {
-                console.log('伙伴', this.id, '检测到其他伙伴已在避障，等待轮到自己');
-                return false; // 等待其他伙伴完成避障
-            }
-            
-            // 如果其他伙伴没有避障，让距离最近的先避障
-            if (partnerDistance < myDistance - 10) { // 10px的缓冲距离
-                console.log('伙伴', this.id, '检测到更近的伙伴，让它们先避障');
-                return false;
-            }
-        }
-    }
-    
-    // 我是最近的伙伴，或者没有其他伙伴在拥堵范围内，可以进入避障
-    console.log('伙伴', this.id, '进入避障状态，距离主人物:', myDistance);
-    return true;
-};
-
-// 检查避障是否完成
-Character.prototype.isAvoidanceComplete = function() {
-    // 这里需要实现避障逻辑
-    // 暂时返回true，后续需要实现
-    return true;
-};
 
 // ==================== 状态行为方法 ====================
 
@@ -694,55 +563,14 @@ Character.prototype.calculateFollowPoint = function() {
     
     var mathUtils = UtilsManager.getMathUtils();
     
-    // 计算主人物移动方向
-    var mainCharDirection = 0;
-    if (mainChar.isMoving && mainChar.targetX !== mainChar.x && mainChar.targetY !== mainChar.y) {
-        mainCharDirection = mathUtils.angle(mainChar.x, mainChar.y, mainChar.targetX, mainChar.targetY);
-    }
-    
-    // 计算跟随点位置（侧后方，距离80px）
+    // 计算跟随点位置（后方，距离80px）
     var followDistance = 80;
-    var followAngle = mainCharDirection + Math.PI; // 后方
-    var sideOffset = Math.PI / 4; // 45度侧方偏移
-    
-    // 根据伙伴ID选择左侧或右侧跟随
-    var sideMultiplier = (this.id % 2 === 0) ? 1 : -1;
-    var finalAngle = followAngle + (sideOffset * sideMultiplier);
+    var followAngle = Math.PI; // 后方
     
     this.followPoint = {
-        x: mainChar.x + Math.cos(finalAngle) * followDistance,
-        y: mainChar.y + Math.sin(finalAngle) * followDistance
+        x: mainChar.x + Math.cos(followAngle) * followDistance,
+        y: mainChar.y + Math.sin(followAngle) * followDistance
     };
-    
-    // 确保跟随点不在建筑物内
-    if (window.collisionSystem && window.collisionSystem.isCircleCollidingWithBuildings) {
-        if (window.collisionSystem.isCircleCollidingWithBuildings(this.followPoint.x, this.followPoint.y, 16)) {
-            // 如果跟随点在建筑物内，寻找附近的安全位置
-            var safePos = this.findSafeFollowPosition(mainChar.x, mainChar.y, followDistance);
-            if (safePos) {
-                this.followPoint = safePos;
-            }
-        }
-    }
-};
-
-// 寻找安全的跟随位置
-Character.prototype.findSafeFollowPosition = function(centerX, centerY, baseDistance) {
-    var searchRadius = baseDistance;
-    var searchSteps = 8; // 8个方向
-    
-    for (var i = 0; i < searchSteps; i++) {
-        var angle = (i / searchSteps) * Math.PI * 2;
-        var testX = centerX + Math.cos(angle) * searchRadius;
-        var testY = centerY + Math.sin(angle) * searchRadius;
-        
-        if (!window.collisionSystem.isCircleCollidingWithBuildings(testX, testY, 16)) {
-            return {x: testX, y: testY};
-        }
-    }
-    
-    // 如果都找不到，返回原位置
-    return {x: centerX, y: centerY};
 };
 
 // 寻找攻击目标（主人物专用）
@@ -814,25 +642,19 @@ Character.prototype.isAttackTargetValid = function() {
 Character.prototype.moveToAttackRange = function() {
     if (!this.attackTarget || this.attackTarget.hp <= 0) return;
     
-    // 🔴 关键修复：如果摇杆有输入，不执行自动移动（保持摇杆优先级最高）
-    if (this.hasJoystickInput()) {
-        console.log('摇杆有输入，跳过自动移动到攻击范围');
-        return;
-    }
+    // 如果摇杆有输入，不执行自动移动
+    if (this.hasJoystickInput()) return;
     
     var mathUtils = UtilsManager.getMathUtils();
     var distance = mathUtils.distance(this.x, this.y, this.attackTarget.x, this.attackTarget.y);
-    var targetDistance = this.attackRange - 5; // 留5px缓冲
+    var targetDistance = this.attackRange - 5;
     
     if (distance > targetDistance) {
-        // 计算到攻击范围边缘的位置
         var angle = mathUtils.angle(this.x, this.y, this.attackTarget.x, this.attackTarget.y);
         var targetX = this.attackTarget.x + Math.cos(angle + Math.PI) * targetDistance;
         var targetY = this.attackTarget.y + Math.sin(angle + Math.PI) * targetDistance;
-        
         this.setMoveTarget(targetX, targetY);
     } else {
-        // 在攻击范围内，停止移动（但摇杆输入时不会执行到这里）
         this.stopMovement();
     }
 };
@@ -850,42 +672,7 @@ Character.prototype.performAttack = function() {
     this.playAttackAnimation();
 };
 
-// 移动中攻击（不停止移动）
-Character.prototype.playAttackAnimationWhileMoving = function(deltaTime) {
-    // 检查攻击冷却
-    this.attackCooldown += deltaTime;
-    var combatConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT') : null;
-    var attackInterval = combatConfig ? (combatConfig.MOVING_ATTACK_INTERVAL || 0.8) : 0.8; // 从配置读取移动攻击间隔
-    
-    if (this.attackCooldown >= attackInterval) {
-        // 执行攻击（不停止移动）
-        this.performAttackWhileMoving();
-        this.attackCooldown = 0;
-    }
-    
-    // 播放攻击动画（不停止移动）
-    this.playAttackAnimation();
-};
 
-// 移动中执行攻击
-Character.prototype.performAttackWhileMoving = function() {
-    // 检查当前攻击目标是否仍然有效
-    if (!this.isAttackTargetValid()) {
-        // 目标无效，重新寻找目标
-        this.findAttackTarget();
-    }
-    
-    // 如果没有攻击目标，寻找新的目标
-    if (!this.attackTarget) {
-        this.findAttackTarget();
-    }
-    
-    if (this.attackTarget && this.attackTarget.hp > 0) {
-        // 对僵尸造成伤害
-        this.attackTarget.takeDamage(this.attack);
-        console.log('主人物移动中攻击僵尸:', this.attackTarget.type, '造成伤害:', this.attack);
-    }
-};
 
 // 游戏结束处理
 Character.prototype.handleGameOver = function() {
@@ -1095,7 +882,7 @@ Character.prototype.stopMovement = function() {
             this.x, this.y, this.targetX, this.targetY, this.moveSpeed, deltaTime
         );
 
-        console.log('移动向量计算:', '当前位置:', this.x, this.y, '目标位置:', this.targetX, this.targetY, '移动向量:', moveVector, 'deltaTime:', deltaTime);
+
         
         // 检查是否到达目标 - 修复过早停止移动的问题
         if (moveVector.reached) {
@@ -1153,10 +940,7 @@ Character.prototype.stopMovement = function() {
                     window.collisionSystem.updateDynamicObjectPosition(this, oldX, oldY, this.x, this.y);
                 }
                 
-                // 记录移动类型（用于调试）
-                if (buildingSafePos.type && buildingSafePos.type.startsWith('slide')) {
-                    console.log('角色墙体滑动:', buildingSafePos.type, '位置:', buildingSafePos.x.toFixed(2), buildingSafePos.y.toFixed(2));
-                }
+                
             } else {
                 // 移动被阻挡，保持原位置
                 this.status = STATUS.BLOCKED;
@@ -1220,16 +1004,7 @@ Character.prototype.updateAnimation = function (deltaTime) {
         this.animationFrame = 0;
     }
     
-    // 记录动画状态（用于调试）
-    if (this.frameCount % 60 === 0) { // 每秒记录一次
-        console.log('角色动画更新:', {
-            role: this.role,
-            status: this.status,
-            frame: this.animationFrame,
-            speed: adjustedSpeed,
-            deltaTime: deltaTime
-        });
-    }
+
     
     this.frameCount = (this.frameCount || 0) + 1;
 };
@@ -1286,22 +1061,13 @@ var CharacterManager = {
             console.log('主人物创建成功:', mainChar.role, 'ID:', mainChar.id, '位置:', x, y);
             
             // 通过四叉树创建角色（四叉树负责对象管理）
-            console.log('CharacterManager.createMainCharacter: 准备通过四叉树创建角色');
-            
-            if (window.collisionSystem && window.collisionSystem.createCharacterObject) {
-                console.log('CharacterManager.createMainCharacter: 调用四叉树createCharacterObject方法');
-                var createdCharacter = window.collisionSystem.createCharacterObject(mainChar);
-                if (createdCharacter) {
-                    console.log('CharacterManager.createMainCharacter: 四叉树创建角色成功:', mainChar.role, mainChar.id);
-                    return createdCharacter;
-                } else {
-                    console.error('CharacterManager.createMainCharacter: 四叉树创建角色失败:', mainChar.role, mainChar.id);
-                    return null;
-                }
-            } else {
-                console.error('CharacterManager.createMainCharacter: 四叉树不支持角色对象创建，可用方法:', Object.keys(window.collisionSystem));
-                return null;
+                    if (window.collisionSystem && window.collisionSystem.createCharacterObject) {
+            var createdCharacter = window.collisionSystem.createCharacterObject(mainChar);
+            if (createdCharacter) {
+                return createdCharacter;
             }
+        }
+        return null;
         }.bind(this));
     },
 
@@ -1333,23 +1099,13 @@ var CharacterManager = {
             
             console.log('伙伴创建成功:', partner.role, 'ID:', partner.id, '位置:', x, y);
             
-            // 通过四叉树创建角色（四叉树负责对象管理）
-            console.log('CharacterManager.createPartner: 准备通过四叉树创建伙伴');
-            
             if (window.collisionSystem && window.collisionSystem.createCharacterObject) {
-                console.log('CharacterManager.createPartner: 调用四叉树createCharacterObject方法');
                 var createdCharacter = window.collisionSystem.createCharacterObject(partner);
                 if (createdCharacter) {
-                    console.log('CharacterManager.createPartner: 四叉树创建伙伴成功:', partner.role, partner.id);
                     return createdCharacter;
-                } else {
-                    console.error('CharacterManager.createPartner: 四叉树创建伙伴失败:', partner.role, partner.id);
-                    return null;
                 }
-            } else {
-                console.error('CharacterManager.createPartner: 四叉树不支持角色对象创建，可用方法:', Object.keys(window.collisionSystem));
-                return null;
             }
+            return null;
         }.bind(this));
     },
 
@@ -1365,78 +1121,17 @@ var CharacterManager = {
             return null;
         }
         
-        // 🔴 新增：直接检查碰撞系统的状态
-        console.log('🔍 getMainCharacter: 检查碰撞系统状态...');
-        console.log('🔍 getMainCharacter: window.collisionSystem:', !!window.collisionSystem);
-        console.log('🔍 getMainCharacter: window.collisionSystem.dynamicQuadTree:', !!window.collisionSystem.dynamicQuadTree);
-        
-        if (window.collisionSystem.dynamicQuadTree) {
-            var allObjects = window.collisionSystem.dynamicQuadTree.getAllObjects();
-            console.log('🔍 getMainCharacter: 动态四叉树中的对象总数:', allObjects.length);
-            
-            if (allObjects.length > 0) {
-                console.log('🔍 getMainCharacter: 所有对象详情:');
-                allObjects.forEach((obj, index) => {
-                    console.log(`  对象${index + 1}:`, {
-                        id: obj.id,
-                        role: obj.role,
-                        roleType: typeof obj.role,
-                        hasRole: 'role' in obj,
-                        hp: obj.hp,
-                        x: obj.x,
-                        y: obj.y,
-                        constructor: obj.constructor ? obj.constructor.name : 'unknown'
-                    });
-                });
-            }
-        }
-        
         var allCharacters = window.collisionSystem.getAllCharacters();
-        console.log('🔍 getMainCharacter: 从碰撞系统获取的角色数量:', allCharacters.length);
         
-        // 🔴 新增：详细检查每个对象的role属性
-        if (allCharacters.length > 0) {
-            console.log('🔍 getMainCharacter: 所有角色的详细信息:');
-            allCharacters.forEach((char, index) => {
-                console.log(`  角色${index + 1}:`, {
-                    id: char.id,
-                    role: char.role,
-                    roleType: typeof char.role,
-                    hasRole: 'role' in char,
-                    hp: char.hp,
-                    x: char.x,
-                    y: char.y,
-                    isMain: char.role === ROLE.MAIN,
-                    isMainAlt: char.role === 1
-                });
-            });
-        }
-        
-        // 🔴 修复：主人物即使血量变为0也应该被找到
         var mainChar = allCharacters.find(char => 
             char && char.role === ROLE.MAIN
         );
         
         if (!mainChar) {
-            console.warn('❌ getMainCharacter: 未找到主人物');
-            console.log('🔍 getMainCharacter: 尝试使用数字1查找...');
-            var mainCharAlt = allCharacters.find(char => 
+            // 尝试使用数字1查找
+            mainChar = allCharacters.find(char => 
                 char && char.role === 1
             );
-            if (mainCharAlt) {
-                console.log('✅ getMainCharacter: 使用数字1找到主人物:', mainCharAlt);
-                return mainCharAlt;
-            } else {
-                console.error('❌ getMainCharacter: 使用数字1也未找到主人物');
-            }
-        } else {
-            console.log('✅ getMainCharacter: 找到主人物:', {
-                id: mainChar.id,
-                hp: mainChar.hp,
-                maxHp: mainChar.maxHp,
-                x: mainChar.x,
-                y: mainChar.y
-            });
         }
         return mainChar;
     },
@@ -1454,7 +1149,7 @@ var CharacterManager = {
         }
         
         var allCharacters = window.collisionSystem.getAllCharacters();
-        console.log('CharacterManager.getAllCharacters: 从四叉树获取角色，数量:', allCharacters.length);
+
         return allCharacters;
     },
 
@@ -1471,7 +1166,7 @@ var CharacterManager = {
             return;
         }
         
-        console.log('更新角色，数量:', characters.length);
+
 
         // 使用性能工具测量更新时间
         performanceUtils.startTimer('updateAllCharacters');
@@ -1503,9 +1198,7 @@ var CharacterManager = {
         });
         
         var updateTime = performanceUtils.endTimer('updateAllCharacters');
-        if (updateTime > 16) { // 超过16ms（60fps）
-            console.warn('角色更新耗时过长:', updateTime.toFixed(2), 'ms');
-        }
+
     }
 };
 
@@ -1526,12 +1219,7 @@ Character.prototype.updateMainCharacter = function(deltaTime) {
         this.stateMachine.update(deltaTime);
     }
     
-    // 每60帧打印一次调试信息（约1秒一次）
-    if (this.frameCount === undefined) this.frameCount = 0;
-    this.frameCount++;
-    if (this.frameCount % 60 === 0) {
-        this.debugMainCharacterState();
-    }
+    
     
     // 根据当前状态执行相应行为
     switch (this.stateMachine.currentState) {
@@ -1579,38 +1267,15 @@ Character.prototype.checkJoystickInput = function() {
         var targetX = this.x + direction.x * moveDistance;
         var targetY = this.y + direction.y * moveDistance;
         
-        console.log('主人物摇杆输入检测到，设置移动目标:', {
-            from: { x: this.x, y: this.y },
-            to: { x: targetX, y: targetY },
-            direction: direction
-        });
+
         
         // 设置移动目标并激活移动状态
         this.setMoveTarget(targetX, targetY);
         this.isMoving = true;
         this.status = STATUS.MOVING;
         
-        // 🔴 修复：更安全的状态切换，避免状态混乱
         if (this.stateMachine && this.stateMachine.currentState !== MAIN_CHARACTER_STATES.MOVE) {
-            console.log('安全切换到移动状态');
-            // 使用正常的转换而不是强制切换
-            if (this.stateMachine.transitions.has(this.stateMachine.currentState)) {
-                // 检查是否有到MOVE状态的转换
-                var transitions = this.stateMachine.transitions.get(this.stateMachine.currentState);
-                var hasMoveTransition = transitions.some(t => t.toState === MAIN_CHARACTER_STATES.MOVE);
-                if (hasMoveTransition) {
-                    // 有正常转换路径，让状态机自然转换
-                    console.log('状态机有正常转换路径到移动状态');
-                } else {
-                    // 没有正常转换路径，才使用强制切换
-                    console.log('状态机没有正常转换路径，使用强制切换');
-                    this.stateMachine.forceState(MAIN_CHARACTER_STATES.MOVE);
-                }
-            } else {
-                // 当前状态没有转换规则，使用强制切换
-                console.log('当前状态没有转换规则，使用强制切换');
-                this.stateMachine.forceState(MAIN_CHARACTER_STATES.MOVE);
-            }
+            this.stateMachine.forceState(MAIN_CHARACTER_STATES.MOVE);
         }
     }
 };

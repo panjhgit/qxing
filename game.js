@@ -285,12 +285,9 @@ function initMapSystem() {
             window.MapManager = MapManager;
         }
         
-        // 第二步：等待地图数据完全加载
-        console.log('⏳ 步骤2: 等待地图数据完全加载');
-        waitForMapDataLoaded(() => {
-            // 地图数据加载完成后继续后续步骤
-            continueMapSystemInit();
-        });
+        // 第二步：直接继续后续步骤（地图数据已同步加载）
+        console.log('✅ 地图数据已加载，继续后续步骤');
+        continueMapSystemInit();
         
     } catch (error) {
         console.error('❌ 地图系统初始化失败:', error);
@@ -421,34 +418,7 @@ function continueGameSystemsInit() {
     }
 }
 
-// 等待地图数据完全加载
-function waitForMapDataLoaded(callback) {
-    console.log('⏳ 等待地图数据加载...');
-    let attempts = 0;
-    const maxAttempts = 100; // 最多等待10秒
-    
-    function checkMapData() {
-        // 检查地图管理器是否准备好
-        if (MapManager.currentMap && MapManager.currentMap.isLoaded) {
-            console.log('✅ 地图管理器数据加载完成');
-            callback(); // 调用回调函数继续后续步骤
-            return;
-        }
-        
-        attempts++;
-        if (attempts >= maxAttempts) {
-            console.error('❌ 地图数据加载超时');
-            throw new Error('地图数据加载超时');
-        }
-        
-        console.log(`⏳ 等待地图管理器数据加载... (${attempts}/${maxAttempts})`);
-        
-        // 使用setTimeout异步等待，不阻塞主线程
-        setTimeout(checkMapData, 100);
-    }
-    
-    checkMapData();
-}
+
 
 // 执行初始渲染
 function performInitialRendering() {
@@ -461,22 +431,7 @@ function performInitialRendering() {
             mapSystem.render();
             console.log('✅ 地图渲染完成');
             
-            // 检查地图系统的建筑物数据
-            if (mapSystem.currentMap && mapSystem.currentMap.buildings) {
-                console.log('✅ 地图系统建筑物数量:', mapSystem.currentMap.buildings.length);
-                if (mapSystem.currentMap.buildings.length > 0) {
-                    console.log('第一个建筑物示例:', {
-                        id: mapSystem.currentMap.buildings[0].id,
-                        x: mapSystem.currentMap.buildings[0].x,
-                        y: mapSystem.currentMap.buildings[0].y,
-                        width: mapSystem.currentMap.buildings[0].width,
-                        height: mapSystem.currentMap.buildings[0].height,
-                        type: mapSystem.currentMap.buildings[0].type
-                    });
-                }
-            } else {
-                console.warn('⚠️ 地图系统没有建筑物数据');
-            }
+
         }
         
         // 第二步：设置摄像机位置
@@ -528,14 +483,7 @@ function performInitialRendering() {
                 console.warn('⚠️ 无法设置摄像机位置或跟随');
             }
             
-            // 输出摄像机信息
-            console.log('摄像机状态:', {
-                x: gameEngine.viewSystem.camera.x,
-                y: gameEngine.viewSystem.camera.y,
-                zoom: gameEngine.viewSystem.camera.zoom,
-                screenWidth: gameEngine.viewSystem.camera.screenWidth,
-                screenHeight: gameEngine.viewSystem.camera.screenHeight
-            });
+
         } else {
             console.warn('⚠️ 视觉系统或摄像机未初始化');
         }
@@ -586,18 +534,7 @@ function performInitialRendering() {
                 var allBuildings = window.collisionSystem.staticQuadTree.getAllObjects();
                 console.log('✅ 静态四叉树中的建筑物数量:', allBuildings.length);
                 
-                if (allBuildings.length > 0) {
-                    console.log('第一个建筑物示例:', {
-                        id: allBuildings[0].id,
-                        x: allBuildings[0].x,
-                        y: allBuildings[0].y,
-                        width: allBuildings[0].width,
-                        height: allBuildings[0].height,
-                        bounds: allBuildings[0].bounds
-                    });
-                } else {
-                    console.warn('⚠️ 静态四叉树中没有建筑物');
-                }
+
             } else {
                 console.warn('⚠️ 静态四叉树未初始化');
             }
@@ -607,43 +544,12 @@ function performInitialRendering() {
                 var allDynamicObjects = window.collisionSystem.dynamicQuadTree.getAllObjects();
                 console.log('✅ 动态四叉树中的对象数量:', allDynamicObjects.length);
                 
-                if (allDynamicObjects.length > 0) {
-                    allDynamicObjects.forEach((obj, index) => {
-                        console.log(`动态对象 ${index}:`, {
-                            id: obj.id,
-                            type: obj.type,
-                            role: obj.role,
-                            x: obj.x,
-                            y: obj.y
-                        });
-                    });
-                }
+
             } else {
                 console.warn('⚠️ 动态四叉树未初始化');
             }
             
-            // 测试碰撞检测
-            if (window.collisionSystem.isCircleCollidingWithBuildings) {
-                var testX = 5000; // 南部公园区测试位置
-                var testY = 9600;
-                var testRadius = 16;
-                var collisionResult = window.collisionSystem.isCircleCollidingWithBuildings(testX, testY, testRadius);
-                console.log('✅ 碰撞检测测试 - 位置:', testX, testY, '半径:', testRadius, '结果:', collisionResult);
-                
-                // 测试更多位置
-                var testPositions = [
-                    {x: 5000, y: 5000, desc: '地图中心'},
-                    {x: 1000, y: 1000, desc: '地图左上角'},
-                    {x: 9000, y: 9000, desc: '地图右下角'}
-                ];
-                
-                testPositions.forEach(pos => {
-                    var result = window.collisionSystem.isCircleCollidingWithBuildings(pos.x, pos.y, testRadius);
-                    console.log(`碰撞检测测试 - ${pos.desc}:`, pos.x, pos.y, '结果:', result);
-                });
-            } else {
-                console.warn('⚠️ 碰撞检测方法不存在');
-            }
+
         } else {
             console.warn('⚠️ 碰撞系统未初始化');
         }
@@ -653,15 +559,7 @@ function performInitialRendering() {
         // 立即执行一次游戏引擎渲染，确保所有内容显示在屏幕上
         console.log('🎨 执行初始游戏引擎渲染...');
         
-        // 检查视觉系统状态
-        if (gameEngine && gameEngine.viewSystem) {
-            console.log('🔍 检查视觉系统状态:', {
-                viewSystem: !!gameEngine.viewSystem,
-                camera: !!gameEngine.viewSystem.camera,
-                canvas: !!gameEngine.viewSystem.canvas,
-                ctx: !!gameEngine.viewSystem.ctx
-            });
-        }
+
         
         if (gameEngine && gameEngine.render) {
             try {
@@ -702,39 +600,6 @@ function startGameLoop() {
             } else if (gameEngine.gameState === 'playing') {
                 // 使用游戏引擎的更新和渲染方法
                 if (gameEngine.update && gameEngine.render) {
-                    // 添加调试信息
-                    if (window.characterManager) {
-                        var characters = window.characterManager.getAllCharacters();
-                        console.log('游戏循环 - 角色数量:', characters.length);
-                        if (characters.length > 0) {
-                            characters.forEach((char, index) => {
-                                console.log(`角色 ${index}:`, {
-                                    id: char.id,
-                                    role: char.role,
-                                    x: char.x,
-                                    y: char.y,
-                                    type: char.type
-                                });
-                            });
-                        }
-                    }
-                    
-                    if (window.zombieManager) {
-                        var zombies = window.zombieManager.getAllZombies();
-                        console.log('游戏循环 - 僵尸数量:', zombies.length);
-                        if (zombies.length > 0) {
-                            zombies.forEach((zombie, index) => {
-                                console.log(`僵尸 ${index}:`, {
-                                    id: zombie.id,
-                                    type: zombie.type,
-                                    x: zombie.x,
-                                    y: zombie.y,
-                                    hp: zombie.hp
-                                });
-                            });
-                        }
-                    }
-                    
                     gameEngine.update();
                     gameEngine.render();
                 } else {
