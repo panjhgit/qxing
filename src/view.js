@@ -16,7 +16,7 @@ var Camera = function(canvas) {
     this.y = 0;           // 摄像机世界坐标Y
     this.targetX = 0;     // 目标X坐标
     this.targetY = 0;     // 目标Y坐标
-    this.followSpeed = 0.1; // 跟随速度（0-1，1为立即跟随）
+    this.followSpeed = 0.1; // 跟随速度（0-1，1为立即跟随）- 可以从配置读取
     
     // 屏幕尺寸
     this.screenWidth = canvas.width;

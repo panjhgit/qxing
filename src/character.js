@@ -133,57 +133,57 @@ Character.prototype.setupRoleProperties = function() {
     switch (this.role) {
         case ROLE.MAIN: // 主人物
             this.hp = Math.round(100 * difficultyConfig.PLAYER_HP_BONUS);
-            this.attack = 10;
+            this.attack = combatConfig.DEFAULT_ATTACK || 10;
             this.weapon = WEAPON.NONE;
             this.attackRange = combatConfig.MAX_ATTACK_RANGE;
             this.icon = '👤';
             break;
 
         case ROLE.POLICE: // 警察
-            this.hp = 80;
-            this.attack = 10;
+            this.hp = Math.round(80 * difficultyConfig.PLAYER_HP_BONUS);
+            this.attack = combatConfig.DEFAULT_ATTACK || 10;
             this.weapon = WEAPON.NONE;
-            this.attackRange = 100;
+            this.attackRange = combatConfig.POLICE_ATTACK_RANGE || 100;
             this.icon = '👮';
             break;
 
         case ROLE.CIVILIAN: // 平民
-            this.hp = 50;
-            this.attack = 5;
+            this.hp = Math.round(50 * difficultyConfig.PLAYER_HP_BONUS);
+            this.attack = combatConfig.DEFAULT_ATTACK || 5;
             this.weapon = WEAPON.NONE;
             this.attackRange = combatConfig.MIN_ATTACK_RANGE;
             this.icon = '👨';
             break;
 
         case ROLE.DOCTOR: // 医生
-            this.hp = 60;
-            this.attack = 5;
+            this.hp = Math.round(60 * difficultyConfig.PLAYER_HP_BONUS);
+            this.attack = combatConfig.DEFAULT_ATTACK || 5;
             this.weapon = WEAPON.NONE;
-            this.attackRange = 80;
+            this.attackRange = combatConfig.DOCTOR_ATTACK_RANGE || 80;
             this.icon = '👨‍⚕️';
             break;
 
         case ROLE.NURSE: // 护士
-            this.hp = 55;
-            this.attack = 5;
+            this.hp = Math.round(55 * difficultyConfig.PLAYER_HP_BONUS);
+            this.attack = combatConfig.DEFAULT_ATTACK || 5;
             this.weapon = WEAPON.NONE;
-            this.attackRange = 60;
+            this.attackRange = combatConfig.NURSE_ATTACK_RANGE || 60;
             this.icon = '👩‍⚕️';
             break;
 
         case ROLE.CHEF: // 厨师
-            this.hp = 70;
-            this.attack = 5;
+            this.hp = Math.round(70 * difficultyConfig.PLAYER_HP_BONUS);
+            this.attack = combatConfig.DEFAULT_ATTACK || 5;
             this.weapon = WEAPON.NONE;
-            this.attackRange = 70;
+            this.attackRange = combatConfig.CHEF_ATTACK_RANGE || 70;
             this.icon = '👨‍🍳';
             break;
 
         default:
-            this.hp = 50;
-            this.attack = 5;
+            this.hp = Math.round(50 * difficultyConfig.PLAYER_HP_BONUS);
+            this.attack = combatConfig.DEFAULT_ATTACK || 5;
             this.weapon = WEAPON.NONE;
-            this.attackRange = 60;
+            this.attackRange = combatConfig.MIN_ATTACK_RANGE;
             this.icon = '❓';
     }
 };
@@ -670,7 +670,7 @@ Character.prototype.updateAttack = function(deltaTime) {
     
     // 检查攻击冷却
     this.attackCooldown += deltaTime;
-    var attackInterval = 1.0; // 1秒攻击一次
+    var attackInterval = combatConfig.DEFAULT_ATTACK_INTERVAL || 1.0; // 从配置读取攻击间隔
     
     if (this.attackCooldown >= attackInterval) {
         // 执行攻击
@@ -852,7 +852,7 @@ Character.prototype.performAttack = function() {
 Character.prototype.playAttackAnimationWhileMoving = function(deltaTime) {
     // 检查攻击冷却
     this.attackCooldown += deltaTime;
-    var attackInterval = 0.8; // 0.8秒攻击一次（比静止攻击稍快）
+    var attackInterval = combatConfig.MOVING_ATTACK_INTERVAL || 0.8; // 从配置读取移动攻击间隔
     
     if (this.attackCooldown >= attackInterval) {
         // 执行攻击（不停止移动）
@@ -1006,7 +1006,7 @@ Character.prototype.resetMovementState = function() {
 Character.prototype.playAttackAnimation = function() {
     // 设置攻击动画帧
     this.animationFrame = 0;
-    this.animationSpeed = 0.3; // 攻击动画速度
+    this.animationSpeed = animationConfig.ATTACK_ANIMATION_SPEED || 0.3; // 从配置读取攻击动画速度
     
     console.log('主人物播放攻击动画');
 };
@@ -1015,7 +1015,7 @@ Character.prototype.playAttackAnimation = function() {
 Character.prototype.playDeathAnimation = function() {
     // 设置死亡动画帧
     this.animationFrame = 0;
-    this.animationSpeed = 0.1; // 死亡动画速度
+    this.animationSpeed = animationConfig.DEATH_ANIMATION_SPEED || 0.1; // 从配置读取死亡动画速度
     
     console.log('主人物播放死亡动画');
 };
@@ -1136,7 +1136,7 @@ Character.prototype.stopMovement = function() {
             );
             
             if (buildingSafePos) {
-                // 建筑物碰撞检测通过，直接移动（不再检查与僵尸的重叠）
+                // 建筑物碰撞检测通过，直接移动（允许与僵尸重叠）
                 var oldX = this.x, oldY = this.y;
                 this.x = buildingSafePos.x;
                 this.y = buildingSafePos.y;
@@ -1167,17 +1167,16 @@ Character.prototype.stopMovement = function() {
         }
 
         // 使用动画工具更新动画帧 - 优化动画更新频率
-        if (this.isMoving) {
-            var animationConfig = ConfigManager.get('ANIMATION');
-            // 根据移动状态调整动画速度
-            var adjustedSpeed = this.isMoving ? this.animationSpeed * 1.5 : this.animationSpeed;
+        if (this.animationFrame !== undefined) {
             this.animationFrame = animationUtils.updateFrame(
                 this.animationFrame, 
-                adjustedSpeed, 
+                this.animationSpeed * deltaTime, 
                 animationConfig.MAX_ANIMATION_FRAMES
             );
         }
     };
+
+
 
 // 更新动画 - 使用工具类
 Character.prototype.updateAnimation = function (deltaTime) {

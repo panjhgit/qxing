@@ -327,7 +327,7 @@ Zombie.prototype.updateDayNightState = function () {
             if (this.isDay) {
                 this.currentMoveSpeed = this.moveSpeed; // 白天正常速度
             } else {
-                this.currentMoveSpeed = this.moveSpeed * 1.67; // 夜晚速度提升到3m/s (180 * 1.67 ≈ 300)
+                this.currentMoveSpeed = this.moveSpeed * (movementConfig.NIGHT_SPEED_MULTIPLIER || 1.67); // 从配置读取夜晚速度倍数
             }
         }
     } else {
@@ -338,7 +338,7 @@ Zombie.prototype.updateDayNightState = function () {
 // 进入死亡状态
 Zombie.prototype.onEnterDead = function () {
     this.deathAnimationTime = 0; // 死亡动画计时器
-    this.deathAnimationDuration = 2.0; // 死亡动画持续2秒
+    this.deathAnimationDuration = animationConfig.DEATH_ANIMATION_DURATION || 2.0; // 从配置读取死亡动画持续时间
 
     // 停止移动
     this.isMoving = false;
@@ -509,7 +509,7 @@ Zombie.prototype.attackTarget = function (deltaTime) {
 Zombie.prototype.playAttackAnimation = function () {
     // 设置攻击动画帧
     this.animationFrame = 0;
-    this.animationSpeed = 0.4; // 攻击动画速度
+    this.animationSpeed = animationConfig.ZOMBIE_ATTACK_ANIMATION_SPEED || 0.4; // 从配置读取僵尸攻击动画速度
 
     console.log('僵尸播放攻击动画:', this.zombieType, this.id);
 };
@@ -627,7 +627,7 @@ Zombie.prototype.tryCircumventObstacle = function (targetX, targetY, allZombies,
         var offsetX = this.x + Math.cos(angle) * searchRadius;
         var offsetY = this.y + Math.sin(angle) * searchRadius;
 
-        // 检查绕行位置是否安全
+        // 检查绕行位置是否安全（只检查建筑物，允许与角色重叠）
         if (this.isPositionSafe(offsetX, offsetY, allZombies, allCharacters)) {
             // 尝试从绕行位置到目标
             var pathToTarget = this.tryMoveToPosition(offsetX, offsetY, targetX, targetY, targetX, targetY, allZombies, allCharacters);
@@ -657,7 +657,7 @@ Zombie.prototype.tryCircumventObstacle = function (targetX, targetY, allZombies,
 };
 
 
-// 检查位置是否安全
+// 检查位置是否安全（只检查建筑物，允许与角色重叠）
 Zombie.prototype.isPositionSafe = function (x, y, allZombies, allCharacters) {
     if (!window.collisionSystem) return true;
 
@@ -668,10 +668,7 @@ Zombie.prototype.isPositionSafe = function (x, y, allZombies, allCharacters) {
         }
     }
 
-
-
-
-
+    // 允许与角色重叠，不进行碰撞检测
     return true;
 };
 
@@ -1421,17 +1418,17 @@ var ZombieManager = {
             return;
         }
 
-        // 🔴 分帧更新策略：将所有活跃僵尸分成5个批次
+        // 🔴 优化分帧更新策略：减少批次数量，提高更新频率
         var activeZombies = zombies.filter(zombie => 
             zombie && zombie.hp > 0 && zombie.state !== ZOMBIE_STATE.DEAD
         );
         
         var totalActiveZombies = activeZombies.length;
-        var currentBatch = currentFrame % 5; // 5个批次，每帧更新1个批次
+        var currentBatch = currentFrame % 3; // 减少到3个批次，每帧更新1个批次
         
         // 计算当前批次应该更新的僵尸
         var zombiesToUpdate = activeZombies.filter((zombie, index) => 
-            index % 5 === currentBatch
+            index % 3 === currentBatch
         );
 
         console.log('🔴 分帧更新策略:', {

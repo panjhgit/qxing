@@ -291,13 +291,13 @@ var GameEngine = function(canvas, ctx) {
     this.navigationSystem = null; // NavMesh导航系统
     this.dynamicObstacleManager = null; // 动态障碍物管理器
     
-    // 计时系统
+    // 计时系统 - 从配置文件读取
     this.timeSystem = {
         day: 1,              // 当前天数
         isDay: true,         // 是否为白天
-        dayTime: 0,          // 当前时段计时器（0-30秒）
+        dayTime: 0,          // 当前时段计时器
         currentTime: 0,      // 当前时间（秒）
-        dayDuration: 30,     // 一天的长度（秒）
+        dayDuration: 0,      // 一天的长度（秒）- 从配置文件读取
         food: 5              // 食物数量
     };
     
@@ -395,6 +395,33 @@ GameEngine.prototype.init = function() {
     // 初始化视觉系统
     if (typeof ViewSystem !== 'undefined') {
         this.viewSystem = new ViewSystem(this.canvas, this.ctx);
+    }
+    
+    // 初始化时间系统配置
+    this.initTimeSystemConfig();
+};
+
+// 初始化时间系统配置
+GameEngine.prototype.initTimeSystemConfig = function() {
+    // 从配置文件读取时间设置
+    if (window.ConfigManager) {
+        try {
+            var timeConfig = window.ConfigManager.get('TIME_SYSTEM');
+            if (timeConfig) {
+                this.timeSystem.dayDuration = timeConfig.DAY_DURATION;
+                console.log('✅ 时间系统配置已加载:', {
+                    dayDuration: this.timeSystem.dayDuration,
+                    dayPhaseDuration: timeConfig.DAY_PHASE_DURATION,
+                    zombiesPerDay: timeConfig.ZOMBIES_PER_DAY
+                });
+            }
+        } catch (error) {
+            console.warn('⚠️ 无法加载时间系统配置，使用默认值:', error);
+            this.timeSystem.dayDuration = 10; // 默认10秒
+        }
+    } else {
+        console.warn('⚠️ ConfigManager不可用，使用默认时间设置');
+        this.timeSystem.dayDuration = 10; // 默认10秒
     }
 };
 
@@ -704,24 +731,34 @@ GameEngine.prototype.renderJoystick = function() {
 
 // 更新计时系统
 GameEngine.prototype.updateTimeSystem = function() {
+    // 从配置文件获取时间设置
+    var timeConfig = window.ConfigManager ? window.ConfigManager.get('TIME_SYSTEM') : null;
+    var dayDuration = timeConfig ? timeConfig.DAY_DURATION : 10;
+    var dayPhaseDuration = timeConfig ? timeConfig.DAY_PHASE_DURATION : 5;
+    
     // 更新游戏时间
     this.timeSystem.currentTime += 1/60; // 每帧增加时间（假设60帧=1秒）
     
     // 检查是否过了一天
-    if (this.timeSystem.currentTime >= this.timeSystem.dayDuration) {
+    if (this.timeSystem.currentTime >= dayDuration) {
         this.timeSystem.currentTime = 0;
         this.timeSystem.day++;
-        console.log('新的一天开始，当前天数:', this.timeSystem.day);
+        console.log('新的一天开始，当前天数:', this.timeSystem.day, '一天长度:', dayDuration, '秒');
         
-        // 每天开始时刷新一只僵尸
+        // 每天开始时刷新僵尸
         this.spawnOneZombiePerDay();
     }
     
-    // 移除每5秒刷新的逻辑，改为每天刷新一只
+    // 更新白天/夜晚状态 - 使用配置文件中的阶段长度
+    var dayProgress = this.timeSystem.currentTime / dayDuration;
+    this.timeSystem.isDay = dayProgress < (dayPhaseDuration / dayDuration);
     
-    // 更新白天/夜晚状态
-    var dayProgress = this.timeSystem.currentTime / this.timeSystem.dayDuration;
-    this.timeSystem.isDay = dayProgress < 0.5;
+    // 记录时间状态变化
+    if (this.timeSystem.currentTime % 1 < 1/60) { // 每秒记录一次
+        console.log('时间状态:', this.timeSystem.isDay ? '☀️ 白天' : '🌙 夜晚', 
+                   '进度:', (this.timeSystem.currentTime / dayDuration * 100).toFixed(1) + '%',
+                   '当前时间:', this.timeSystem.currentTime.toFixed(1) + 's');
+    }
     
     // 帧数计数
     this.frameCount++;
@@ -746,7 +783,7 @@ GameEngine.prototype.getTimeInfo = function() {
     };
 };
 
-// 每天刷新一只僵尸
+// 每天刷新僵尸
 GameEngine.prototype.spawnOneZombiePerDay = function() {
     if (!this.zombieManager || !this.characterManager) {
         console.log('GameEngine: 僵尸管理器或角色管理器未初始化，跳过僵尸刷新');
@@ -759,14 +796,17 @@ GameEngine.prototype.spawnOneZombiePerDay = function() {
         return;
     }
     
-    console.log('GameEngine: 新的一天开始，刷新10只僵尸，当前天数:', this.timeSystem.day, '主人物位置:', mainChar.x, mainChar.y);
+    // 从配置文件获取僵尸生成设置
+    var timeConfig = window.ConfigManager ? window.ConfigManager.get('TIME_SYSTEM') : null;
+    var zombiesPerDay = timeConfig ? timeConfig.ZOMBIES_PER_DAY : 10;
+    var minDistance = timeConfig ? timeConfig.SPAWN_RANGE.MIN_DISTANCE : 500;
+    var maxDistance = timeConfig ? timeConfig.SPAWN_RANGE.MAX_DISTANCE : 700;
     
-    // 每天刷新10只僵尸
-    var zombiesToCreate = 10;
-    console.log('GameEngine: 需要创建', zombiesToCreate, '只僵尸，在人物700px范围内');
+    console.log('GameEngine: 新的一天开始，刷新', zombiesPerDay, '只僵尸，当前天数:', this.timeSystem.day, '主人物位置:', mainChar.x, mainChar.y);
+    console.log('GameEngine: 僵尸生成范围:', minDistance, '-', maxDistance, 'px');
     
     // 创建僵尸批次
-    this.createZombieBatchAroundPlayer(zombiesToCreate, mainChar);
+    this.createZombieBatchAroundPlayer(zombiesPerDay, mainChar, minDistance, maxDistance);
     
     // 验证四叉树中的僵尸数量
     if (this.collisionSystem && this.collisionSystem.getDynamicObjectCountByType) {
@@ -780,9 +820,13 @@ GameEngine.prototype.spawnOneZombiePerDay = function() {
     }
 },
 
-// 分批创建僵尸（性能优化）- 在人物700px范围内生成
-GameEngine.prototype.createZombieBatchAroundPlayer = function(batchSize, mainChar) {
-    console.log('GameEngine: 创建僵尸批次，数量:', batchSize, '在人物位置:', mainChar.x, mainChar.y, '700px范围内');
+// 分批创建僵尸（性能优化）- 使用配置文件中的距离范围
+GameEngine.prototype.createZombieBatchAroundPlayer = function(batchSize, mainChar, minDistance, maxDistance) {
+    // 如果没有传入距离参数，使用默认值
+    minDistance = minDistance || 500;
+    maxDistance = maxDistance || 700;
+    
+    console.log('GameEngine: 创建僵尸批次，数量:', batchSize, '在人物位置:', mainChar.x, mainChar.y, minDistance + '-' + maxDistance + 'px范围内');
     
     var createdZombies = [];
     var maxAttempts = 100; // 每个僵尸最多尝试100次找位置
@@ -794,9 +838,9 @@ GameEngine.prototype.createZombieBatchAroundPlayer = function(batchSize, mainCha
         while (!zombieCreated && attempts < maxAttempts) {
             attempts++;
             
-            // 在距离主人物500-700px的位置随机生成（避免太近或太远）
+            // 在距离主人物minDistance-maxDistance的位置随机生成
             var angle = Math.random() * Math.PI * 2; // 随机角度
-            var distance = 500 + Math.random() * 200; // 500-700px之间
+            var distance = minDistance + Math.random() * (maxDistance - minDistance);
             
             // 使用ZOMBIE_TYPE枚举，确保类型一致性
             var zombieTypes = ['skinny', 'fat', 'fast', 'tank', 'boss'];
@@ -859,20 +903,25 @@ GameEngine.prototype.createZombieBatchAroundPlayer = function(batchSize, mainCha
     var finalZombieCount = this.zombieManager.getAllZombies().filter(z => z.hp > 0).length;
     console.log('GameEngine: 批次创建完成，成功创建:', createdZombies.length, '只僵尸，当前总僵尸数:', finalZombieCount);
     
-    // 验证新创建的僵尸是否都在700px范围内
+    // 验证新创建的僵尸是否都在配置的距离范围内
     var allZombies = this.zombieManager.getAllZombies().filter(z => z.hp > 0);
     var zombiesInRange = allZombies.filter(z => {
         var distance = Math.sqrt(Math.pow(z.x - mainChar.x, 2) + Math.pow(z.y - mainChar.y, 2));
-        return distance >= 400 && distance <= 800;
+        return distance >= (minDistance - 100) && distance <= (maxDistance + 100);
     });
-    console.log('GameEngine: 400-800px范围内的僵尸数量:', zombiesInRange.length);
+    console.log('GameEngine:', (minDistance - 100) + '-' + (maxDistance + 100) + 'px范围内的僵尸数量:', zombiesInRange.length);
 };
 
 // 检查僵尸生成位置是否有效
 GameEngine.prototype.isValidZombieSpawnPosition = function(x, y, mainChar, existingZombies) {
-    // 1. 检查是否在有效范围内（500-700px）
+    // 从配置文件获取距离范围
+    var timeConfig = window.ConfigManager ? window.ConfigManager.get('TIME_SYSTEM') : null;
+    var minDistance = timeConfig ? timeConfig.SPAWN_RANGE.MIN_DISTANCE : 500;
+    var maxDistance = timeConfig ? timeConfig.SPAWN_RANGE.MAX_DISTANCE : 700;
+    
+    // 1. 检查是否在有效范围内
     var distanceFromMain = Math.sqrt(Math.pow(x - mainChar.x, 2) + Math.pow(y - mainChar.y, 2));
-    if (distanceFromMain < 500 || distanceFromMain > 700) {
+    if (distanceFromMain < minDistance || distanceFromMain > maxDistance) {
         return false;
     }
     

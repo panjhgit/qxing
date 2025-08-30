@@ -79,14 +79,25 @@ const GAME_CONFIG = {
         ZOMBIE_MOVE_SPEED: 180,         // 僵尸移动速度 (像素/秒) - 比人物慢
         MIN_MOVE_DISTANCE: 1,            // 最小移动距离
         PATHFINDING_STEPS: 10,          // 路径检测步数
-        SMOOTH_MOVE_RATIOS: [0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1] // 平滑移动比例
+        SMOOTH_MOVE_RATIOS: [0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1], // 平滑移动比例
+        
+        // 夜晚速度配置
+        NIGHT_SPEED_MULTIPLIER: 1.67    // 夜晚速度倍数（僵尸夜晚速度提升）
     },
 
     // 动画系统配置
     ANIMATION: {
         DEFAULT_FRAME_RATE: 0.2,        // 默认动画帧率 (每帧更新0.2)
         MAX_ANIMATION_FRAMES: 8,        // 最大动画帧数
-        ANIMATION_RESET_THRESHOLD: 8    // 动画重置阈值
+        ANIMATION_RESET_THRESHOLD: 8,   // 动画重置阈值
+        
+        // 角色动画速度配置
+        ATTACK_ANIMATION_SPEED: 0.3,    // 攻击动画速度
+        DEATH_ANIMATION_SPEED: 0.1,     // 死亡动画速度
+        
+        // 僵尸动画速度配置
+        ZOMBIE_ATTACK_ANIMATION_SPEED: 0.4,  // 僵尸攻击动画速度
+        DEATH_ANIMATION_DURATION: 2.0        // 死亡动画持续时间（秒）
     },
 
     // 碰撞检测配置
@@ -109,7 +120,18 @@ const GAME_CONFIG = {
         DEFAULT_ATTACK_COOLDOWN: 1000,  // 默认攻击冷却时间 (毫秒) - 改回合理值
         MIN_ATTACK_RANGE: 30,           // 最小攻击距离
         MAX_ATTACK_RANGE: 150,          // 最大攻击距离
-        DAMAGE_REDUCTION_FACTOR: 0.8    // 伤害衰减因子
+        DAMAGE_REDUCTION_FACTOR: 0.8,   // 伤害衰减因子
+        
+        // 角色攻击配置
+        DEFAULT_ATTACK: 10,             // 默认攻击力
+        DEFAULT_ATTACK_INTERVAL: 1.0,   // 默认攻击间隔（秒）
+        MOVING_ATTACK_INTERVAL: 0.8,    // 移动攻击间隔（秒）
+        
+        // 角色攻击范围配置
+        POLICE_ATTACK_RANGE: 100,       // 警察攻击范围
+        DOCTOR_ATTACK_RANGE: 80,        // 医生攻击范围
+        NURSE_ATTACK_RANGE: 60,         // 护士攻击范围
+        CHEF_ATTACK_RANGE: 70           // 厨师攻击范围
     },
 
     // 检测范围配置
