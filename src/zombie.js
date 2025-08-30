@@ -302,14 +302,14 @@ Zombie.prototype.update = function (deltaTime, characters, currentFrame = 0) {
 
 // 获取僵尸更新间隔（性能优化）
 Zombie.prototype.getUpdateInterval = function () {
-    // 根据僵尸类型和状态决定更新频率 - 减少间隔，提高响应性
+    // 🔴 修复：使用正确的僵尸类型枚举，确保所有僵尸都能连续移动
     switch (this.zombieType) {
-        case ZOMBIE_STATE.FAST:
+        case ZOMBIE_TYPE.FAST:
             return 1; // 快速僵尸每帧更新
-        case ZOMBIE_STATE.BOSS:
+        case ZOMBIE_TYPE.BOSS:
             return 1; // Boss僵尸每帧更新（提高响应性）
-        case ZOMBIE_STATE.TANK:
-            return 2; // 坦克僵尸每2帧更新
+        case ZOMBIE_TYPE.TANK:
+            return 1; // 🔴 修复：坦克僵尸也每帧更新，避免卡住
         default:
             return 1; // 其他僵尸每帧更新（提高响应性）
     }
@@ -487,7 +487,7 @@ Zombie.prototype.attackTarget = function (deltaTime) {
 
     if (distance > this.attackRange) {
         // 目标超出攻击范围，切换到追击状态
-                    this.state = ZOMBIE_STATE.CHASING;
+        this.state = ZOMBIE_STATE.CHASING;
         return;
     }
 
@@ -498,7 +498,7 @@ Zombie.prototype.attackTarget = function (deltaTime) {
         this.targetCharacter.takeDamage(this.attack);
         this.lastAttackTime = currentTime;
 
-        console.log('僵尸', this.id, '攻击目标:', this.targetCharacter.role === 1 ? '主人物' : '伙伴', '造成伤害:', this.attack);
+        console.log('僵尸攻击成功:', this.id, '目标:', this.targetCharacter.role === 1 ? '主人物' : '伙伴', '伤害:', this.attack, '距离:', distance.toFixed(2));
 
         // 播放攻击动画
         this.playAttackAnimation();
@@ -604,8 +604,7 @@ Zombie.prototype.tryMoveToPosition = function (fromX, fromY, toX, toY, targetX, 
         return null; // 建筑物碰撞无法解决
     }
 
-    // 检查是否与其他对象重叠
-    // 直接返回建筑物安全位置，不再检查与角色的重叠
+    // 直接返回建筑物安全位置
     return buildingSafePos;
 };
 
@@ -627,7 +626,7 @@ Zombie.prototype.tryCircumventObstacle = function (targetX, targetY, allZombies,
         var offsetX = this.x + Math.cos(angle) * searchRadius;
         var offsetY = this.y + Math.sin(angle) * searchRadius;
 
-        // 检查绕行位置是否安全（只检查建筑物，允许与角色重叠）
+        // 检查绕行位置是否安全（只检查建筑物）
         if (this.isPositionSafe(offsetX, offsetY, allZombies, allCharacters)) {
             // 尝试从绕行位置到目标
             var pathToTarget = this.tryMoveToPosition(offsetX, offsetY, targetX, targetY, targetX, targetY, allZombies, allCharacters);
@@ -657,7 +656,7 @@ Zombie.prototype.tryCircumventObstacle = function (targetX, targetY, allZombies,
 };
 
 
-// 检查位置是否安全（只检查建筑物，允许与角色重叠）
+// 检查位置是否安全（只检查建筑物）
 Zombie.prototype.isPositionSafe = function (x, y, allZombies, allCharacters) {
     if (!window.collisionSystem) return true;
 
@@ -668,7 +667,6 @@ Zombie.prototype.isPositionSafe = function (x, y, allZombies, allCharacters) {
         }
     }
 
-    // 允许与角色重叠，不进行碰撞检测
     return true;
 };
 
@@ -714,7 +712,7 @@ Zombie.prototype.idleBehavior = function (deltaTime) {
         this.targetX = this.x + Math.cos(this.direction) * targetDistance;
         this.targetY = this.y + Math.sin(this.direction) * targetDistance;
 
-        // 检查目标位置是否安全（不在建筑物内，不与僵尸重叠）
+        // 检查目标位置是否安全（不在建筑物内）
         if (window.collisionSystem) {
             var allZombies = [];
             var allCharacters = [];
@@ -1847,40 +1845,4 @@ Zombie.prototype.decideTargetState = function(distance) {
 export {ZOMBIE_TYPE, ZOMBIE_STATE};
 export {ZombieManager};
 export default Zombie;
-
-// 🔴 新增：僵尸高性能管理方法
-
-// 设置更新间隔
-Zombie.prototype.setUpdateInterval = function(interval) {
-    this.updateInterval = Math.max(1, Math.min(5, interval)); // 限制在1-5之间
-    console.log('僵尸', this.id, '更新间隔设置为:', this.updateInterval);
-};
-
-// 获取更新间隔
-Zombie.prototype.getUpdateInterval = function() {
-    return this.updateInterval;
-};
-
-// 检查是否需要更新（基于性能等级和距离）
-Zombie.prototype.shouldUpdate = function(currentFrame, mainCharX, mainCharY) {
-    // 基础更新间隔检查
-    if (currentFrame % this.updateInterval !== 0) {
-        return false;
-    }
-    
-    // 距离检查（远距离僵尸更新频率降低）
-    if (mainCharX !== undefined && mainCharY !== undefined) {
-        var distance = Math.sqrt(Math.pow(this.x - mainCharX, 2) + Math.pow(this.y - mainCharY, 2));
-        
-        if (distance > 1000) { // 1000px以上
-            return currentFrame % (this.updateInterval * 2) === 0; // 更新频率减半
-        } else if (distance > 500) { // 500-1000px
-            return currentFrame % this.updateInterval === 0; // 正常更新频率
-        } else { // 500px以内
-            return true; // 高优先级，每帧更新
-        }
-    }
-    
-    return true;
-};
 

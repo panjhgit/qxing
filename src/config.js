@@ -117,7 +117,7 @@ const GAME_CONFIG = {
 
     // 攻击系统配置
     COMBAT: {
-        DEFAULT_ATTACK_COOLDOWN: 1000,  // 默认攻击冷却时间 (毫秒) - 改回合理值
+        DEFAULT_ATTACK_COOLDOWN: 500,   // 🔴 修复：减少攻击冷却时间从1000ms到500ms，让僵尸攻击更连贯
         MIN_ATTACK_RANGE: 30,           // 最小攻击距离
         MAX_ATTACK_RANGE: 150,          // 最大攻击距离
         DAMAGE_REDUCTION_FACTOR: 0.8,   // 伤害衰减因子
