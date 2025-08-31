@@ -458,7 +458,10 @@ Partner.prototype.updateAttack = function (deltaTime) {
     if (distance <= 10) { // 固定攻击范围10px
         // 在攻击范围内，执行攻击
         this.attackCooldown += deltaTime;
-        var attackInterval = 0.5; // 固定攻击间隔0.5秒
+        
+        // 🔴 修复：从配置获取攻击间隔
+        var combatConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT') : null;
+        var attackInterval = combatConfig ? combatConfig.DEFAULT_ATTACK_INTERVAL : 0.5; // 从配置获取攻击间隔
 
         if (this.attackCooldown >= attackInterval) {
             this.performAttack();

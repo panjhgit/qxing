@@ -537,7 +537,10 @@ Character.prototype.updateAttack = function (deltaTime) {
 
     // 检查攻击冷却
     this.attackCooldown += deltaTime;
-    var attackInterval = 0.5; // 固定攻击间隔0.5秒
+    
+    // 🔴 修复：从配置获取攻击间隔
+    var combatConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT') : null;
+    var attackInterval = combatConfig ? combatConfig.DEFAULT_ATTACK_INTERVAL : 0.5; // 从配置获取攻击间隔
 
     if (this.attackCooldown >= attackInterval) {
         // 执行攻击

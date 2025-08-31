@@ -119,15 +119,15 @@ const GAME_CONFIG = {
 
     // 攻击系统配置
     COMBAT: {
-        DEFAULT_ATTACK_COOLDOWN: 500,   // 攻击冷却时间500ms
+        DEFAULT_ATTACK_COOLDOWN: 500,   // 攻击冷却时间500ms (1秒攻击2下)
         MIN_ATTACK_RANGE: 30,           // 最小攻击距离10px
         MAX_ATTACK_RANGE: 30,           // 最大攻击距离10px
         DAMAGE_REDUCTION_FACTOR: 0.8,   // 伤害衰减因子
         
         // 角色攻击配置
         DEFAULT_ATTACK: 30,             // 默认攻击力10
-        DEFAULT_ATTACK_INTERVAL: 0.5,   // 默认攻击间隔0.5秒
-        MOVING_ATTACK_INTERVAL: 0.5,    // 移动攻击间隔0.5秒
+        DEFAULT_ATTACK_INTERVAL: 0.5,   // 默认攻击间隔0.5秒 (1秒攻击2下)
+        MOVING_ATTACK_INTERVAL: 0.5,    // 移动攻击间隔0.5秒 (1秒攻击2下)
         
         // 角色攻击范围配置
         POLICE_ATTACK_RANGE: 80,        // 警察攻击范围10px
@@ -137,7 +137,7 @@ const GAME_CONFIG = {
         
         // 僵尸攻击配置
         ZOMBIE_ATTACK_RANGE: 80,        // 僵尸攻击范围（像素）
-        ZOMBIE_ATTACK_COOLDOWN: 500,    // 僵尸攻击冷却时间（毫秒）
+        ZOMBIE_ATTACK_COOLDOWN: 1500,   // 僵尸攻击冷却时间（毫秒）- 1.5秒攻击一下
         
         // 攻击判定配置
         ATTACK_JUDGMENT: {
