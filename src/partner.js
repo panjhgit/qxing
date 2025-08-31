@@ -92,8 +92,9 @@ var Partner = function (role, x, y) {
     // 伙伴移动速度比主人物慢0.5px/帧，符合文档要求
     this.moveSpeed = movementConfig ? (movementConfig.CHARACTER_MOVE_SPEED - 0.5) : 4.5;
 
-    // 跟随属性
-    this.followDistance = 80;           // 跟随距离
+    // 🔴 修复：从配置获取跟随距离
+    var combatConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT') : null;
+    this.followDistance = combatConfig ? combatConfig.MIN_ATTACK_RANGE : 100; // 从config.js获取跟随距离
     this.followAngle = Math.PI;          // 跟随角度（后方）
     this.followPoint = {x: x, y: y};     // 跟随点
     this.lastMainCharPosition = {x: 0, y: 0}; // 主人物上次位置
@@ -123,66 +124,66 @@ Partner.prototype.setupRoleProperties = function () {
 
     switch (this.role) {
         case PARTNER_ROLE.POLICE:
-            this.hp = 100; // 固定血量100
+            this.hp = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取血量
             this.maxHp = this.hp;
-            this.attack = 10; // 固定攻击力10
-            this.attackRange = combatConfig ? combatConfig.POLICE_ATTACK_RANGE : 80; // 从config.js获取攻击范围
-            this.detectionRange = 100; // 检测范围100px
+            this.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取攻击力
+            this.attackRange = combatConfig ? combatConfig.POLICE_ATTACK_RANGE : 100; // 从config.js获取攻击范围
+            this.detectionRange = combatConfig ? combatConfig.MIN_ATTACK_RANGE : 100; // 从config.js获取检测范围
             this.icon = '👮';
             this.color = '#2c3e50';
             this.initialColor = '#95a5a6'; // 初始状态为灰色
             break;
 
         case PARTNER_ROLE.CIVILIAN:
-            this.hp = 100; // 固定血量100
+            this.hp = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取血量
             this.maxHp = this.hp;
-            this.attack = 10; // 固定攻击力10
-            this.attackRange = combatConfig ? combatConfig.POLICE_ATTACK_RANGE : 80; // 从config.js获取攻击范围
-            this.detectionRange = 100;
+            this.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取攻击力
+            this.attackRange = combatConfig ? combatConfig.POLICE_ATTACK_RANGE : 100; // 从config.js获取攻击范围
+            this.detectionRange = combatConfig ? combatConfig.MIN_ATTACK_RANGE : 100; // 从config.js获取检测范围
             this.icon = '👨';
             this.color = '#95a5a6';
             this.initialColor = '#95a5a6'; // 初始状态为灰色
             break;
 
         case PARTNER_ROLE.DOCTOR:
-            this.hp = 100; // 固定血量100
+            this.hp = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取血量
             this.maxHp = this.hp;
-            this.attack = 10; // 固定攻击力10
-            this.attackRange = combatConfig ? combatConfig.DOCTOR_ATTACK_RANGE : 80; // 从config.js获取攻击范围
-            this.detectionRange = 100;
+            this.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取攻击力
+            this.attackRange = combatConfig ? combatConfig.DOCTOR_ATTACK_RANGE : 100; // 从config.js获取攻击范围
+            this.detectionRange = combatConfig ? combatConfig.MIN_ATTACK_RANGE : 100; // 从config.js获取检测范围
             this.icon = '👨‍⚕️';
             this.color = '#e74c3c';
             this.initialColor = '#95a5a6'; // 初始状态为灰色
             break;
 
         case PARTNER_ROLE.NURSE:
-            this.hp = 100; // 固定血量100
+            this.hp = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取血量
             this.maxHp = this.hp;
-            this.attack = 10; // 固定攻击力10
-            this.attackRange = combatConfig ? combatConfig.NURSE_ATTACK_RANGE : 80; // 从config.js获取攻击范围
-            this.detectionRange = 100;
+            this.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取攻击力
+            this.attackRange = combatConfig ? combatConfig.NURSE_ATTACK_RANGE : 100; // 从config.js获取攻击范围
+            this.detectionRange = combatConfig ? combatConfig.MIN_ATTACK_RANGE : 100; // 从config.js获取检测范围
             this.icon = '👩‍⚕️';
             this.color = '#e91e63';
             this.initialColor = '#95a5a6'; // 初始状态为灰色
             break;
 
         case PARTNER_ROLE.CHEF:
-            this.hp = 100; // 固定血量100
+            this.hp = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取血量
             this.maxHp = this.hp;
-            this.attack = 10; // 固定攻击力10
-            this.attackRange = combatConfig ? combatConfig.CHEF_ATTACK_RANGE : 80; // 从config.js获取攻击范围
-            this.detectionRange = 100;
+            this.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取攻击力
+            this.attackRange = combatConfig ? combatConfig.CHEF_ATTACK_RANGE : 100; // 从config.js获取攻击范围
+            this.detectionRange = combatConfig ? combatConfig.MIN_ATTACK_RANGE : 100; // 从config.js获取检测范围
             this.icon = '👨‍🍳';
             this.color = '#f39c12';
             this.initialColor = '#95a5a6'; // 初始状态为灰色
             break;
 
         default:
-            this.hp = 100; // 固定血量100
+            this.hp = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取血量
             this.maxHp = this.hp;
-            this.attack = 10; // 固定攻击力10
-            this.attackRange = combatConfig ? combatConfig.POLICE_ATTACK_RANGE : 80; // 从config.js获取攻击范围
-            this.detectionRange = 100;
+            this.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取攻击力
+            this.attackRange = combatConfig ? combatConfig.POLICE_ATTACK_RANGE : 100; // 从config.js获取攻击范围
+            this.detectionRange = combatConfig ? combatConfig.MIN_ATTACK_RANGE : 100; // 从config.js获取检测范围
             this.icon = '❓';
             this.color = '#95a5a6';
             this.initialColor = '#95a5a6'; // 初始状态为灰色
@@ -455,7 +456,10 @@ Partner.prototype.updateAttack = function (deltaTime) {
 
     var distance = this.getDistanceTo(this.attackTarget.x, this.attackTarget.y);
 
-    if (distance <= 10) { // 固定攻击范围10px
+    // 🔴 修复：从配置获取攻击范围
+    var attackJudgmentConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT.ATTACK_JUDGMENT') : { RANGE_BUFFER: 5 };
+    var effectiveAttackRange = this.attackRange + attackJudgmentConfig.RANGE_BUFFER;
+    if (distance <= effectiveAttackRange) { // 使用配置的攻击范围
         // 在攻击范围内，执行攻击
         this.attackCooldown += deltaTime;
         
@@ -718,8 +722,11 @@ Partner.prototype.isCongested = function () {
     var angleToMainChar = Math.atan2(mainChar.y - this.y, mainChar.x - this.x);
     var angleDiff = Math.abs(angleToMainChar - mainCharDirection);
 
-    // 如果角度差小于90度且距离小于80px，认为拥堵
-    return angleDiff < Math.PI / 2 && distance < 80;
+    // 🔴 修复：从配置获取拥堵检测距离
+    var combatConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT') : null;
+    var congestionDistance = combatConfig ? combatConfig.MIN_ATTACK_RANGE : 100;
+    // 如果角度差小于90度且距离小于配置距离，认为拥堵
+    return angleDiff < Math.PI / 2 && distance < congestionDistance;
 };
 
 // 检查避障是否完成

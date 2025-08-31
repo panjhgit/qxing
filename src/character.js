@@ -128,59 +128,65 @@ Character.prototype.setupRoleProperties = function () {
 
     switch (this.role) {
         case ROLE.MAIN: // 主人物
-            this.hp = 100; // 固定血量100
+            this.hp = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取血量
             this.maxHp = this.hp;
-            this.attack = 10; // 固定攻击力10
+            this.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取攻击力
             this.weapon = WEAPON.NONE;
-            this.attackRange = combatConfig ? combatConfig.POLICE_ATTACK_RANGE : 80; // 从config.js获取攻击范围
+            this.attackRange = combatConfig ? combatConfig.POLICE_ATTACK_RANGE : 100; // 从config.js获取攻击范围
             this.icon = '👤';
             break;
 
         case ROLE.POLICE: // 警察
-            this.hp = 100; // 固定血量100
-            this.attack = 10; // 固定攻击力10
+            this.hp = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取血量
+            this.maxHp = this.hp;
+            this.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取攻击力
             this.weapon = WEAPON.NONE;
-            this.attackRange = combatConfig ? combatConfig.POLICE_ATTACK_RANGE : 80; // 从config.js获取攻击范围
+            this.attackRange = combatConfig ? combatConfig.POLICE_ATTACK_RANGE : 100; // 从config.js获取攻击范围
             this.icon = '👮';
             break;
 
         case ROLE.CIVILIAN: // 平民
-            this.hp = 100; // 固定血量100
-            this.attack = 10; // 固定攻击力10
+            this.hp = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取血量
+            this.maxHp = this.hp;
+            this.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取攻击力
             this.weapon = WEAPON.NONE;
-            this.attackRange = combatConfig ? combatConfig.POLICE_ATTACK_RANGE : 80; // 从config.js获取攻击范围
+            this.attackRange = combatConfig ? combatConfig.POLICE_ATTACK_RANGE : 100; // 从config.js获取攻击范围
             this.icon = '👨';
             break;
 
         case ROLE.DOCTOR: // 医生
-            this.hp = 100; // 固定血量100
-            this.attack = 10; // 固定攻击力10
+            this.hp = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取血量
+            this.maxHp = this.hp;
+            this.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取攻击力
             this.weapon = WEAPON.NONE;
-            this.attackRange = combatConfig ? combatConfig.DOCTOR_ATTACK_RANGE : 80; // 从config.js获取攻击范围
+            this.attackRange = combatConfig ? combatConfig.DOCTOR_ATTACK_RANGE : 100; // 从config.js获取攻击范围
             this.icon = '👨‍⚕️';
             break;
 
         case ROLE.NURSE: // 护士
-            this.hp = 100; // 固定血量100
-            this.attack = 10; // 固定攻击力10
+            this.hp = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取血量
+            this.maxHp = this.hp;
+            this.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取攻击力
             this.weapon = WEAPON.NONE;
-            this.attackRange = combatConfig ? combatConfig.NURSE_ATTACK_RANGE : 80; // 从config.js获取攻击范围
+            this.attackRange = combatConfig ? combatConfig.NURSE_ATTACK_RANGE : 100; // 从config.js获取攻击范围
             this.icon = '👩‍⚕️';
             break;
 
         case ROLE.CHEF: // 厨师
-            this.hp = 100; // 固定血量100
-            this.attack = 10; // 固定攻击力10
+            this.hp = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取血量
+            this.maxHp = this.hp;
+            this.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取攻击力
             this.weapon = WEAPON.NONE;
-            this.attackRange = combatConfig ? combatConfig.CHEF_ATTACK_RANGE : 80; // 从config.js获取攻击范围
+            this.attackRange = combatConfig ? combatConfig.CHEF_ATTACK_RANGE : 100; // 从config.js获取攻击范围
             this.icon = '👨‍🍳';
             break;
 
         default:
-            this.hp = 100; // 固定血量100
-            this.attack = 10; // 固定攻击力10
+            this.hp = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取血量
+            this.maxHp = this.hp;
+            this.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取攻击力
             this.weapon = WEAPON.NONE;
-            this.attackRange = combatConfig ? combatConfig.POLICE_ATTACK_RANGE : 80; // 从config.js获取攻击范围
+            this.attackRange = combatConfig ? combatConfig.POLICE_ATTACK_RANGE : 100; // 从config.js获取攻击范围
             this.icon = '❓';
     }
 };
@@ -218,8 +224,10 @@ Character.prototype.setupMainCharacterStateMachine = function () {
 
     // 移动状态：摇杆输入消失时才退出
     sm.addTransition(MAIN_CHARACTER_STATES.MOVE, MAIN_CHARACTER_STATES.IDLE, () => {
-        // 摇杆输入消失且无僵尸
-        return !this.hasJoystickInput() && !this.hasZombieInRange(50);
+        // 🔴 修复：从配置获取检测范围
+        var attackJudgmentConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT.ATTACK_JUDGMENT') : { RANGE_BUFFER: 5 };
+        var effectiveAttackRange = this.attackRange + attackJudgmentConfig.RANGE_BUFFER;
+        return !this.hasJoystickInput() && !this.hasZombieInRange(effectiveAttackRange);
     });
 
     // 移除从移动状态到攻击状态的转换，移动时不允许自动攻击
@@ -562,8 +570,9 @@ Character.prototype.calculateFollowPoint = function () {
 
     var mathUtils = UtilsManager.getMathUtils();
 
-    // 计算跟随点位置（后方，距离80px）
-    var followDistance = 80;
+    // 🔴 修复：从配置获取跟随距离
+    var combatConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT') : null;
+    var followDistance = combatConfig ? combatConfig.MIN_ATTACK_RANGE : 100; // 从config.js获取跟随距离
     var followAngle = Math.PI; // 后方
 
     this.followPoint = {

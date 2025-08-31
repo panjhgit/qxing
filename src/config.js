@@ -120,20 +120,20 @@ const GAME_CONFIG = {
     // 攻击系统配置
     COMBAT: {
         DEFAULT_ATTACK_COOLDOWN: 500,   // 攻击冷却时间500ms (1秒攻击2下)
-        MIN_ATTACK_RANGE: 30,           // 最小攻击距离10px
-        MAX_ATTACK_RANGE: 30,           // 最大攻击距离10px
+        MIN_ATTACK_RANGE: 100,           // 最小攻击距离10px
+        MAX_ATTACK_RANGE: 100,           // 最大攻击距离10px
         DAMAGE_REDUCTION_FACTOR: 0.8,   // 伤害衰减因子
         
         // 角色攻击配置
-        DEFAULT_ATTACK: 30,             // 默认攻击力10
+        DEFAULT_ATTACK: 20,             // 默认攻击力10
         DEFAULT_ATTACK_INTERVAL: 0.5,   // 默认攻击间隔0.5秒 (1秒攻击2下)
         MOVING_ATTACK_INTERVAL: 0.5,    // 移动攻击间隔0.5秒 (1秒攻击2下)
         
         // 角色攻击范围配置
-        POLICE_ATTACK_RANGE: 80,        // 警察攻击范围10px
-        DOCTOR_ATTACK_RANGE: 80,        // 医生攻击范围10px
-        NURSE_ATTACK_RANGE: 80,         // 护士攻击范围10px
-        CHEF_ATTACK_RANGE: 80,         // 厨师攻击范围10px
+        POLICE_ATTACK_RANGE: 100,        // 警察攻击范围10px
+        DOCTOR_ATTACK_RANGE: 100,        // 医生攻击范围10px
+        NURSE_ATTACK_RANGE: 100,         // 护士攻击范围10px
+        CHEF_ATTACK_RANGE: 100,         // 厨师攻击范围10px
         
         // 僵尸攻击配置
         ZOMBIE_ATTACK_RANGE: 80,        // 僵尸攻击范围（像素）
