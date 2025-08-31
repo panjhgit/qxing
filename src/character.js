@@ -210,8 +210,10 @@ Character.prototype.setupMainCharacterStateMachine = function () {
     });
 
     sm.addTransition(MAIN_CHARACTER_STATES.IDLE, MAIN_CHARACTER_STATES.ATTACK, () => {
-        // 100px 内有僵尸且无摇杆输入
-        return !this.hasJoystickInput() && this.hasZombieInRange(100);
+        // 攻击范围内有僵尸且无摇杆输入
+        var attackJudgmentConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT.ATTACK_JUDGMENT') : { RANGE_BUFFER: 5 };
+        var effectiveAttackRange = this.attackRange + attackJudgmentConfig.RANGE_BUFFER;
+        return !this.hasJoystickInput() && this.hasZombieInRange(effectiveAttackRange);
     });
 
     // 移动状态：摇杆输入消失时才退出
@@ -410,7 +412,9 @@ Character.prototype.onUpdateIdle = function (deltaTime, stateData) {
     this.updateAnimation(deltaTime);
 
     // 检查是否有僵尸需要攻击
-    if (this.hasZombieInRange(100)) {
+    var attackJudgmentConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT.ATTACK_JUDGMENT') : { RANGE_BUFFER: 5 };
+    var effectiveAttackRange = this.attackRange + attackJudgmentConfig.RANGE_BUFFER;
+    if (this.hasZombieInRange(effectiveAttackRange)) {
         console.log('主人物在待机状态检测到僵尸，准备攻击');
     }
 
@@ -467,6 +471,10 @@ Character.prototype.onUpdateAttack = function (deltaTime, stateData) {
     // 检查是否应该打断攻击（摇杆有输入）
     if (this.hasJoystickInput()) {
         console.log('摇杆有输入，主人物攻击被打断');
+        // 强制切换到移动状态
+        if (this.stateMachine) {
+            this.stateMachine.forceState(MAIN_CHARACTER_STATES.MOVE);
+        }
         return;
     }
 };
@@ -1231,8 +1239,9 @@ Character.prototype.checkJoystickInput = function () {
 
     // 检查是否超过死区
     if (Math.abs(direction.x) > deadZone || Math.abs(direction.y) > deadZone) {
-        // 🔴 修复：增加移动距离，避免移动过慢
-        var moveDistance = 150; // 每次移动150px（从100px增加到150px）
+        // 从config.js获取移动速度
+        var movementConfig = window.ConfigManager ? window.ConfigManager.get('MOVEMENT') : null;
+        var moveDistance = movementConfig ? movementConfig.CHARACTER_MOVE_SPEED : 4; // 默认4px/帧
         var targetX = this.x + direction.x * moveDistance;
         var targetY = this.y + direction.y * moveDistance;
 

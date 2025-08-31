@@ -211,8 +211,10 @@ Zombie.prototype.findTarget = function(characters) {
     
     if (this.targetCharacter) {
         var distance = this.getDistanceTo(this.targetCharacter.x, this.targetCharacter.y);
+        var attackJudgmentConfig = ConfigManager.get('COMBAT.ATTACK_JUDGMENT');
+        var effectiveAttackRange = this.attackRange + attackJudgmentConfig.RANGE_BUFFER;
         
-        if (distance <= 10) { // 固定攻击范围10px
+        if (distance <= effectiveAttackRange) { // 使用带缓冲的攻击范围
             this.state = ZOMBIE_STATE.ATTACKING;
         } else if (distance <= this.detectionRange) {
             this.state = ZOMBIE_STATE.CHASING;
@@ -239,7 +241,10 @@ Zombie.prototype.chaseTarget = function(deltaTime) {
     
     var distance = this.getDistanceTo(this.targetCharacter.x, this.targetCharacter.y);
     
-    if (distance <= 10) { // 固定攻击范围10px
+    var attackJudgmentConfig = ConfigManager.get('COMBAT.ATTACK_JUDGMENT');
+    var effectiveAttackRange = this.attackRange + attackJudgmentConfig.RANGE_BUFFER;
+    
+    if (distance <= effectiveAttackRange) { // 使用带缓冲的攻击范围
         this.state = ZOMBIE_STATE.ATTACKING;
         return;
     }
@@ -281,8 +286,10 @@ Zombie.prototype.attackTarget = function(deltaTime) {
 // 向目标移动
 Zombie.prototype.moveTowards = function(targetX, targetY, deltaTime) {
     var distanceToTarget = this.getDistanceTo(targetX, targetY);
+    var attackJudgmentConfig = ConfigManager.get('COMBAT.ATTACK_JUDGMENT');
+    var effectiveAttackRange = this.attackRange + attackJudgmentConfig.RANGE_BUFFER;
     
-    if (distanceToTarget <= this.attackRange) { // 使用从config.js获取的攻击范围
+    if (distanceToTarget <= effectiveAttackRange) { // 使用带缓冲的攻击范围
         this.state = ZOMBIE_STATE.ATTACKING;
         return;
     }
@@ -689,7 +696,10 @@ var ZombieManager = {
             
             var distance = Math.sqrt(Math.pow(zombie.x - mainChar.x, 2) + Math.pow(zombie.y - mainChar.y, 2));
             
-                            if (distance <= zombie.attackRange) { // 使用从config.js获取的攻击范围
+                            var attackJudgmentConfig = ConfigManager.get('COMBAT.ATTACK_JUDGMENT');
+            var effectiveAttackRange = zombie.attackRange + attackJudgmentConfig.RANGE_BUFFER;
+            
+            if (distance <= effectiveAttackRange) { // 使用带缓冲的攻击范围
                 zombie.state = ZOMBIE_STATE.ATTACKING;
             } else if (distance <= zombie.detectionRange) { // 使用从config.js获取的检测范围
                 zombie.state = ZOMBIE_STATE.CHASING;
