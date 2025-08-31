@@ -263,8 +263,10 @@ Zombie.prototype.attackTarget = function(deltaTime) {
     }
     
     var distance = this.getDistanceTo(this.targetCharacter.x, this.targetCharacter.y);
+    var attackJudgmentConfig = ConfigManager.get('COMBAT.ATTACK_JUDGMENT');
+    var effectiveAttackRange = this.attackRange + attackJudgmentConfig.RANGE_BUFFER;
     
-    if (distance > 10) { // 固定攻击范围10px
+    if (distance > effectiveAttackRange) { // 使用带缓冲的攻击范围
         this.state = ZOMBIE_STATE.CHASING;
         return;
     }

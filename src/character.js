@@ -132,7 +132,7 @@ Character.prototype.setupRoleProperties = function () {
             this.maxHp = this.hp;
             this.attack = 10; // 固定攻击力10
             this.weapon = WEAPON.NONE;
-            this.attackRange = 10; // 固定攻击范围10px
+            this.attackRange = combatConfig ? combatConfig.POLICE_ATTACK_RANGE : 80; // 从config.js获取攻击范围
             this.icon = '👤';
             break;
 
@@ -140,7 +140,7 @@ Character.prototype.setupRoleProperties = function () {
             this.hp = 100; // 固定血量100
             this.attack = 10; // 固定攻击力10
             this.weapon = WEAPON.NONE;
-            this.attackRange = 10; // 固定攻击范围10px
+            this.attackRange = combatConfig ? combatConfig.POLICE_ATTACK_RANGE : 80; // 从config.js获取攻击范围
             this.icon = '👮';
             break;
 
@@ -148,7 +148,7 @@ Character.prototype.setupRoleProperties = function () {
             this.hp = 100; // 固定血量100
             this.attack = 10; // 固定攻击力10
             this.weapon = WEAPON.NONE;
-            this.attackRange = 10; // 固定攻击范围10px
+            this.attackRange = combatConfig ? combatConfig.POLICE_ATTACK_RANGE : 80; // 从config.js获取攻击范围
             this.icon = '👨';
             break;
 
@@ -156,7 +156,7 @@ Character.prototype.setupRoleProperties = function () {
             this.hp = 100; // 固定血量100
             this.attack = 10; // 固定攻击力10
             this.weapon = WEAPON.NONE;
-            this.attackRange = 10; // 固定攻击范围10px
+            this.attackRange = combatConfig ? combatConfig.DOCTOR_ATTACK_RANGE : 80; // 从config.js获取攻击范围
             this.icon = '👨‍⚕️';
             break;
 
@@ -164,7 +164,7 @@ Character.prototype.setupRoleProperties = function () {
             this.hp = 100; // 固定血量100
             this.attack = 10; // 固定攻击力10
             this.weapon = WEAPON.NONE;
-            this.attackRange = 10; // 固定攻击范围10px
+            this.attackRange = combatConfig ? combatConfig.NURSE_ATTACK_RANGE : 80; // 从config.js获取攻击范围
             this.icon = '👩‍⚕️';
             break;
 
@@ -172,7 +172,7 @@ Character.prototype.setupRoleProperties = function () {
             this.hp = 100; // 固定血量100
             this.attack = 10; // 固定攻击力10
             this.weapon = WEAPON.NONE;
-            this.attackRange = 10; // 固定攻击范围10px
+            this.attackRange = combatConfig ? combatConfig.CHEF_ATTACK_RANGE : 80; // 从config.js获取攻击范围
             this.icon = '👨‍🍳';
             break;
 
@@ -180,7 +180,7 @@ Character.prototype.setupRoleProperties = function () {
             this.hp = 100; // 固定血量100
             this.attack = 10; // 固定攻击力10
             this.weapon = WEAPON.NONE;
-            this.attackRange = 10; // 固定攻击范围10px
+            this.attackRange = combatConfig ? combatConfig.POLICE_ATTACK_RANGE : 80; // 从config.js获取攻击范围
             this.icon = '❓';
     }
 };
@@ -574,13 +574,15 @@ Character.prototype.findAttackTarget = function () {
     var mathUtils = UtilsManager.getMathUtils();
     var closestZombie = null;
     var closestDistance = Infinity;
+    var attackJudgmentConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT.ATTACK_JUDGMENT') : { RANGE_BUFFER: 5 };
+    var effectiveAttackRange = this.attackRange + attackJudgmentConfig.RANGE_BUFFER;
 
     // 寻找最近的僵尸
     for (var i = 0; i < zombies.length; i++) {
         var zombie = zombies[i];
         var distance = mathUtils.distance(this.x, this.y, zombie.x, zombie.y);
 
-        if (distance <= 10 && distance < closestDistance) { // 固定攻击范围10px
+        if (distance <= effectiveAttackRange && distance < closestDistance) { // 使用带缓冲的攻击范围
             closestDistance = distance;
             closestZombie = zombie;
         }
@@ -613,9 +615,11 @@ Character.prototype.isAttackTargetValid = function () {
     // 检查目标是否在攻击范围内
     var mathUtils = UtilsManager.getMathUtils();
     var distance = mathUtils.distance(this.x, this.y, this.attackTarget.x, this.attackTarget.y);
+    var attackJudgmentConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT.ATTACK_JUDGMENT') : { RANGE_BUFFER: 5 };
+    var effectiveAttackRange = this.attackRange + attackJudgmentConfig.RANGE_BUFFER;
 
-    if (distance > 10) { // 固定攻击范围10px
-        console.log('主人物攻击目标超出范围，距离:', distance, '攻击范围: 10px');
+    if (distance > effectiveAttackRange) { // 使用带缓冲的攻击范围
+        console.log('主人物攻击目标超出范围，距离:', distance, '有效攻击范围:', effectiveAttackRange);
         this.attackTarget = null;
         return false;
     }
@@ -632,7 +636,8 @@ Character.prototype.moveToAttackRange = function () {
 
     var mathUtils = UtilsManager.getMathUtils();
     var distance = mathUtils.distance(this.x, this.y, this.attackTarget.x, this.attackTarget.y);
-    var targetDistance = 5; // 固定攻击距离5px（10px攻击范围减去5px缓冲）
+    var attackJudgmentConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT.ATTACK_JUDGMENT') : { RANGE_BUFFER: 5 };
+    var targetDistance = this.attackRange - attackJudgmentConfig.RANGE_BUFFER; // 动态攻击距离（攻击范围减去缓冲）
 
     if (distance > targetDistance) {
         var angle = mathUtils.angle(this.x, this.y, this.attackTarget.x, this.attackTarget.y);

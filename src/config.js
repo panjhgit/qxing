@@ -74,7 +74,7 @@
 const GAME_CONFIG = {
     // 移动系统配置
     MOVEMENT: {
-        CHARACTER_MOVE_SPEED: 3,        // ✅ 恢复：人物移动速度 (像素/帧)
+        CHARACTER_MOVE_SPEED: 4,        // ✅ 恢复：人物移动速度 (像素/帧)
         ZOMBIE_MOVE_SPEED: 2,           // ✅ 恢复：僵尸移动速度 (像素/帧)
         
         // 贴着建筑物移动配置
@@ -137,7 +137,14 @@ const GAME_CONFIG = {
         
         // 僵尸攻击配置
         ZOMBIE_ATTACK_RANGE: 80,        // 僵尸攻击范围（像素）
-        ZOMBIE_ATTACK_COOLDOWN: 500     // 僵尸攻击冷却时间（毫秒）
+        ZOMBIE_ATTACK_COOLDOWN: 500,    // 僵尸攻击冷却时间（毫秒）
+        
+        // 攻击判定配置
+        ATTACK_JUDGMENT: {
+            RANGE_BUFFER: 5,            // 攻击范围缓冲（像素）- 让攻击更流畅
+            DISTANCE_TOLERANCE: 2,       // 距离计算容差（像素）- 避免精度问题
+            MIN_ATTACK_DISTANCE: 3       // 最小攻击距离（像素）- 防止贴脸攻击
+        }
     },
 
     // 检测范围配置
