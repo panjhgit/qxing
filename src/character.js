@@ -14,12 +14,7 @@ import StateMachine, {MAIN_CHARACTER_STATES, PARTNER_STATES} from './state-machi
 
 // 角色枚举
 const ROLE = {
-    MAIN: 1,      // 主人物
-    POLICE: 2,    // 警察
-    CIVILIAN: 3,  // 平民
-    DOCTOR: 4,    // 医生
-    NURSE: 5,     // 护士
-    CHEF: 6       // 厨师
+    MAIN: 1      // 主人物
 };
 
 // 角色ID枚举
@@ -1086,79 +1081,6 @@ var CharacterManager = {
         }
 
         return mainChar;
-    },
-
-    // 创建伙伴
-    createPartner: function (role, x, y) {
-        var validationUtils = UtilsManager.getValidationUtils();
-
-        // 使用验证工具检查参数
-        if (!validationUtils.validatePosition(x, y)) {
-            console.error('无效的伙伴位置:', x, y);
-            return null;
-        }
-
-        if (!validationUtils.validateRange(role, 2, 6, '伙伴角色类型')) {
-            console.error('无效的伙伴角色类型:', role);
-            return null;
-        }
-
-        var partner = null;
-
-        // 优先使用对象池
-        if (this.objectPool) {
-            partner = this.objectPool.get();
-            if (partner) {
-                // 重新初始化伙伴属性
-                partner.role = role;
-                partner.id = this.getNextPartnerId(role);
-                partner.x = x;
-                partner.y = y;
-                partner.setupRoleProperties();
-                partner.initializeStateMachine();
-
-                console.log('✅ 从对象池获取伙伴:', partner.role, 'ID:', partner.id, '位置:', x, y);
-            }
-        }
-
-        // 对象池不可用时，使用传统创建方式
-        if (!partner) {
-            partner = new Character(role, x, y);
-            console.log('✅ 传统方式创建伙伴:', partner.role, 'ID:', partner.id, '位置:', x, y);
-        }
-
-        // 验证角色创建是否成功
-        if (!validationUtils.validateObject(partner, ['role', 'x', 'y', 'hp'])) {
-            console.error('伙伴创建失败');
-            return null;
-        }
-
-        if (window.collisionSystem && window.collisionSystem.createCharacterObject) {
-            var createdCharacter = window.collisionSystem.createCharacterObject(partner);
-            if (createdCharacter) {
-                return createdCharacter;
-            }
-        }
-
-        return partner;
-    },
-
-    // 获取下一个伙伴ID
-    getNextPartnerId: function (role) {
-        switch (role) {
-            case ROLE.POLICE:
-                return CHARACTER_ID.PARTNER_1;
-            case ROLE.CIVILIAN:
-                return CHARACTER_ID.PARTNER_2;
-            case ROLE.DOCTOR:
-                return CHARACTER_ID.PARTNER_3;
-            case ROLE.NURSE:
-                return CHARACTER_ID.PARTNER_4;
-            case ROLE.CHEF:
-                return CHARACTER_ID.PARTNER_5;
-            default:
-                return CHARACTER_ID.PARTNER_1;
-        }
     },
 
     // 🔴 重构：从内部存储获取主人物 - 角色业务逻辑的唯一数据源
