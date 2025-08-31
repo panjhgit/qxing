@@ -672,20 +672,7 @@ Character.prototype.showGameOverScreen = function () {
             const renderManager = window.viewSystem.getRenderManager();
             renderManager.renderUI('gameOver', {canvas: canvas, message: '游戏结束'});
         } else {
-            // 备用渲染方法
-            var ctx = window.gameEngine.ctx;
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = '#FF0000';
-            ctx.font = '48px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText('游戏结束', canvas.width / 2, canvas.height / 2 - 50);
-            ctx.fillStyle = '#FFFFFF';
-            ctx.font = '24px Arial';
-            ctx.fillText('主人物已死亡', canvas.width / 2, canvas.height / 2);
-            ctx.fillStyle = '#FFFF00';
-            ctx.font = '20px Arial';
-            ctx.fillText('点击屏幕重新开始', canvas.width / 2, canvas.height / 2 + 50);
+            console.warn('统一渲染管理器不可用，无法渲染游戏结束界面');
         }
 
         // 添加点击事件监听器

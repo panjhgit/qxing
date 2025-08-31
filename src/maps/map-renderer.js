@@ -403,27 +403,16 @@ export class MapRenderer {
      * @param {CanvasRenderingContext2D} ctx - 绘图上下文
      */
     renderDebugInfo(ctx) {
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        ctx.fillRect(10, 10, 300, 150);
-
-        ctx.fillStyle = '#FFFFFF';
-        ctx.font = '12px Arial';
-        ctx.textAlign = 'left';
-
-        let y = 30;
-        ctx.fillText(`地图: ${this.currentMap.config.name}`, 15, y);
-        y += 15;
-        ctx.fillText(`类型: ${this.currentMap.config.type || 'matrix'}`, 15, y);
-        y += 15;
-        ctx.fillText(`尺寸: ${this.currentMap.config.width} x ${this.currentMap.config.height}`, 15, y);
-        y += 15;
-        ctx.fillText(`网格: ${this.currentMap.config.gridCols} x ${this.currentMap.config.gridRows}`, 15, y);
-        y += 15;
-        ctx.fillText(`单元格: ${this.currentMap.config.cellSize}px`, 15, y);
-        y += 15;
-        ctx.fillText(`建筑物: ${this.currentMap.buildings ? this.currentMap.buildings.length : 0}`, 15, y);
-        y += 15;
-        ctx.fillText(`可通行区域: ${this.currentMap.walkableAreas ? this.currentMap.walkableAreas.length : 0}`, 15, y);
+        // 调试信息渲染已统一到RenderManager中处理
+        console.log('地图调试信息:', {
+            name: this.currentMap.config.name,
+            type: this.currentMap.config.type || 'matrix',
+            size: `${this.currentMap.config.width} x ${this.currentMap.config.height}`,
+            grid: `${this.currentMap.config.gridCols} x ${this.currentMap.config.gridRows}`,
+            cellSize: this.currentMap.config.cellSize,
+            buildings: this.currentMap.buildings ? this.currentMap.buildings.length : 0,
+            walkableAreas: this.currentMap.walkableAreas ? this.currentMap.walkableAreas.length : 0
+        });
     }
 }
 

@@ -740,9 +740,23 @@ GameEngine.prototype.addSampleDynamicObstacles = function() {
 
 // 更新触摸摇杆控制的角色移动
 GameEngine.prototype.updateJoystickMovement = function() {
-    if (!this.joystick || !this.joystick.isActive) {
+    if (!this.joystick) {
+        console.warn('摇杆未初始化');
         return;
     }
+    
+    if (!this.joystick.isActive) {
+        return;
+    }
+    
+    console.log('摇杆状态:', {
+        isVisible: this.joystick.isVisible,
+        isActive: this.joystick.isActive,
+        isDragging: this.joystick.isDragging,
+        joystickX: this.joystick.joystickX,
+        joystickY: this.joystick.joystickY,
+        moveDirection: this.joystick.moveDirection
+    });
 
     // 获取主人物
     var mainCharacter = null;
