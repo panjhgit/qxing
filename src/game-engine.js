@@ -859,10 +859,12 @@ GameEngine.prototype.updateJoystickMovement = function() {
     }
 };
 
-// 渲染触摸摇杆
+// 渲染触摸摇杆 - 已统一到ViewSystem
 GameEngine.prototype.renderJoystick = function() {
-    if (this.joystick) {
-        this.joystick.render();
+    // 摇杆渲染已统一到ViewSystem.renderJoystick()
+    // 此方法保留用于向后兼容
+    if (this.joystick && this.viewSystem) {
+        this.viewSystem.renderJoystick(this.joystick);
     }
 };
 

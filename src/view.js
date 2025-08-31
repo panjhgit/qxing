@@ -1,12 +1,12 @@
 /**
- * 视觉系统模块 (view.js)
+ * 统一渲染系统模块 (view.js)
  *
  * 功能描述：
  * - 摄像机系统：跟随主人物移动，保持主人物在屏幕中心
+ * - 统一渲染管理器：管理所有游戏对象的渲染
  * - 视距裁剪：只渲染屏幕可见范围内的对象
  * - 屏幕坐标转换：世界坐标到屏幕坐标的转换
- * - 平滑跟随：摄像机的平滑移动和缓动效果
- * - 边界限制：防止摄像机超出地图边界
+ * - 渲染优化：批量渲染和性能优化
  */
 
 // 摄像机类
@@ -16,7 +16,7 @@ var Camera = function (canvas) {
     this.y = 0;           // 摄像机世界坐标Y
     this.targetX = 0;     // 目标X坐标
     this.targetY = 0;     // 目标Y坐标
-    this.followSpeed = 0.1; // 跟随速度（0-1，1为立即跟随）- 可以从配置读取
+    this.followSpeed = 0.1; // 跟随速度（0-1，1为立即跟随）
 
     // 屏幕尺寸
     this.screenWidth = canvas.width;
@@ -43,30 +43,21 @@ Camera.prototype.setMapBounds = function (width, height) {
 Camera.prototype.setPosition = function (x, y) {
     this.x = x;
     this.y = y;
-
-    // 限制摄像机在地图边界内
     this.constrainToMap();
-
     console.log('摄像机位置已设置为:', this.x, this.y);
 };
 
 // 跟随目标
 Camera.prototype.followTarget = function (targetX, targetY) {
     console.log('摄像机跟随目标:', targetX, targetY);
-
-    // 直接设置摄像机位置为目标位置，让主人物保持在屏幕中心
     this.x = targetX;
     this.y = targetY;
-
-    // 限制摄像机在地图边界内
     this.constrainToMap();
-
     console.log('摄像机位置已更新为:', this.x, this.y);
 };
 
 // 更新摄像机位置
 Camera.prototype.update = function () {
-    // 摄像机位置已经在followTarget中设置，这里只需要确保边界限制
     this.constrainToMap();
 };
 
@@ -105,7 +96,6 @@ Camera.prototype.worldToScreen = function (worldX, worldY) {
     return {x: screenX, y: screenY};
 };
 
-
 // 检查对象是否在屏幕范围内
 Camera.prototype.isInView = function (worldX, worldY, width, height) {
     var screenPos = this.worldToScreen(worldX, worldY);
@@ -120,17 +110,20 @@ Camera.prototype.getPosition = function () {
     return {x: this.x, y: this.y};
 };
 
-
 // 获取缩放
 Camera.prototype.getZoom = function () {
     return this.zoom;
 };
+
+// 导入统一渲染管理器
+import RenderManager from './render-manager.js';
 
 // 视觉系统主类
 var ViewSystem = function (canvas, ctx) {
     this.canvas = canvas;
     this.ctx = ctx;
     this.camera = new Camera(canvas);
+    this.renderManager = new RenderManager(ctx, this.camera);
 
     // 渲染设置
     this.renderDistance = 1000; // 渲染距离
@@ -157,20 +150,14 @@ ViewSystem.prototype.update = function () {
 ViewSystem.prototype.renderMap = function (mapRenderer) {
     if (!mapRenderer) return;
 
-    // 保存当前上下文状态
-    this.ctx.save();
-
     // 清空画布
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
     // 应用摄像机变换
-    this.ctx.translate(this.canvas.width / 2, this.canvas.height / 2);
-    this.ctx.scale(this.camera.zoom, this.camera.zoom);
-    this.ctx.translate(-this.camera.x, -this.camera.y);
+    this.renderManager.applyCameraTransform();
 
     // 使用新的地图渲染器
     if (mapRenderer.render) {
-        // 传递当前的绘图上下文，这样地图渲染器就能使用摄像机的变换
         mapRenderer.render(this.ctx);
     } else {
         // 兼容旧的mapSystem
@@ -180,8 +167,8 @@ ViewSystem.prototype.renderMap = function (mapRenderer) {
         this.renderMapBoundaries(mapRenderer);
     }
 
-    // 恢复上下文状态
-    this.ctx.restore();
+    // 恢复变换
+    this.renderManager.restoreTransform();
 
     // 渲染UI元素（不受摄像机变换影响）
     this.renderUI();
@@ -196,33 +183,14 @@ ViewSystem.prototype.renderUI = function () {
 // 渲染地图背景
 ViewSystem.prototype.renderMapBackground = function (mapSystem) {
     if (!mapSystem) return;
-
-    // 绘制地图背景
-    this.ctx.fillStyle = '#F0F8FF';  // 浅蓝色背景
-    this.ctx.fillRect(0, 0, mapSystem.mapWidth, mapSystem.mapHeight);
+    this.renderManager.renderMapBackground({width: mapSystem.mapWidth, height: mapSystem.mapHeight});
 };
 
 // 渲染街道（可通行区域）
 ViewSystem.prototype.renderStreets = function (mapSystem) {
     if (!mapSystem || !mapSystem.walkableAreas) return;
-
     console.log('渲染可通行区域，数量:', mapSystem.walkableAreas.length);
-
-    // 使用白色代表可通行区域
-    this.ctx.fillStyle = '#FFFFFF';
-
-    for (var i = 0; i < mapSystem.walkableAreas.length; i++) {
-        var area = mapSystem.walkableAreas[i];
-        if (!area) continue;
-
-        // 绘制可通行区域（白色马路）
-        this.ctx.fillRect(area.bounds.left, area.bounds.top, area.bounds.right - area.bounds.left, area.bounds.bottom - area.bounds.top);
-
-        // 绘制马路边框（浅灰色）
-        this.ctx.strokeStyle = '#E0E0E0';
-        this.ctx.lineWidth = 1;
-        this.ctx.strokeRect(area.bounds.left, area.bounds.top, area.bounds.right - area.bounds.left, area.bounds.bottom - area.bounds.top);
-    }
+    this.renderManager.renderWalkableAreas(mapSystem.walkableAreas);
 };
 
 // 渲染建筑物
@@ -231,438 +199,119 @@ ViewSystem.prototype.renderBuildings = function (mapSystem) {
 
     console.log('渲染建筑物，数量:', mapSystem.buildings.length);
 
-    // 遍历建筑物数组，绘制建筑物
-    for (var i = 0; i < mapSystem.buildings.length; i++) {
-        var building = mapSystem.buildings[i];
-        if (building) {
-            this.renderBuilding(building);
-        }
-    }
-};
+    // 应用摄像机变换
+    this.renderManager.applyCameraTransform();
 
-// 渲染单个建筑物
-ViewSystem.prototype.renderBuilding = function (building) {
-    if (!building) return;
+    // 使用统一渲染管理器渲染建筑物
+    this.renderManager.renderEntityList(mapSystem.buildings, 'building');
 
-    // 使用中心点坐标系统
-    var x = building.x - building.width / 2;
-    var y = building.y - building.height / 2;
-
-    // 绘制建筑物主体（使用建筑类型对应的颜色）
-    this.ctx.fillStyle = building.color || '#CD853F';
-    this.ctx.fillRect(x, y, building.width, building.height);
-
-    // 绘制建筑物边框
-    this.ctx.strokeStyle = '#8B4513';
-    this.ctx.lineWidth = 2;
-    this.ctx.strokeRect(x, y, building.width, building.height);
-
-    // 绘制建筑物图标
-    this.ctx.fillStyle = '#FFFFFF';
-    this.ctx.font = 'bold 20px Arial';
-    this.ctx.textAlign = 'center';
-    this.ctx.textBaseline = 'middle';
-    this.ctx.fillText(building.icon || '🏠', building.x, building.y);
-
-    // 绘制建筑物名称
-    this.ctx.fillStyle = '#000000';
-    this.ctx.font = 'bold 12px Arial';
-    this.ctx.textAlign = 'center';
-    this.ctx.fillText(building.type || '建筑', building.x, y + 20);
-
-    // 绘制网格坐标（调试用）
-    if (building.gridCol !== undefined && building.gridRow !== undefined) {
-        this.ctx.fillStyle = '#FF0000';
-        this.ctx.font = '10px Arial';
-        this.ctx.fillText(`${building.gridCol},${building.gridRow}`, building.x, y + building.height - 10);
-    }
+    // 恢复变换
+    this.renderManager.restoreTransform();
 };
 
 // 渲染地图边界
 ViewSystem.prototype.renderMapBoundaries = function (mapSystem) {
     if (!mapSystem) return;
-
-    this.ctx.strokeStyle = '#FF0000';
-    this.ctx.lineWidth = 5;
-    this.ctx.strokeRect(0, 0, mapSystem.mapWidth, mapSystem.mapHeight);
+    this.renderManager.renderMapBoundaries({width: mapSystem.mapWidth, height: mapSystem.mapHeight});
 };
 
-// 渲染角色（带摄像机变换）
+// 渲染角色（使用统一渲染管理器）
 ViewSystem.prototype.renderCharacters = function (characterManager) {
     if (!characterManager) return;
 
-    // 保存当前上下文状态
-    this.ctx.save();
-
     // 应用摄像机变换
-    this.ctx.translate(this.canvas.width / 2, this.canvas.height / 2);
-    this.ctx.scale(this.camera.zoom, this.camera.zoom);
-    this.ctx.translate(-this.camera.x, -this.camera.y);
+    this.renderManager.applyCameraTransform();
 
-    // 🔴 修复：直接从角色管理器内部存储获取
+    // 获取主人物
     var characters = characterManager.mainCharacter ? [characterManager.mainCharacter] : [];
-    characters.forEach(character => {
-        // 直接使用世界坐标渲染角色，让摄像机变换处理位置
-        this.renderCharacter(character, character.x, character.y);
+    
+    // 使用统一渲染管理器渲染角色
+    this.renderManager.renderEntityList(characters, 'character');
 
-        // 调试信息：主人物位置
-        if (character.role === 1) { // 主人物
-            console.log('主人物世界坐标:', character.x, character.y);
-            console.log('摄像机位置:', this.camera.x, this.camera.y);
-            console.log('屏幕中心:', this.canvas.width / 2, this.canvas.height / 2);
-        }
-    });
-
-    // 恢复上下文状态
-    this.ctx.restore();
+    // 恢复变换
+    this.renderManager.restoreTransform();
 };
 
-// 渲染单个角色
-ViewSystem.prototype.renderCharacter = function (character, worldX, worldY) {
-    // 绘制阴影 - 改为椭圆形阴影
-    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-    this.ctx.beginPath();
-    this.ctx.ellipse(worldX, worldY + character.height / 2 + 4, character.width / 2, 4, 0, 0, Math.PI * 2);
-    this.ctx.fill();
-
-    // 绘制人物主体（圆形设计）
-    var bodyY = worldY - character.height / 2;
-
-    // 身体 - 改为圆形
-    this.ctx.fillStyle = character.getBodyColor();
-    this.ctx.beginPath();
-    this.ctx.arc(worldX, bodyY + character.height / 2, character.width / 2, 0, Math.PI * 2);
-    this.ctx.fill();
-
-    // 头部 - 改为圆形
-    this.ctx.fillStyle = character.getHeadColor();
-    this.ctx.beginPath();
-    this.ctx.arc(worldX, bodyY + character.height / 6, character.width / 3, 0, Math.PI * 2);
-    this.ctx.fill();
-
-    // 绘制图标
-    this.ctx.font = '16px Arial';
-    this.ctx.textAlign = 'center';
-    this.ctx.fillStyle = '#000';
-    this.ctx.fillText(character.icon, worldX, bodyY + character.height / 2);
-
-    // 绘制状态指示器 - 改为圆形
-    if (character.status === 'FOLLOW') {
-        this.ctx.fillStyle = '#00ff00';
-        this.ctx.beginPath();
-        this.ctx.arc(worldX, bodyY - 6, 4, 0, Math.PI * 2);
-        this.ctx.fill();
-    }
-
-    // 🔴 绘制角色血条
-    this.renderCharacterHealthBar(character, worldX, worldY);
-};
-
-// 🔴 渲染僵尸（带摄像机变换）- 使用高性能活跃僵尸列表
+// 渲染僵尸（使用统一渲染管理器）
 ViewSystem.prototype.renderZombies = function (zombieManager) {
-    // 🔴 获取主人物位置，用于计算活跃僵尸
-    var mainCharacter = window.characterManager.getMainCharacter();
+    if (!zombieManager) return;
 
-    // 🔴 获取活跃僵尸列表（在主人物周围1000px范围内）
+    // 获取主人物位置，用于计算活跃僵尸
+    var mainCharacter = window.characterManager ? window.characterManager.getMainCharacter() : null;
+    if (!mainCharacter) return;
+
+    // 获取活跃僵尸列表（在主人物周围1000px范围内）
     var activeZombies = zombieManager.getActiveZombies(mainCharacter.x, mainCharacter.y, 1000);
     console.log('renderZombies: 活跃僵尸数量:', activeZombies.length);
 
-    // 保存当前上下文状态
-    this.ctx.save();
-
     // 应用摄像机变换
-    this.ctx.translate(this.canvas.width / 2, this.canvas.height / 2);
-    this.ctx.scale(this.camera.zoom, this.camera.zoom);
-    this.ctx.translate(-this.camera.x, -this.camera.y);
+    this.renderManager.applyCameraTransform();
 
-    // 渲染活跃僵尸
-    activeZombies.forEach(zombie => {
-        if (zombie && zombie.hp > 0) {
-            this.renderZombie(zombie, zombie.x, zombie.y);
-        }
-    });
+    // 使用统一渲染管理器渲染僵尸
+    this.renderManager.renderEntityList(activeZombies, 'zombie');
 
-    // 恢复上下文状态
-    this.ctx.restore();
+    // 恢复变换
+    this.renderManager.restoreTransform();
 };
 
-// 🔴 新增：渲染僵尸列表的通用方法
-ViewSystem.prototype.renderZombieList = function (zombies) {
-    zombies.forEach((zombie, index) => {
-        // 检查僵尸是否在视野内
-        if (this.camera.isInView(zombie.x, zombie.y, zombie.size, zombie.size)) {
-            var screenPos = this.camera.worldToScreen(zombie.x, zombie.y);
-            this.renderZombie(zombie, screenPos.x, screenPos.y);
-        }
-    });
-};
-
-// 渲染单个僵尸
-ViewSystem.prototype.renderZombie = function (zombie, screenX, screenY) {
-    // 添加调试信息
-    console.log('renderZombie: 开始渲染僵尸:', {
-        id: zombie.id,
-        type: zombie.type,
-        hp: zombie.hp,
-        maxHp: zombie.maxHp,
-        state: zombie.state,
-        x: zombie.x,
-        y: zombie.y,
-        screenX: screenX,
-        screenY: screenY,
-        size: zombie.size
-    });
-
-    if (zombie.hp <= 0) {
-        console.log('renderZombie: 僵尸生命值为0，跳过渲染');
-        return;
-    }
-
-
-
-    // 绘制阴影 - 改为椭圆形阴影
-    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
-    this.ctx.beginPath();
-    this.ctx.ellipse(screenX, screenY + zombie.size / 2 + 3, zombie.size / 2, 3, 0, 0, Math.PI * 2);
-    this.ctx.fill();
-
-    // 绘制僵尸主体（圆形设计）
-    var bodyY = screenY - zombie.size / 2;
-
-    // 身体 - 改为圆形
-    this.ctx.fillStyle = zombie.color;
-    this.ctx.beginPath();
-    this.ctx.arc(screenX, bodyY + zombie.size / 2, zombie.size / 2, 0, Math.PI * 2);
-    this.ctx.fill();
-
-    // 头部 - 改为圆形
-    this.ctx.fillStyle = '#654321';
-    this.ctx.beginPath();
-    this.ctx.arc(screenX, bodyY + zombie.size / 6, zombie.size / 3, 0, Math.PI * 2);
-    this.ctx.fill();
-
-    // 绘制图标
-    this.ctx.font = Math.floor(zombie.size / 2) + 'px Arial';
-    this.ctx.textAlign = 'center';
-    this.ctx.fillStyle = '#000';
-    this.ctx.fillText(zombie.icon, screenX, bodyY + zombie.size / 2);
-
-    // 绘制血条
-    this.drawZombieHealthBar(zombie, screenX, bodyY - 10);
-
-    // 绘制状态指示器 - 改为圆形
-    if (zombie.state === 'chasing') {
-        this.ctx.fillStyle = '#FF0000';
-        this.ctx.beginPath();
-        this.ctx.arc(screenX, bodyY - 7.5, 4, 0, Math.PI * 2);
-        this.ctx.fill();
-    }
-
-    console.log('renderZombie: 僵尸渲染完成');
-};
-
-// 绘制僵尸血条
-ViewSystem.prototype.drawZombieHealthBar = function (zombie, x, y) {
-    var barWidth = zombie.size;
-    var barHeight = 4;
-    var healthPercent = zombie.hp / zombie.maxHp;
-
-    // 血条背景
-    this.ctx.fillStyle = '#FF0000';
-    this.ctx.fillRect(x - barWidth / 2, y, barWidth, barHeight);
-
-    // 血条
-    this.ctx.fillStyle = '#00FF00';
-    this.ctx.fillRect(x - barWidth / 2, y, barWidth * healthPercent, barHeight);
-
-    // 血条边框
-    this.ctx.strokeStyle = '#000000';
-    this.ctx.lineWidth = 1;
-    this.ctx.strokeRect(x - barWidth / 2, y, barWidth, barHeight);
-};
-
-// 🔴 新增：绘制角色血条方法
-ViewSystem.prototype.renderCharacterHealthBar = function (character, worldX, worldY) {
-
-    // 血条位置（显示在角色上方）
-    var barWidth = character.width; // 血条宽度等于角色宽度
-    var barHeight = 6; // 血条高度
-    var barX = worldX - barWidth / 2; // 血条X坐标（居中对齐）
-    var barY = worldY - character.height / 2 - 15; // 血条Y坐标（角色上方15px）
-
-    // 计算血量比例
-    var healthRatio = character.hp / character.maxHp;
-
-    // 绘制血条背景（深灰色）
-    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-    this.ctx.fillRect(barX, barY, barWidth, barHeight);
-
-    // 绘制血条边框（白色）
-    this.ctx.strokeStyle = '#FFFFFF';
-    this.ctx.lineWidth = 1;
-    this.ctx.strokeRect(barX, barY, barWidth, barHeight);
-
-    // 根据血量比例绘制血条填充
-    var fillWidth = barWidth * healthRatio;
-    if (fillWidth > 0) {
-        // 根据血量选择颜色
-        if (healthRatio > 0.6) {
-            this.ctx.fillStyle = '#00FF00'; // 绿色（血量充足）
-        } else if (healthRatio > 0.3) {
-            this.ctx.fillStyle = '#FFFF00'; // 黄色（血量中等）
-        } else {
-            this.ctx.fillStyle = '#FF0000'; // 红色（血量危险）
-        }
-
-        this.ctx.fillRect(barX, barY, fillWidth, barHeight);
-    }
-
-    // 如果是主人物，显示具体血量数值
-    if (character.role === 1) { // 主人物
-        this.ctx.fillStyle = '#FFFFFF';
-        this.ctx.font = 'bold 10px Arial';
-        this.ctx.textAlign = 'center';
-        this.ctx.fillText(character.hp + '/' + character.maxHp, worldX, barY - 5);
-    }
-};
-
-// 渲染伙伴（带摄像机变换）
+// 渲染伙伴（使用统一渲染管理器）
 ViewSystem.prototype.renderPartners = function (partnerManager) {
-
-    // 保存当前上下文状态
-    this.ctx.save();
+    if (!partnerManager) return;
 
     // 应用摄像机变换
-    this.ctx.translate(this.canvas.width / 2, this.canvas.height / 2);
-    this.ctx.scale(this.camera.zoom, this.camera.zoom);
-    this.ctx.translate(-this.camera.x, -this.camera.y);
+    this.renderManager.applyCameraTransform();
 
     // 获取所有伙伴
     var partners = partnerManager.getAllPartners();
     console.log('renderPartners: 伙伴数量:', partners.length);
 
-    // 渲染伙伴
-    partners.forEach(partner => {
-        if (partner && partner.hp > 0) {
-            this.renderPartner(partner, partner.x, partner.y);
-        }
-    });
+    // 使用统一渲染管理器渲染伙伴
+    this.renderManager.renderEntityList(partners, 'partner');
 
-    // 恢复上下文状态
-    this.ctx.restore();
-};
-
-// 渲染单个伙伴
-ViewSystem.prototype.renderPartner = function (partner, worldX, worldY) {
-    // 绘制阴影
-    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-    this.ctx.beginPath();
-    this.ctx.ellipse(worldX, worldY + partner.height / 2 + 4, partner.width / 2, 4, 0, 0, Math.PI * 2);
-    this.ctx.fill();
-
-    // 绘制伙伴主体（圆形设计）
-    var bodyY = worldY - partner.height / 2;
-
-    // 身体 - 圆形
-    this.ctx.fillStyle = partner.getBodyColor();
-    this.ctx.beginPath();
-    this.ctx.arc(worldX, bodyY + partner.height / 2, partner.width / 2, 0, Math.PI * 2);
-    this.ctx.fill();
-
-    // 头部 - 圆形
-    this.ctx.fillStyle = partner.getHeadColor();
-    this.ctx.beginPath();
-    this.ctx.arc(worldX, bodyY + partner.height / 6, partner.width / 3, 0, Math.PI * 2);
-    this.ctx.fill();
-
-    // 绘制图标
-    this.ctx.font = '16px Arial';
-    this.ctx.textAlign = 'center';
-    this.ctx.fillStyle = '#000';
-    this.ctx.fillText(partner.icon, worldX, bodyY + partner.height / 2);
-
-    // 绘制状态指示器
-    if (partner.status === 'FOLLOW') {
-        this.ctx.fillStyle = '#00ff00';
-        this.ctx.beginPath();
-        this.ctx.arc(worldX, bodyY - 6, 4, 0, Math.PI * 2);
-        this.ctx.fill();
-    } else if (partner.status === 'INIT') {
-        this.ctx.fillStyle = '#95a5a6';
-        this.ctx.beginPath();
-        this.ctx.arc(worldX, bodyY - 6, 4, 0, Math.PI * 2);
-        this.ctx.fill();
-    }
-
-    // 绘制伙伴血条
-    this.renderCharacterHealthBar(partner, worldX, worldY);
+    // 恢复变换
+    this.renderManager.restoreTransform();
 };
 
 // 渲染触摸摇杆（不受摄像机变换影响）
 ViewSystem.prototype.renderJoystick = function (joystick) {
-    if (joystick && joystick.render) {
-        // 确保触摸摇杆在正确的屏幕位置渲染，传递正确的ctx
-        joystick.render(this.ctx);
+    if (joystick && joystick.isVisible) {
+        this.renderManager.renderUI('joystick', joystick);
     }
 };
-
 
 // 渲染调试信息
 ViewSystem.prototype.renderDebugInfo = function () {
     if (!this.showDebugInfo) return;
 
-    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-    this.ctx.fillRect(10, 10, 300, 120);
-
-    this.ctx.fillStyle = '#FFFFFF';
-    this.ctx.font = '12px Arial';
-    this.ctx.textAlign = 'left';
-
-    var cameraPos = this.camera.getPosition();
-    this.ctx.fillText('摄像机位置: ' + Math.round(cameraPos.x) + ', ' + Math.round(cameraPos.y), 15, 30);
-    this.ctx.fillText('摄像机缩放: ' + this.camera.getZoom().toFixed(2), 15, 45);
-    this.ctx.fillText('屏幕尺寸: ' + this.canvas.width + ' x ' + this.canvas.height, 15, 60);
-    this.ctx.fillText('地图尺寸: ' + this.camera.mapWidth + ' x ' + this.camera.mapHeight, 15, 75);
-    this.ctx.fillText('渲染距离: ' + this.renderDistance, 15, 90);
+    // 使用统一渲染管理器渲染调试信息
+    const debugData = {
+        cameraPos: this.camera.getPosition(),
+        renderStats: this.renderManager.getRenderStats(),
+        canvas: this.canvas,
+        camera: this.camera,
+        renderDistance: this.renderDistance
+    };
+    
+    this.renderManager.renderUI('debugInfo', debugData);
 };
 
 // 渲染时间信息（左上角）
 ViewSystem.prototype.renderTimeInfo = function (gameEngine) {
     if (!gameEngine || !gameEngine.getTimeInfo) return;
 
-    var timeInfo = gameEngine.getTimeInfo();
+    // 使用统一渲染管理器渲染时间信息
+    const timeData = {
+        timeInfo: gameEngine.getTimeInfo()
+    };
+    
+    this.renderManager.renderUI('timeInfo', timeData);
+};
 
-    // 绘制背景面板
-    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-    this.ctx.fillRect(10, 10, 180, 60);
-
-    // 绘制边框
-    this.ctx.strokeStyle = timeInfo.isDay ? '#FFD700' : '#4169E1';
-    this.ctx.lineWidth = 2;
-    this.ctx.strokeRect(10, 10, 180, 60);
-
-    // 设置文字样式
-    this.ctx.fillStyle = '#FFFFFF';
-    this.ctx.font = 'bold 16px Arial';
-    this.ctx.textAlign = 'left';
-
-    // 显示天数
-    var dayText = '第 ' + timeInfo.day + ' 天';
-    var timeText = timeInfo.isDay ? '☀️ 白天' : '🌙 夜晚';
-    this.ctx.fillText(dayText, 20, 30);
-    this.ctx.fillText(timeText, 20, 50);
-
-    // 显示团队人数和食物数量
-    var teamText = '👥 团队: ' + timeInfo.teamSize + ' 人';
-    var foodText = '🍖 食物: ' + timeInfo.food;
-
-    this.ctx.fillStyle = '#FFFFFF';
-    this.ctx.fillText(teamText, 20, 70);
-
-    this.ctx.fillStyle = timeInfo.food > 0 ? '#00FF00' : '#FF0000';
-    this.ctx.fillText(foodText, 120, 70);
+// 获取渲染管理器（供外部使用）
+ViewSystem.prototype.getRenderManager = function() {
+    return this.renderManager;
 };
 
 // 导出
-export {Camera, ViewSystem};
+export {Camera, ViewSystem, RenderManager};
 export default ViewSystem;
