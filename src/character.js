@@ -241,12 +241,12 @@ Character.prototype.setupMainCharacterStateMachine = function () {
         return this.hasJoystickInput();
     });
 
-    sm.addTransition(MAIN_CHARACTER_STATES.ATTACK, MAIN_CHARACTER_STATES.IDLE, () => {
-        // 无僵尸或僵尸超出范围，且无摇杆输入
-        var attackJudgmentConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT.ATTACK_JUDGMENT') : { RANGE_BUFFER: 5 };
-        var effectiveAttackRange = this.attackRange + attackJudgmentConfig.RANGE_BUFFER;
-        return !this.hasJoystickInput() && !this.hasZombieInRange(effectiveAttackRange);
-    });
+          sm.addTransition(MAIN_CHARACTER_STATES.ATTACK, MAIN_CHARACTER_STATES.IDLE, () => {
+          // 无僵尸或僵尸超出范围，且无摇杆输入
+          var attackJudgmentConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT.ATTACK_JUDGMENT') : { RANGE_BUFFER: 5 };
+          var effectiveAttackRange = this.attackRange + attackJudgmentConfig.RANGE_BUFFER;
+          return !this.hasJoystickInput() && !this.hasZombieInRange(effectiveAttackRange);
+      });
 
     // 添加死亡状态转换（所有状态都可以进入死亡）
     sm.addTransition(MAIN_CHARACTER_STATES.IDLE, MAIN_CHARACTER_STATES.DIE, () => {
@@ -287,13 +287,13 @@ Character.prototype.setupMainCharacterStateMachine = function () {
 Character.prototype.setupPartnerStateMachine = function () {
     const sm = this.stateMachine;
 
-    // 简化的伙伴状态机：只保留必要的状态
-    sm.addTransition(PARTNER_STATES.INIT, PARTNER_STATES.FOLLOW, () => {
-        // 从配置获取伙伴激活距离
-        var detectionConfig = window.ConfigManager ? window.ConfigManager.get('DETECTION') : null;
-        var activationDistance = detectionConfig ? detectionConfig.SAFE_SPAWN_DISTANCE : 100;
-        return this.isMainCharacterNearby(activationDistance);
-    });
+          // 简化的伙伴状态机：只保留必要的状态
+      sm.addTransition(PARTNER_STATES.INIT, PARTNER_STATES.FOLLOW, () => {
+          // 从配置获取伙伴激活距离
+          var detectionConfig = window.ConfigManager ? window.ConfigManager.get('DETECTION') : null;
+          var activationDistance = detectionConfig ? detectionConfig.SAFE_SPAWN_DISTANCE : 100;
+          return this.isMainCharacterNearby(activationDistance);
+      });
 
     sm.addTransition(PARTNER_STATES.FOLLOW, PARTNER_STATES.IDLE, () => {
         return !this.isMainCharacterMoving();
@@ -660,10 +660,10 @@ Character.prototype.moveToAttackRange = function () {
     if (this.hasJoystickInput()) return;
 
     var mathUtils = UtilsManager.getMathUtils();
-    var distance = mathUtils.distance(this.x, this.y, this.attackTarget.x, this.attackTarget.y);
-    var attackJudgmentConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT.ATTACK_JUDGMENT') : { RANGE_BUFFER: 5 };
-    var effectiveAttackRange = this.attackRange + attackJudgmentConfig.RANGE_BUFFER; // 有效攻击范围（攻击范围加上缓冲）
-    var targetDistance = this.attackRange; // 目标距离等于基础攻击范围（不使用缓冲）
+          var distance = mathUtils.distance(this.x, this.y, this.attackTarget.x, this.attackTarget.y);
+      var attackJudgmentConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT.ATTACK_JUDGMENT') : { RANGE_BUFFER: 5 };
+      var effectiveAttackRange = this.attackRange + attackJudgmentConfig.RANGE_BUFFER; // 有效攻击范围（攻击范围加上缓冲）
+      var targetDistance = this.attackRange; // 目标距离等于基础攻击范围（不使用缓冲）
 
     if (distance > targetDistance) {
         var angle = mathUtils.angle(this.x, this.y, this.attackTarget.x, this.attackTarget.y);
@@ -1036,6 +1036,16 @@ var CharacterManager = {
         character.stuckTime = 0;
         character.lastPosition = null;
 
+        // 🔴 修复：重新设置移动速度，确保从对象池复用的角色有正确的速度
+        var movementConfig = window.ConfigManager ? window.ConfigManager.get('MOVEMENT') : null;
+        if (character.role === ROLE.MAIN) {
+            // 主人物移动速度
+            character.moveSpeed = movementConfig ? movementConfig.CHARACTER_MOVE_SPEED : 4;
+        } else {
+            // 其他角色移动速度（如果有不同设置）
+            character.moveSpeed = movementConfig ? movementConfig.CHARACTER_MOVE_SPEED : 4;
+        }
+
         // 重置状态机
         if (character.stateMachine) {
             character.stateMachine.forceState(MAIN_CHARACTER_STATES.IDLE);
@@ -1045,7 +1055,7 @@ var CharacterManager = {
         character.animationFrame = 0;
         character.frameCount = 0;
 
-        console.log('✅ 角色状态重置完成:', character.id);
+        console.log('✅ 角色状态重置完成:', character.id, '移动速度:', character.moveSpeed);
     },
 
     // 创建主人物

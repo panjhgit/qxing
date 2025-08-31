@@ -74,8 +74,8 @@
 const GAME_CONFIG = {
     // 移动系统配置
     MOVEMENT: {
-        CHARACTER_MOVE_SPEED: 4,        // ✅ 恢复：人物移动速度 (像素/帧)
-        ZOMBIE_MOVE_SPEED: 2,           // ✅ 恢复：僵尸移动速度 (像素/帧)
+        CHARACTER_MOVE_SPEED: 5,        // ✅ 恢复：人物移动速度 (像素/帧)
+        ZOMBIE_MOVE_SPEED: 4,           // ✅ 恢复：僵尸移动速度 (像素/帧)
         
         // 贴着建筑物移动配置
         WALL_FOLLOWING: {

@@ -550,11 +550,25 @@ var ZombieManager = {
         zombie.animationFrame = 0;
         zombie.direction = 0;
         
+        // 🔴 修复：重新设置移动速度，确保从对象池复用的僵尸有正确的速度
+        var movementConfig = window.ConfigManager ? window.ConfigManager.get('MOVEMENT') : null;
+        var zombieConfig = window.ConfigManager ? window.ConfigManager.get('ZOMBIE') : null;
+        if (movementConfig && zombieConfig && zombieConfig.TYPES && zombie.zombieType) {
+            var zombieTypeConfig = zombieConfig.TYPES[zombie.zombieType.toUpperCase()];
+            if (zombieTypeConfig) {
+                zombie.moveSpeed = movementConfig.ZOMBIE_MOVE_SPEED * zombieTypeConfig.SPEED_MULTIPLIER;
+            } else {
+                zombie.moveSpeed = movementConfig.ZOMBIE_MOVE_SPEED; // 默认速度
+            }
+        } else {
+            zombie.moveSpeed = 2; // 备用默认速度
+        }
+        
         // 重置性能相关
         zombie._updateFrame = 0;
         zombie._destroyed = false;
         
-        console.log('✅ 僵尸状态重置完成:', zombie.id);
+        console.log('✅ 僵尸状态重置完成:', zombie.id, '类型:', zombie.zombieType, '移动速度:', zombie.moveSpeed);
     },
     
             // 🔴 重构：创建僵尸 - 注册到对象管理器

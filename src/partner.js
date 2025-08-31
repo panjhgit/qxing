@@ -200,13 +200,13 @@ Partner.prototype.initializeStateMachine = function () {
 Partner.prototype.setupPartnerStateMachine = function () {
     const sm = this.stateMachine;
 
-    // INIT -> FOLLOW: 主人物靠近配置距离
-    sm.addTransition(PARTNER_STATE.INIT, PARTNER_STATE.FOLLOW, () => {
-        // 从配置获取伙伴激活距离
-        var detectionConfig = window.ConfigManager ? window.ConfigManager.get('DETECTION') : null;
-        var activationDistance = detectionConfig ? detectionConfig.SAFE_SPAWN_DISTANCE : 100;
-        return this.isMainCharacterNearby(activationDistance);
-    });
+          // INIT -> FOLLOW: 主人物靠近配置距离
+      sm.addTransition(PARTNER_STATE.INIT, PARTNER_STATE.FOLLOW, () => {
+          // 从配置获取伙伴激活距离
+          var detectionConfig = window.ConfigManager ? window.ConfigManager.get('DETECTION') : null;
+          var activationDistance = detectionConfig ? detectionConfig.SAFE_SPAWN_DISTANCE : 100;
+          return this.isMainCharacterNearby(activationDistance);
+      });
 
     // INIT -> DIE: 血量归零
     sm.addTransition(PARTNER_STATE.INIT, PARTNER_STATE.DIE, () => {
@@ -516,10 +516,10 @@ Partner.prototype.findAttackTarget = function () {
 Partner.prototype.moveToAttackRange = function () {
     if (!this.attackTarget || this.attackTarget.hp <= 0) return;
 
-    var distance = this.getDistanceTo(this.attackTarget.x, this.attackTarget.y);
-    var attackJudgmentConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT.ATTACK_JUDGMENT') : { RANGE_BUFFER: 5 };
-    var effectiveAttackRange = this.attackRange + attackJudgmentConfig.RANGE_BUFFER; // 有效攻击范围（攻击范围加上缓冲）
-    var targetDistance = this.attackRange; // 目标距离等于基础攻击范围（不使用缓冲）
+          var distance = this.getDistanceTo(this.attackTarget.x, this.attackTarget.y);
+      var attackJudgmentConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT.ATTACK_JUDGMENT') : { RANGE_BUFFER: 5 };
+      var effectiveAttackRange = this.attackRange + attackJudgmentConfig.RANGE_BUFFER; // 有效攻击范围（攻击范围加上缓冲）
+      var targetDistance = this.attackRange; // 目标距离等于基础攻击范围（不使用缓冲）
 
     if (distance > targetDistance) {
         var angle = Math.atan2(this.attackTarget.y - this.y, this.attackTarget.x - this.x);
@@ -945,11 +945,11 @@ Partner.prototype.debugFollowStatus = function () {
         return;
     }
     
-    var distance = this.getDistanceTo(mainChar.x, mainChar.y);
-    // 从配置获取伙伴激活距离
-    var detectionConfig = window.ConfigManager ? window.ConfigManager.get('DETECTION') : null;
-    var activationDistance = detectionConfig ? detectionConfig.SAFE_SPAWN_DISTANCE : 100;
-    var isNearby = this.isMainCharacterNearby(activationDistance);
+          var distance = this.getDistanceTo(mainChar.x, mainChar.y);
+      // 从配置获取伙伴激活距离
+      var detectionConfig = window.ConfigManager ? window.ConfigManager.get('DETECTION') : null;
+      var activationDistance = detectionConfig ? detectionConfig.SAFE_SPAWN_DISTANCE : 100;
+      var isNearby = this.isMainCharacterNearby(activationDistance);
     var isMoving = this.isMainCharacterMoving();
     var followDistance = this.getDistanceTo(this.followPoint.x, this.followPoint.y);
     
@@ -1015,6 +1015,15 @@ var PartnerManager = {
         partner.stuckTime = 0;
         partner.lastPosition = null;
         
+        // 🔴 修复：重新设置移动速度，确保从对象池复用的伙伴有正确的速度
+        var movementConfig = window.ConfigManager ? window.ConfigManager.get('MOVEMENT') : null;
+        if (movementConfig) {
+            // 伙伴移动速度比主人物慢0.5px/帧
+            partner.moveSpeed = movementConfig.CHARACTER_MOVE_SPEED - 0.5;
+        } else {
+            partner.moveSpeed = 3.5; // 备用默认速度
+        }
+        
         // 重置状态机
         if (partner.stateMachine) {
             partner.stateMachine.forceState(PARTNER_STATE.IDLE);
@@ -1024,7 +1033,7 @@ var PartnerManager = {
         partner.animationFrame = 0;
         partner.frameCount = 0;
         
-        console.log('✅ 伙伴状态重置完成:', partner.id);
+        console.log('✅ 伙伴状态重置完成:', partner.id, '角色:', partner.role, '移动速度:', partner.moveSpeed);
     },
 
     // 创建伙伴
