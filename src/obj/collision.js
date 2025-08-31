@@ -346,8 +346,8 @@ var CollisionSystem = {
 
     // 🔴 简化：移除复杂的空间索引方法，只保留基本的碰撞检测
     addToSpatialIndex: function (object) {
-        // 简化版本不需要空间索引
-        return true;
+        // 简化版本返回一个唯一ID
+        return Date.now() + Math.random();
     },
 
     removeFromSpatialIndex: function (object) {

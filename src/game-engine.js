@@ -140,10 +140,10 @@ TouchJoystick.prototype.bindEvents = function() {
     } else {
         // 标准Web环境
 
-        self.canvas.addEventListener('touchstart', touchStartHandler);
-        self.canvas.addEventListener('touchmove', touchMoveHandler);
-        self.canvas.addEventListener('touchend', touchEndHandler);
-        self.canvas.addEventListener('touchcancel', touchCancelHandler); // 绑定触摸取消事件
+        self.canvas.addEventListener('touchstart', touchStartHandler, { passive: true });
+        self.canvas.addEventListener('touchmove', touchMoveHandler, { passive: true });
+        self.canvas.addEventListener('touchend', touchEndHandler, { passive: true });
+        self.canvas.addEventListener('touchcancel', touchCancelHandler, { passive: true }); // 绑定触摸取消事件
     }
 };
 
@@ -479,6 +479,11 @@ GameEngine.prototype.setSystems = function(mapSystem, characterManager, menuSyst
     this.eventSystem = eventSystem;
     this.zombieManager = zombieManager;
     this.collisionSystem = collisionSystem;
+    
+    // 🔴 修复：设置对象管理器的空间索引
+    if (window.objectManager && collisionSystem) {
+        window.objectManager.setSpatialIndex(collisionSystem);
+    }
     
     // 初始化对象池系统
     this.initObjectPools();
@@ -1027,7 +1032,7 @@ GameEngine.prototype.createPartnerBatchAroundPlayer = function(batchSize, mainCh
         }
 
         if (!partnerCreated) {
-            throw new Error('GameEngine: 伙伴' + (i + 1) + '无法找到有效位置，跳过创建');
+            console.warn('GameEngine: 伙伴' + (i + 1) + '无法找到有效位置，跳过创建');
         }
     }
 

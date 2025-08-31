@@ -65,6 +65,20 @@ class ObjectManager {
         const currentCount = this.objectCounts.get(type) || 0;
         this.objectCounts.set(type, currentCount + 1);
 
+        // 🔴 修复：将对象添加到空间索引
+        if (this.spatialIndex && this.spatialIndex.addToSpatialIndex) {
+            const addResult = this.spatialIndex.addToSpatialIndex(object);
+            if (addResult) {
+                // 设置空间索引ID
+                object._spatialIndexId = addResult;
+            } else {
+                // 简化版本的空间索引可能返回true但不返回ID
+                object._spatialIndexId = Date.now() + Math.random();
+            }
+        } else {
+            // 如果没有空间索引，设置一个默认ID
+            object._spatialIndexId = Date.now() + Math.random();
+        }
 
         return id;
     }
@@ -226,6 +240,11 @@ class ObjectManager {
             total += count;
         }
         return total;
+    }
+
+    // 设置空间索引
+    setSpatialIndex(spatialIndex) {
+        this.spatialIndex = spatialIndex;
     }
 
     // 获取统计信息

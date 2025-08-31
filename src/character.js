@@ -739,7 +739,7 @@ Character.prototype.addGameOverClickListener = function (canvas) {
     };
 
     // 添加事件监听器
-    canvas.addEventListener('touchstart', this.gameOverClickListener);
+            canvas.addEventListener('touchstart', this.gameOverClickListener, { passive: true });
 };
 
 // 获取摇杆移动方向

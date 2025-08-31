@@ -687,7 +687,7 @@ var ZombieManager = {
             var spatialIndexResult = window.collisionSystem.addToSpatialIndex(zombie);
             if (spatialIndexResult) {
                 // 给僵尸添加空间索引ID标识
-                zombie._spatialIndexId = Date.now() + Math.random();
+                zombie._spatialIndexId = spatialIndexResult;
             }
         }
         

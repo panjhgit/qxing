@@ -72,6 +72,9 @@ var Partner = function (role, x, y) {
     this.status = PARTNER_STATE.INIT;
     this.type = 'partner';
     this.isInitialState = true; // 初始状态为灰色
+    
+    // 🔴 修复：设置伙伴ID
+    this.id = 'partner_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
 
     // 从配置获取对象尺寸
     var objectSizes = window.ConfigManager ? window.ConfigManager.get('OBJECT_SIZES.CHARACTER') : null;
@@ -94,7 +97,7 @@ var Partner = function (role, x, y) {
 
     // 🔴 修复：从配置获取跟随距离
     var combatConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT') : null;
-    this.followDistance = combatConfig ? combatConfig.MIN_ATTACK_RANGE : 100; // 从config.js获取跟随距离
+    this.followDistance = combatConfig ? combatConfig.MIN_ATTACK_RANGE : 80; // 从config.js获取跟随距离，默认80px
     this.followAngle = Math.PI;          // 跟随角度（后方）
     this.followPoint = {x: x, y: y};     // 跟随点
     this.lastMainCharPosition = {x: 0, y: 0}; // 主人物上次位置
@@ -407,6 +410,17 @@ Partner.prototype.updateFollowMovement = function (deltaTime) {
     // 移动到跟随点
     var distance = this.getDistanceTo(this.followPoint.x, this.followPoint.y);
 
+    // 🔴 调试：输出跟随信息
+    console.warn('🔴 伙伴跟随调试:', {
+        partnerId: this.id,
+        partnerPos: {x: this.x, y: this.y},
+        followPoint: {x: this.followPoint.x, y: this.followPoint.y},
+        distance: distance,
+        moveSpeed: this.moveSpeed,
+        deltaTime: deltaTime,
+        shouldMove: distance > 5
+    });
+
     if (distance > 5) { // 距离跟随点超过5px才移动
         var angle = Math.atan2(this.followPoint.y - this.y, this.followPoint.x - this.x);
         var moveDistance = this.moveSpeed * deltaTime;
@@ -419,6 +433,10 @@ Partner.prototype.updateFollowMovement = function (deltaTime) {
         if (finalPosition) {
             this.x = finalPosition.x;
             this.y = finalPosition.y;
+            console.warn('🔴 伙伴移动了:', {
+                from: {x: this.x - moveDistance * Math.cos(angle), y: this.y - moveDistance * Math.sin(angle)},
+                to: {x: this.x, y: this.y}
+            });
         }
     }
 };
@@ -428,16 +446,43 @@ Partner.prototype.calculateFollowPoint = function () {
     var mainChar = this.getMainCharacter();
     if (!mainChar) return;
 
+    // 🔴 修复：如果lastMainCharPosition还是初始值，先初始化
+    if (this.lastMainCharPosition.x === 0 && this.lastMainCharPosition.y === 0) {
+        this.lastMainCharPosition.x = mainChar.x;
+        this.lastMainCharPosition.y = mainChar.y;
+    }
+
     // 计算主人物移动方向
     var mainCharDirection = this.getMainCharacterDirection();
 
-    // 跟随点在主人物后方，距离80px
+    // 🔴 修复：如果主人物没有移动，使用伙伴到主角的方向作为跟随方向
+    if (mainCharDirection === 0) {
+        // 计算伙伴到主角的方向
+        var angleToMainChar = Math.atan2(mainChar.y - this.y, mainChar.x - this.x);
+        // 跟随点在主角后方，所以角度要加π
+        this.followAngle = angleToMainChar + Math.PI;
+    } else {
+        // 主人物在移动，跟随点在移动方向的后方
+        this.followAngle = mainCharDirection + Math.PI;
+    }
+
+    // 跟随点在主人物后方，距离followDistance
     this.followPoint.x = mainChar.x + Math.cos(this.followAngle) * this.followDistance;
     this.followPoint.y = mainChar.y + Math.sin(this.followAngle) * this.followDistance;
 
     // 记录主人物位置
     this.lastMainCharPosition.x = mainChar.x;
     this.lastMainCharPosition.y = mainChar.y;
+    
+    // 🔴 调试：输出跟随点计算信息
+    console.warn('🔴 跟随点计算:', {
+        partnerId: this.id,
+        mainCharPos: {x: mainChar.x, y: mainChar.y},
+        followPoint: {x: this.followPoint.x, y: this.followPoint.y},
+        followAngle: this.followAngle,
+        followDistance: this.followDistance,
+        mainCharDirection: mainCharDirection
+    });
 };
 
 // 更新攻击
@@ -848,16 +893,11 @@ Partner.prototype.handleCollisionWithMainCharacter = function (distance) {
         this.adjustPositionToAvoidOverlap();
     }
     
-    // 🔴 核心：确保跟随状态正确，跟随优先
+    // 🔴 核心：如果还在INIT状态，强制转换为跟随状态
     if (this.status === PARTNER_STATE.INIT) {
-        // 如果还在初始状态，强制转换为跟随状态
         if (this.stateMachine) {
             this.stateMachine.forceState(PARTNER_STATE.FOLLOW);
-        }
-    } else if (this.status !== PARTNER_STATE.FOLLOW) {
-        // 如果不在跟随状态，也强制转换到跟随状态（跟随优先）
-        if (this.stateMachine) {
-            this.stateMachine.forceState(PARTNER_STATE.FOLLOW);
+            console.warn('🔴 伙伴从INIT状态强制转换为FOLLOW状态');
         }
     }
     
@@ -867,6 +907,15 @@ Partner.prototype.handleCollisionWithMainCharacter = function (distance) {
     // 标记伙伴为活跃状态
     this.isActive = true;
     this.isInitialState = false;
+    
+    // 🔴 调试：检查状态转换是否成功
+    setTimeout(() => {
+        console.warn('🔴 碰撞后状态检查:', {
+            partnerId: this.id,
+            status: this.status,
+            stateMachineState: this.stateMachine ? this.stateMachine.currentState : 'no state machine'
+        });
+    }, 100);
 };
 
 // 🔴 新增：确保伙伴已注册到对象管理模块
