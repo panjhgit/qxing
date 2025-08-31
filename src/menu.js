@@ -65,8 +65,6 @@ class IndependentMenuSystem {
     init() {
         if (this.isInitialized) return;
         
-        console.log('🚀 初始化独立菜单系统...');
-        
         // 绑定事件处理器
         this.bindEventHandlers();
         
@@ -74,7 +72,6 @@ class IndependentMenuSystem {
         this.setState(MENU_STATE.HOME);
         
         this.isInitialized = true;
-        console.log('✅ 独立菜单系统初始化完成');
     }
     
     /**
@@ -102,10 +99,8 @@ class IndependentMenuSystem {
         // 绑定触摸事件（抖音小游戏环境）
         if (typeof tt !== 'undefined') {
             tt.onTouchStart(this.handleTouch.bind(this));
-            console.log('✅ 抖音小游戏触摸事件绑定完成');
         } else if (typeof window !== 'undefined' && window.addEventListener) {
             this.canvas.addEventListener('click', this.handleClick.bind(this));
-            console.log('✅ 浏览器点击事件绑定完成');
         }
         
         // 注册按钮处理器
@@ -118,43 +113,36 @@ class IndependentMenuSystem {
     registerButtonHandlers() {
         // 开始游戏按钮
         this.touchHandlers.set(BUTTON_TYPE.START_GAME, () => {
-            console.log('🎮 开始游戏按钮被点击');
             this.onStartGame();
         });
         
         // 返回主菜单按钮
         this.touchHandlers.set(BUTTON_TYPE.RETURN_MAIN, () => {
-            console.log('🏠 返回主菜单按钮被点击');
             this.onReturnToMainMenu();
         });
         
         // 继续游戏按钮
         this.touchHandlers.set(BUTTON_TYPE.CONTINUE_GAME, () => {
-            console.log('▶️ 继续游戏按钮被点击');
             this.onContinueGame();
         });
         
         // 设置按钮
         this.touchHandlers.set(BUTTON_TYPE.SETTINGS, () => {
-            console.log('⚙️ 设置按钮被点击');
             this.setState(MENU_STATE.SETTINGS);
         });
         
         // 帮助按钮
         this.touchHandlers.set(BUTTON_TYPE.HELP, () => {
-            console.log('❓ 帮助按钮被点击');
             this.setState(MENU_STATE.HELP);
         });
         
         // 制作人员按钮
         this.touchHandlers.set(BUTTON_TYPE.CREDITS, () => {
-            console.log('👥 制作人员按钮被点击');
             this.setState(MENU_STATE.CREDITS);
         });
         
         // 重置按钮
         this.touchHandlers.set(BUTTON_TYPE.RESET, () => {
-            console.log('🔄 重置按钮被点击');
             this.onReset();
         });
         
@@ -193,18 +181,14 @@ class IndependentMenuSystem {
      * 处理点击逻辑
      */
     processClick(x, y) {
-        console.log('🖱️ 菜单点击事件:', x, y);
-        
         // 检查死亡弹框按钮点击
         if (this.deathButtonAreas) {
             if (this.isPointInArea(x, y, this.deathButtonAreas.restart)) {
-                console.log('🔄 重新开始按钮被点击');
                 this.onRestartGame();
                 return true;
             }
             
             if (this.isPointInArea(x, y, this.deathButtonAreas.menu)) {
-                console.log('🏠 返回主菜单按钮被点击');
                 this.onReturnToMainMenu();
                 return true;
             }
@@ -240,8 +224,6 @@ class IndependentMenuSystem {
         
         this.previousState = this.currentState;
         this.currentState = newState;
-        
-        console.log(`🔄 菜单状态切换: ${this.previousState} -> ${this.currentState}`);
         
         // 清除按钮区域缓存
         this.buttonAreas.clear();
@@ -316,7 +298,7 @@ class IndependentMenuSystem {
         // 渲染底部信息
         this.renderHomeFooter(centerX);
         
-        console.log('✅ 主页面渲染完成');
+        // 主页面渲染完成
     }
     
     /**
@@ -343,7 +325,7 @@ class IndependentMenuSystem {
         // 渲染按钮
         this.renderGameMenuButtons(centerX, centerY);
         
-        console.log('✅ 游戏内菜单渲染完成');
+        // 游戏内菜单渲染完成
     }
     
     /**
@@ -375,7 +357,7 @@ class IndependentMenuSystem {
         // 返回按钮
         this.renderBackButton(centerX, centerY + 100);
         
-        console.log('✅ 设置页面渲染完成');
+        // 设置页面渲染完成
     }
     
     /**
@@ -419,7 +401,7 @@ class IndependentMenuSystem {
         // 返回按钮
         this.renderBackButton(centerX, centerY + 150);
         
-        console.log('✅ 帮助页面渲染完成');
+        // 帮助页面渲染完成
     }
     
     /**
@@ -463,7 +445,7 @@ class IndependentMenuSystem {
         // 返回按钮
         this.renderBackButton(centerX, centerY + 150);
         
-        console.log('✅ 制作人员页面渲染完成');
+        // 制作人员页面渲染完成
     }
     
     /**
@@ -737,8 +719,6 @@ class IndependentMenuSystem {
      * 开始游戏回调
      */
     onStartGame() {
-        console.log('🎮 独立菜单系统: 开始游戏');
-        
         // 通过全局函数调用游戏开始
         if (typeof window.startGame === 'function') {
             window.startGame();
@@ -751,8 +731,6 @@ class IndependentMenuSystem {
      * 返回主菜单回调
      */
     onReturnToMainMenu() {
-        console.log('🏠 独立菜单系统: 返回主菜单');
-        
         // 清除死亡弹框状态
         this.deathButtonAreas = null;
         
@@ -768,8 +746,6 @@ class IndependentMenuSystem {
      * 继续游戏回调
      */
     onContinueGame() {
-        console.log('▶️ 独立菜单系统: 继续游戏');
-        
         // 隐藏菜单，继续游戏
         if (typeof window.hideGameMenu === 'function') {
             window.hideGameMenu();
@@ -782,8 +758,6 @@ class IndependentMenuSystem {
      * 重置游戏回调
      */
     onReset() {
-        console.log('🔄 独立菜单系统: 环境重置');
-        
         // 通过全局函数调用环境重置
         if (typeof window.resetGame === 'function') {
             window.resetGame();
@@ -796,8 +770,6 @@ class IndependentMenuSystem {
      * 重新开始游戏回调
      */
     onRestartGame() {
-        console.log('🔄 独立菜单系统: 重新开始游戏');
-        
         // 清除死亡弹框状态
         this.deathButtonAreas = null;
         
@@ -888,8 +860,6 @@ class IndependentMenuSystem {
      * 销毁菜单系统
      */
     destroy() {
-        console.log('🗑️ 销毁独立菜单系统');
-        
         // 清除事件处理器
         this.touchHandlers.clear();
         this.buttonAreas.clear();
@@ -897,7 +867,6 @@ class IndependentMenuSystem {
         // 移除事件监听器
         if (typeof tt !== 'undefined') {
             // 抖音小游戏环境，无法直接移除事件监听器
-            console.log('抖音小游戏环境，事件监听器将在页面刷新时自动清除');
         } else if (this.canvas) {
             this.canvas.removeEventListener('click', this.handleClick.bind(this));
         }

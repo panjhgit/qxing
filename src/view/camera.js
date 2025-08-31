@@ -36,7 +36,6 @@ export class Camera {
     setMapBounds(width, height) {
         this.mapWidth = width;
         this.mapHeight = height;
-        console.log('摄像机地图边界设置:', width, 'x', height);
     }
 
     // 设置摄像机位置
@@ -44,21 +43,13 @@ export class Camera {
         this.x = x;
         this.y = y;
         this.constrainToMap();
-        console.log('摄像机位置已设置为:', this.x, this.y);
     }
 
     // 跟随目标
     followTarget(targetX, targetY) {
-        console.log('🔍 摄像机跟随目标:', targetX, targetY);
-        console.log('🔍 摄像机当前位置:', this.x, this.y);
-        console.log('🔍 地图边界:', this.mapWidth, 'x', this.mapHeight);
-        console.log('🔍 屏幕尺寸:', this.screenWidth, 'x', this.screenHeight);
-        console.log('🔍 缩放比例:', this.zoom);
-        
         this.x = targetX;
         this.y = targetY;
         this.constrainToMap();
-        console.log('🔍 摄像机位置已更新为:', this.x, this.y);
     }
 
     // 更新摄像机位置
@@ -85,7 +76,7 @@ export class Camera {
             this.y = this.mapHeight - halfScreenHeight;
         }
 
-        console.log('摄像机位置:', this.x, this.y, '地图边界:', this.mapWidth, this.mapHeight);
+        // 摄像机位置已约束到地图边界
     }
 
     // 世界坐标转屏幕坐标

@@ -125,7 +125,7 @@ Zombie.prototype.setupProperties = function() {
     this._updateFrame = 0;
     this._destroyed = false;
     
-    console.log('🔧 僵尸属性设置完成:', this.zombieType, '状态重置完成');
+    // 僵尸属性设置完成
 };
 
 // 统一的僵尸更新方法
@@ -224,7 +224,6 @@ Zombie.prototype.destroy = function() {
     // 备用方案：直接归还到对象池
     if (window.zombieManager && window.zombieManager.objectPool) {
         if (window.zombieManager.objectPool.return(this)) {
-            console.log('✅ 僵尸已归还到对象池:', this.id);
             return;
         }
     }
@@ -329,8 +328,7 @@ Zombie.prototype.moveTowards = function(targetX, targetY, deltaTime) {
     var newX = this.x + Math.cos(this.direction) * this.moveSpeed;
     var newY = this.y + Math.sin(this.direction) * this.moveSpeed;
     
-    // 🔴 临时调试：输出移动信息
-    console.log('🔍 僵尸移动:', this.id, '从:', this.x, this.y, '到:', newX, newY, '速度:', this.moveSpeed);
+    // 僵尸移动
     
     // 检查碰撞
     var finalPosition = this.checkCollision(this.x, this.y, newX, newY);
@@ -563,7 +561,7 @@ var ZombieManager = {
             (zombie) => this.resetZombie(zombie)
         );
         
-        console.log('✅ 僵尸对象池初始化完成');
+        // 僵尸对象池初始化完成
     },
     
     // 重置僵尸状态（对象池复用）
@@ -615,7 +613,7 @@ var ZombieManager = {
             zombie.id = Date.now() + Math.random();
         }
         
-        console.log('✅ 僵尸状态重置完成:', zombie.id, '类型:', zombie.zombieType, '移动速度:', zombie.moveSpeed);
+        // 僵尸状态重置完成
     },
     
             // 🔴 重构：创建僵尸 - 注册到对象管理器
@@ -632,7 +630,7 @@ var ZombieManager = {
         
         var currentZombieCount = window.objectManager.getObjectCount('zombie');
         if (currentZombieCount >= this.maxZombies) {
-            console.log('达到最大僵尸数量限制:', currentZombieCount, '/', this.maxZombies);
+            console.warn('达到最大僵尸数量限制:', currentZombieCount, '/', this.maxZombies);
             return null;
         }
         
@@ -666,14 +664,13 @@ var ZombieManager = {
                 zombie.y = y;
                 zombie.setupProperties();
                 
-                console.log('✅ 从对象池获取僵尸:', zombie.zombieType, '位置:', x, y);
+                // 从对象池获取僵尸
             }
         }
         
         // 对象池不可用时，使用传统创建方式
         if (!zombie) {
             zombie = new Zombie(type, x, y);
-            console.log('✅ 传统方式创建僵尸:', zombie.zombieType, '位置:', x, y);
         }
         
         // 🔴 重构：不再添加到内部存储，只注册到对象管理器
@@ -681,24 +678,14 @@ var ZombieManager = {
         // 🔴 协调对象管理器：注册新创建的僵尸
         if (zombie && window.objectManager) {
             window.objectManager.registerObject(zombie, 'zombie', zombie.id);
-            console.log('✅ 僵尸已注册到对象管理器:', zombie.id);
         } else {
             throw new Error('对象管理器未初始化或僵尸创建失败');
         }
         
         // 🔴 协调四叉树：四叉树只负责空间索引，不管理对象生命周期
         if (window.collisionSystem && window.collisionSystem.addToSpatialIndex) {
-            console.log('🔍 僵尸创建: 碰撞系统状态检查 - 僵尸ID:', zombie.id, '类型:', zombie.type, '位置:', zombie.x, zombie.y);
-            console.log('🔍 碰撞系统状态:', {
-                hasCollisionSystem: !!window.collisionSystem,
-                hasAddToSpatialIndex: !!window.collisionSystem.addToSpatialIndex,
-                hasDynamicQuadTree: !!window.collisionSystem.dynamicQuadTree,
-                dynamicQuadTreeObjects: window.collisionSystem.dynamicQuadTree ? window.collisionSystem.dynamicQuadTree.getAllObjects().length : 'N/A'
-            });
-            
             var spatialIndexResult = window.collisionSystem.addToSpatialIndex(zombie);
             if (spatialIndexResult) {
-                console.log('✅ 僵尸已添加到空间索引:', zombie.id);
                 // 给僵尸添加空间索引ID标识
                 zombie._spatialIndexId = Date.now() + Math.random();
             }
@@ -707,7 +694,6 @@ var ZombieManager = {
         this.initializeZombieTarget(zombie);
         
         // 🔴 重构：不再添加到内部存储，对象管理器作为唯一数据源
-        console.log('✅ 僵尸创建完成，已注册到对象管理器:', zombie.id);
         
         return zombie;
     },
@@ -942,14 +928,10 @@ var ZombieManager = {
     destroyZombie: function(zombie) {
         if (!zombie) return;
         
-        console.log('🗑️ 销毁僵尸:', zombie.id, '类型:', zombie.zombieType);
-        
         // 🔴 协调对象管理器：从对象管理器中移除
         if (window.objectManager) {
             const destroyResult = window.objectManager.destroyObject(zombie.id);
-            if (destroyResult) {
-                console.log('✅ 僵尸已从对象管理器移除:', zombie.id);
-            } else {
+            if (!destroyResult) {
                 console.warn('⚠️ 僵尸从对象管理器移除失败:', zombie.id);
             }
         }
@@ -957,9 +939,6 @@ var ZombieManager = {
         // 🔴 协调四叉树：从空间索引中移除（不管理对象生命周期）
         if (window.collisionSystem && window.collisionSystem.removeFromSpatialIndex) {
             var removeResult = window.collisionSystem.removeFromSpatialIndex(zombie);
-            if (removeResult) {
-                console.log('✅ 僵尸已从空间索引移除:', zombie.id);
-            }
         }
         
         // 🔴 协调对象池：使用对象池管理对象生命周期
@@ -971,15 +950,12 @@ var ZombieManager = {
             
             // 归还到对象池
             this.objectPool.return(zombie);
-            console.log('✅ 僵尸已归还到对象池:', zombie.id);
         } else {
             // 对象池不可用时，直接删除引用
             zombie.isActive = false;
-            console.log('✅ 僵尸已标记为非活跃:', zombie.id);
         }
         
         // 🔴 重构：对象已通过对象管理器销毁，无需从内部列表移除
-        console.log('✅ 僵尸已通过对象管理器销毁:', zombie.id);
     }
 };
 

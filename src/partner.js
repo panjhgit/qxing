@@ -293,7 +293,6 @@ Partner.prototype.setupPartnerStateMachine = function () {
 Partner.prototype.onEnterInit = function (stateData) {
     this.status = PARTNER_STATE.INIT;
     this.isMoving = false;
-    console.log('伙伴进入初始状态');
 };
 
 Partner.prototype.onUpdateInit = function (deltaTime, stateData) {
@@ -306,14 +305,12 @@ Partner.prototype.onUpdateInit = function (deltaTime, stateData) {
 
 Partner.prototype.onExitInit = function (stateData) {
     this.isInitialState = false; // 退出初始状态，不再显示灰色
-    console.log('伙伴退出初始状态');
 };
 
 // IDLE状态
 Partner.prototype.onEnterIdle = function (stateData) {
     this.status = PARTNER_STATE.IDLE;
     this.isMoving = false;
-    console.log('伙伴进入待机状态');
 };
 
 Partner.prototype.onUpdateIdle = function (deltaTime, stateData) {
@@ -322,14 +319,13 @@ Partner.prototype.onUpdateIdle = function (deltaTime, stateData) {
 };
 
 Partner.prototype.onExitIdle = function (stateData) {
-    console.log('伙伴退出待机状态');
+    // 退出待机状态
 };
 
 // FOLLOW状态
 Partner.prototype.onEnterFollow = function (stateData) {
     this.status = PARTNER_STATE.FOLLOW;
     this.isMoving = true;
-    console.log('伙伴进入跟随状态');
 };
 
 Partner.prototype.onUpdateFollow = function (deltaTime, stateData) {
@@ -340,7 +336,6 @@ Partner.prototype.onUpdateFollow = function (deltaTime, stateData) {
 
 Partner.prototype.onExitFollow = function (stateData) {
     this.isMoving = false;
-    console.log('伙伴退出跟随状态');
 };
 
 // ATTACK状态
@@ -348,7 +343,6 @@ Partner.prototype.onEnterAttack = function (stateData) {
     this.status = PARTNER_STATE.ATTACK;
     this.isMoving = false;
     this.attackCooldown = 0;
-    console.log('伙伴进入攻击状态');
     this.findAttackTarget();
 };
 
@@ -360,7 +354,6 @@ Partner.prototype.onUpdateAttack = function (deltaTime, stateData) {
 
 Partner.prototype.onExitAttack = function (stateData) {
     this.attackTarget = null;
-    console.log('伙伴退出攻击状态');
 };
 
 // AVOID状态
@@ -369,7 +362,6 @@ Partner.prototype.onEnterAvoid = function (stateData) {
     this.isMoving = true;
     this.avoidProgress = 0;
     this.calculateAvoidanceTarget();
-    console.log('伙伴进入避障状态');
 };
 
 Partner.prototype.onUpdateAvoid = function (deltaTime, stateData) {
@@ -380,7 +372,6 @@ Partner.prototype.onUpdateAvoid = function (deltaTime, stateData) {
 
 Partner.prototype.onExitAvoid = function (stateData) {
     this.isMoving = false;
-    console.log('伙伴退出避障状态');
 };
 
 // DIE状态
@@ -388,7 +379,6 @@ Partner.prototype.onEnterDie = function (stateData) {
     this.status = PARTNER_STATE.DIE;
     this.isMoving = false;
     this.deathAnimationTime = 0;
-    console.log('伙伴进入死亡状态');
     this.playDeathAnimation();
 };
 
@@ -404,7 +394,7 @@ Partner.prototype.onUpdateDie = function (deltaTime, stateData) {
 };
 
 Partner.prototype.onExitDie = function (stateData) {
-    console.log('伙伴退出死亡状态');
+    // 退出死亡状态
 };
 
 // ==================== 核心逻辑方法 ====================
@@ -508,7 +498,7 @@ Partner.prototype.findAttackTarget = function () {
     this.attackTarget = closestZombie;
 
     if (this.attackTarget) {
-        console.log('伙伴更新攻击目标:', this.attackTarget.type, '距离:', closestDistance);
+        // 伙伴更新攻击目标
     }
 };
 
@@ -545,8 +535,6 @@ Partner.prototype.performAttack = function () {
 
     // 对僵尸造成伤害
     this.attackTarget.takeDamage(this.attack);
-
-    console.log('伙伴攻击僵尸:', this.attackTarget.type, '造成伤害:', this.attack);
 
     // 播放攻击动画
     this.playAttackAnimation();
@@ -780,7 +768,6 @@ Partner.prototype.playAttackAnimation = function () {
     this.animationFrame = 0;
     var animationConfig = window.ConfigManager ? window.ConfigManager.get('ANIMATION') : null;
     this.animationSpeed = animationConfig ? (animationConfig.ATTACK_ANIMATION_SPEED || 0.3) : 0.3;
-    console.log('伙伴播放攻击动画');
 };
 
 // 🔴 修复：添加缺失的移动攻击动画方法（抖音小游戏环境兼容）
@@ -789,7 +776,6 @@ Partner.prototype.playAttackAnimationWhileMoving = function () {
     this.animationFrame = 0;
     var animationConfig = window.ConfigManager ? window.ConfigManager.get('ANIMATION') : null;
     this.animationSpeed = animationConfig ? (animationConfig.ATTACK_ANIMATION_SPEED || 0.3) : 0.3;
-    console.log('伙伴播放移动攻击动画');
 };
 
 // 播放死亡动画
@@ -797,7 +783,6 @@ Partner.prototype.playDeathAnimation = function () {
     this.animationFrame = 0;
     var animationConfig = window.ConfigManager ? window.ConfigManager.get('ANIMATION') : null;
     this.animationSpeed = animationConfig ? (animationConfig.DEATH_ANIMATION_SPEED || 0.1) : 0.1;
-    console.log('伙伴播放死亡动画');
 };
 
 // 缓动函数
@@ -819,7 +804,6 @@ Partner.prototype.takeDamage = function (damage) {
     
     // 🔴 修复：受到伤害后立即检查血量，如果血量归零则触发死亡
     if (this.hp <= 0) {
-        console.log('💀 伙伴受到致命伤害，血量归零');
         if (this.stateMachine && this.stateMachine.currentState !== PARTNER_STATE.DIE) {
             this.stateMachine.forceState(PARTNER_STATE.DIE);
         }
@@ -830,8 +814,6 @@ Partner.prototype.takeDamage = function (damage) {
 
 // 销毁伙伴
 Partner.prototype.destroy = function () {
-    console.log('伙伴销毁:', this.role);
-
     // 通知伙伴管理器
     if (window.partnerManager && window.partnerManager.destroyPartner) {
         window.partnerManager.destroyPartner(this);
@@ -871,13 +853,11 @@ Partner.prototype.handleCollisionWithMainCharacter = function (distance) {
         // 如果还在初始状态，强制转换为跟随状态
         if (this.stateMachine) {
             this.stateMachine.forceState(PARTNER_STATE.FOLLOW);
-            console.log('🔴 碰撞后强制转换到跟随状态');
         }
     } else if (this.status !== PARTNER_STATE.FOLLOW) {
         // 如果不在跟随状态，也强制转换到跟随状态（跟随优先）
         if (this.stateMachine) {
             this.stateMachine.forceState(PARTNER_STATE.FOLLOW);
-            console.log('🔴 碰撞后强制转换到跟随状态（从其他状态）');
         }
     }
     
@@ -887,8 +867,6 @@ Partner.prototype.handleCollisionWithMainCharacter = function (distance) {
     // 标记伙伴为活跃状态
     this.isActive = true;
     this.isInitialState = false;
-    
-    console.warn('🔴 碰撞处理完成，伙伴状态:', this.status);
 };
 
 // 🔴 新增：确保伙伴已注册到对象管理模块
@@ -898,15 +876,12 @@ Partner.prototype.ensureRegisteredInObjectManager = function () {
         return;
     }
     
-    // 检查是否已经注册
-    var existingPartner = window.objectManager.getObject(this.id);
-    if (!existingPartner) {
-        // 如果未注册，则注册到对象管理器
-        window.objectManager.registerObject(this, 'partner', this.id);
-        console.log('🔴 伙伴已注册到对象管理器:', this.id);
-    } else {
-        console.log('🔴 伙伴已在对象管理器中注册:', this.id);
-    }
+            // 检查是否已经注册
+        var existingPartner = window.objectManager.getObject(this.id);
+        if (!existingPartner) {
+            // 如果未注册，则注册到对象管理器
+            window.objectManager.registerObject(this, 'partner', this.id);
+        }
 };
 
 // 🔴 新增：调整位置避免重叠
@@ -931,7 +906,6 @@ Partner.prototype.adjustPositionToAvoidOverlap = function () {
             if (window.collisionSystem.isPositionWalkable(newX, newY)) {
                 this.x = newX;
                 this.y = newY;
-                console.log('🔴 调整伙伴位置避免重叠:', this.x, this.y);
             }
         }
     }
@@ -941,38 +915,24 @@ Partner.prototype.adjustPositionToAvoidOverlap = function () {
 Partner.prototype.debugFollowStatus = function () {
     var mainChar = this.getMainCharacter();
     if (!mainChar) {
-        console.log('🔴 调试: 无法获取主人物');
         return;
     }
     
-          var distance = this.getDistanceTo(mainChar.x, mainChar.y);
-      // 从配置获取伙伴激活距离
-      var detectionConfig = window.ConfigManager ? window.ConfigManager.get('DETECTION') : null;
-      var activationDistance = detectionConfig ? detectionConfig.SAFE_SPAWN_DISTANCE : 100;
-      var isNearby = this.isMainCharacterNearby(activationDistance);
+    var distance = this.getDistanceTo(mainChar.x, mainChar.y);
+    // 从配置获取伙伴激活距离
+    var detectionConfig = window.ConfigManager ? window.ConfigManager.get('DETECTION') : null;
+    var activationDistance = detectionConfig ? detectionConfig.SAFE_SPAWN_DISTANCE : 100;
+    var isNearby = this.isMainCharacterNearby(activationDistance);
     var isMoving = this.isMainCharacterMoving();
     var followDistance = this.getDistanceTo(this.followPoint.x, this.followPoint.y);
     
-    console.log('🔴 伙伴调试信息:', {
-        '伙伴ID': this.id,
-        '伙伴状态': this.status,
-        '距离主角': distance.toFixed(2),
-        '是否在附近(50px)': isNearby,
-        '主角是否移动': isMoving,
-        '距离跟随点': followDistance.toFixed(2),
-        '跟随点位置': {x: this.followPoint.x.toFixed(2), y: this.followPoint.y.toFixed(2)},
-        '伙伴位置': {x: this.x.toFixed(2), y: this.y.toFixed(2)},
-        '主角位置': {x: mainChar.x.toFixed(2), y: mainChar.y.toFixed(2)},
-        '是否活跃': this.isActive,
-        '是否初始状态': this.isInitialState
-    });
+    // 调试信息已移除
 };
 
 // 🔴 新增：强制跟随方法（用于测试）
 Partner.prototype.forceFollow = function () {
     if (this.stateMachine) {
         this.stateMachine.forceState(PARTNER_STATE.FOLLOW);
-        console.log('🔴 强制伙伴进入跟随状态');
     }
 };
 
@@ -998,7 +958,7 @@ var PartnerManager = {
             (partner) => this.resetPartner(partner)
         );
         
-        console.log('✅ 伙伴对象池初始化完成');
+        // 伙伴对象池初始化完成
     },
     
     // 重置伙伴状态（对象池复用）
@@ -1037,7 +997,7 @@ var PartnerManager = {
         partner.animationFrame = 0;
         partner.frameCount = 0;
         
-        console.log('✅ 伙伴状态重置完成:', partner.id, '角色:', partner.role, '移动速度:', partner.moveSpeed);
+        // 伙伴状态重置完成
     },
 
     // 创建伙伴
@@ -1048,7 +1008,7 @@ var PartnerManager = {
         
         var currentPartnerCount = window.objectManager.getObjectCount('partner');
         if (currentPartnerCount >= this.maxPartners) {
-            console.log('达到最大伙伴数量限制:', currentPartnerCount, '/', this.maxPartners);
+            console.warn('达到最大伙伴数量限制:', currentPartnerCount, '/', this.maxPartners);
             return null;
         }
 
@@ -1065,26 +1025,24 @@ var PartnerManager = {
                 partner.setupRoleProperties();
                 partner.initializeStateMachine();
                 
-                console.log('✅ 从对象池获取伙伴:', partner.role, '位置:', x, y);
+                // 从对象池获取伙伴
             }
         }
         
         // 对象池不可用时，使用传统创建方式
         if (!partner) {
             partner = new Partner(role, x, y);
-            console.log('✅ 传统方式创建伙伴:', partner.role, '位置:', x, y);
+            // 传统方式创建伙伴
         }
         
         // 🔴 协调对象管理器：注册新创建的伙伴
         if (partner && window.objectManager) {
             window.objectManager.registerObject(partner, 'partner', partner.id);
-            console.log('✅ 伙伴已注册到对象管理器:', partner.id);
         } else {
             throw new Error('对象管理器未初始化或伙伴创建失败');
         }
         
         // 🔴 重构：不再添加到内部存储，对象管理器作为唯一数据源
-        console.log('✅ 伙伴创建完成，已注册到对象管理器:', partner.role, '位置:', x, y);
         return partner;
     },
 
@@ -1104,7 +1062,6 @@ var PartnerManager = {
         partners.forEach(partner => {
             // 🔴 修复：首先检查血量，如果血量小于等于0，立即切换到死亡状态
             if (partner.hp <= 0 && partner.stateMachine.currentState !== PARTNER_STATE.DIE) {
-                console.log('💀 伙伴血量归零，强制切换到死亡状态');
                 partner.stateMachine.forceState(PARTNER_STATE.DIE);
             }
             
@@ -1118,14 +1075,12 @@ var PartnerManager = {
     destroyPartner: function (partner) {
         if (!partner) return;
         
-        console.log('🗑️ 销毁伙伴:', partner.id, '角色:', partner.role);
+        // 销毁伙伴
         
         // 🔴 协调对象管理器：从对象管理器中移除
         if (window.objectManager) {
             const destroyResult = window.objectManager.destroyObject(partner.id);
-            if (destroyResult) {
-                console.log('✅ 伙伴已从对象管理器移除:', partner.id);
-            } else {
+            if (!destroyResult) {
                 console.warn('⚠️ 伙伴从对象管理器移除失败:', partner.id);
             }
         }
@@ -1139,42 +1094,28 @@ var PartnerManager = {
             
             // 归还到对象池
             this.objectPool.return(partner);
-            console.log('✅ 伙伴已归还到对象池:', partner.id);
         } else {
             // 对象池不可用时，直接删除引用
             partner.isActive = false;
-            console.log('✅ 伙伴已标记为非活跃:', partner.id);
         }
         
         // 🔴 重构：对象已通过对象管理器销毁，无需从内部列表移除
-        console.log('✅ 伙伴已通过对象管理器销毁:', partner.id);
     },
 
     // 🔴 新增：测试碰撞和跟随功能
     testCollisionAndFollow: function () {
-        console.log('🔴 开始测试碰撞和跟随功能...');
-        
         var partners = this.getAllPartners();
         if (partners.length === 0) {
-            console.log('🔴 没有找到伙伴，无法测试');
             return;
         }
         
         var mainChar = window.characterManager ? window.characterManager.getMainCharacter() : null;
         if (!mainChar) {
-            console.log('🔴 没有找到主人物，无法测试');
             return;
         }
         
         // 测试每个伙伴
         partners.forEach((partner, index) => {
-            console.log(`🔴 测试伙伴${index + 1}:`, {
-                'ID': partner.id,
-                '状态': partner.status,
-                '位置': {x: partner.x.toFixed(2), y: partner.y.toFixed(2)},
-                '距离主角': partner.getDistanceTo(mainChar.x, mainChar.y).toFixed(2)
-            });
-            
             // 调用调试方法
             if (partner.debugFollowStatus) {
                 partner.debugFollowStatus();
@@ -1182,20 +1123,15 @@ var PartnerManager = {
             
             // 如果伙伴在INIT状态，尝试强制跟随
             if (partner.status === PARTNER_STATE.INIT) {
-                console.log('🔴 伙伴在INIT状态，尝试强制跟随');
                 if (partner.forceFollow) {
                     partner.forceFollow();
                 }
             }
         });
-        
-        console.log('🔴 碰撞和跟随功能测试完成');
     },
 
     // 在地图上生成伙伴
     generatePartnersOnMap: function () {
-        console.log('🗺️ 开始在地图上生成伙伴...');
-        
         if (!window.objectManager) {
             console.error('❌ 对象管理器未初始化');
             return;
@@ -1247,11 +1183,8 @@ var PartnerManager = {
                         16                 // 安全半径
                     );
                     
-                    if (safePosition && safePosition.success) {
-                        console.log(`✅ 伙伴${i+1}安全位置生成成功:`, safePosition);
-                    } else {
+                    if (!safePosition || !safePosition.success) {
                         throw new Error(`伙伴${i+1}安全位置生成失败`);
-                        safePosition = {x: centerX, y: centerY, success: true};
                     }
                 } else {
                     // 备用位置
@@ -1262,15 +1195,12 @@ var PartnerManager = {
                 
                 // 创建伙伴
                 var partner = this.createPartner(role, safePosition.x, safePosition.y);
-                if (partner) {
-                    console.log(`✅ 伙伴${i+1}创建成功:`, partner.role, '位置:', safePosition.x, safePosition.y);
-                } else {
+                if (!partner) {
                     console.error(`❌ 伙伴${i+1}创建失败`);
                 }
             }
             
             var partners = this.getAllPartners();
-            console.log(`✅ 伙伴生成完成，伙伴数量: ${partners.length}`);
             
 
     }

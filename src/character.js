@@ -342,7 +342,6 @@ Character.prototype.takeDamage = function (damage) {
     
     // 🔴 修复：受到伤害后立即检查血量，如果血量归零则触发死亡
     if (this.hp <= 0 && this.role === 1) { // 主人物
-        console.log('💀 主人物受到致命伤害，血量归零');
         if (this.stateMachine && this.stateMachine.currentState !== MAIN_CHARACTER_STATES.DIE) {
             this.stateMachine.forceState(MAIN_CHARACTER_STATES.DIE);
         }
@@ -417,7 +416,6 @@ Character.prototype.onEnterIdle = function (stateData) {
     this.status = STATUS.IDLE;
     this.isMoving = false;
     this.attackCooldown = 0; // 重置攻击冷却
-    console.log('主人物进入待机状态');
 };
 
 Character.prototype.onUpdateIdle = function (deltaTime, stateData) {
@@ -428,24 +426,23 @@ Character.prototype.onUpdateIdle = function (deltaTime, stateData) {
     var attackJudgmentConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT.ATTACK_JUDGMENT') : { RANGE_BUFFER: 5 };
     var effectiveAttackRange = this.attackRange + attackJudgmentConfig.RANGE_BUFFER;
     if (this.hasZombieInRange(effectiveAttackRange)) {
-        console.log('主人物在待机状态检测到僵尸，准备攻击');
+        // 主人物在待机状态检测到僵尸，准备攻击
     }
 
     // 检查是否有摇杆输入
     if (this.hasJoystickInput()) {
-        console.log('主人物检测到摇杆输入，准备移动');
+        // 主人物检测到摇杆输入，准备移动
     }
 };
 
 Character.prototype.onExitIdle = function (stateData) {
-    console.log('主人物退出待机状态');
+    // 主人物退出待机状态
 };
 
 Character.prototype.onEnterMove = function (stateData) {
     this.status = STATUS.MOVING;
     this.isMoving = true;
     this.attackCooldown = 0; // 重置攻击冷却
-    console.log('主人物进入移动状态');
 };
 
 Character.prototype.onUpdateMove = function (deltaTime, stateData) {
@@ -458,14 +455,12 @@ Character.prototype.onUpdateMove = function (deltaTime, stateData) {
 
 Character.prototype.onExitMove = function (stateData) {
     this.isMoving = false;
-    console.log('主人物退出移动状态');
 };
 
 Character.prototype.onEnterAttack = function (stateData) {
     this.status = STATUS.ATTACKING;
     this.isMoving = false;
     this.attackCooldown = 0; // 重置攻击冷却
-    console.log('主人物进入攻击状态');
 
     // 寻找最近的僵尸作为攻击目标
     this.findAttackTarget();
@@ -477,13 +472,11 @@ Character.prototype.onUpdateAttack = function (deltaTime, stateData) {
 
     // 检查攻击目标是否仍然有效
     if (!this.attackTarget || this.attackTarget.hp <= 0) {
-        console.log('主人物攻击目标无效，准备切换状态');
         return;
     }
 
     // 检查是否应该打断攻击（摇杆有输入）
     if (this.hasJoystickInput()) {
-        console.log('摇杆有输入，主人物攻击被打断');
         // 强制切换到移动状态
         if (this.stateMachine) {
             this.stateMachine.forceState(MAIN_CHARACTER_STATES.MOVE);
@@ -494,14 +487,12 @@ Character.prototype.onUpdateAttack = function (deltaTime, stateData) {
 
 Character.prototype.onExitAttack = function (stateData) {
     this.attackTarget = null; // 清除攻击目标
-    console.log('主人物退出攻击状态');
 };
 
 Character.prototype.onEnterDie = function (stateData) {
     this.status = STATUS.DIE;
     this.isMoving = false;
     this.deathAnimationTime = 0; // 死亡动画计时器
-    console.log('主人物进入死亡状态，游戏结束');
 
     // 播放死亡动画
     this.playDeathAnimation();
@@ -516,18 +507,15 @@ Character.prototype.onUpdateDie = function (deltaTime, stateData) {
 
     // 死亡动画持续3秒
     if (this.deathAnimationTime >= 3.0) {
-        console.log('主人物死亡动画结束');
-        
         // 动画结束后立即触发环境重置
         if (typeof window.resetGame === 'function') {
-            console.log('🔄 死亡动画结束，触发环境重置...');
             window.resetGame();
         }
     }
 };
 
 Character.prototype.onExitDie = function (stateData) {
-    console.log('主人物退出死亡状态');
+    // 主人物退出死亡状态
 };
 
 // 通用的攻击更新方法
@@ -539,7 +527,6 @@ Character.prototype.updateAttack = function (deltaTime) {
 
         // 如果仍然没有有效目标，退出攻击状态
         if (!this.attackTarget) {
-            console.log('主人物没有有效的攻击目标，退出攻击状态');
             return;
         }
     }
@@ -619,9 +606,9 @@ Character.prototype.findAttackTarget = function () {
         this.attackTarget = closestZombie;
 
         if (this.attackTarget) {
-            console.log('主人物更新攻击目标:', this.attackTarget.type, '距离:', closestDistance);
+            // 主人物更新攻击目标
         } else {
-            console.log('主人物没有找到有效的攻击目标');
+            // 主人物没有找到有效的攻击目标
         }
     }
 };
@@ -632,7 +619,6 @@ Character.prototype.isAttackTargetValid = function () {
 
     // 检查目标是否还活着
     if (this.attackTarget.hp <= 0) {
-        console.log('主人物攻击目标已死亡，清除目标');
         this.attackTarget = null;
         return false;
     }
@@ -644,7 +630,6 @@ Character.prototype.isAttackTargetValid = function () {
     var effectiveAttackRange = this.attackRange + attackJudgmentConfig.RANGE_BUFFER;
 
     if (distance > effectiveAttackRange) { // 使用带缓冲的攻击范围
-        console.log('主人物攻击目标超出范围，距离:', distance, '有效攻击范围:', effectiveAttackRange);
         this.attackTarget = null;
         return false;
     }
@@ -682,8 +667,6 @@ Character.prototype.performAttack = function () {
     // 对僵尸造成伤害
     this.attackTarget.takeDamage(this.attack);
 
-    console.log('主人物攻击僵尸:', this.attackTarget.type, '造成伤害:', this.attack);
-
     // 播放攻击动画
     this.playAttackAnimation();
 };
@@ -691,8 +674,6 @@ Character.prototype.performAttack = function () {
 
 // 游戏结束处理
 Character.prototype.handleGameOver = function () {
-    console.log('主人物死亡，游戏结束');
-
     // 调用专门的死亡处理函数
     if (typeof window.handleMainCharacterDeath === 'function') {
         window.handleMainCharacterDeath();
@@ -700,8 +681,6 @@ Character.prototype.handleGameOver = function () {
         console.error('❌ handleMainCharacterDeath函数未找到，使用默认处理');
         // 延迟执行，让死亡动画播放完成
         setTimeout(() => {
-            console.log('🔄 主人物死亡，开始环境重置...');
-            
             // 调用环境重置函数
             if (typeof window.resetGame === 'function') {
                 window.resetGame();
@@ -747,7 +726,6 @@ Character.prototype.addGameOverClickListener = function (canvas) {
     // 创建新的事件监听器
     this.gameOverClickListener = function (event) {
         event.preventDefault();
-        console.log('游戏结束界面被点击，重新开始游戏');
 
         // 移除事件监听器
         canvas.removeEventListener('touchstart', self.gameOverClickListener);
@@ -793,7 +771,6 @@ Character.prototype.isStuck = function () {
 
         // 如果卡住超过30帧（0.5秒），认为卡住了
         if (this.stuckTime > 30) {
-            console.log('人物卡住检测：位置变化:', distance.toFixed(2), 'px, 卡住时间:', this.stuckTime, '帧');
             return true;
         }
     } else {
@@ -807,8 +784,6 @@ Character.prototype.isStuck = function () {
 
 // 🔴 新增：重置移动状态
 Character.prototype.resetMovementState = function () {
-    console.log('重置人物移动状态');
-
     // 重置移动相关状态
     this.isMoving = false;
     this.status = STATUS.IDLE;
@@ -818,7 +793,6 @@ Character.prototype.resetMovementState = function () {
 
     // 清除攻击目标，避免继续卡住
     if (this.attackTarget) {
-        console.log('清除攻击目标，避免卡住');
         this.attackTarget = null;
     }
 
@@ -827,7 +801,7 @@ Character.prototype.resetMovementState = function () {
         this.stateMachine.forceState(MAIN_CHARACTER_STATES.IDLE);
     }
 
-    console.log('人物移动状态已重置');
+    // 人物移动状态已重置
 };
 
 // 播放攻击动画
@@ -836,8 +810,6 @@ Character.prototype.playAttackAnimation = function () {
     this.animationFrame = 0;
     var animationConfig = window.ConfigManager ? window.ConfigManager.get('ANIMATION') : null;
     this.animationSpeed = animationConfig ? (animationConfig.ATTACK_ANIMATION_SPEED || 0.3) : 0.3; // 从配置读取攻击动画速度
-
-    console.log('主人物播放攻击动画');
 };
 
 // 🔴 修复：添加缺失的移动攻击动画方法
@@ -846,8 +818,6 @@ Character.prototype.playAttackAnimationWhileMoving = function () {
     this.animationFrame = 0;
     var animationConfig = window.ConfigManager ? window.ConfigManager.get('ANIMATION') : null;
     this.animationSpeed = animationConfig ? (animationConfig.ATTACK_ANIMATION_SPEED || 0.3) : 0.3;
-
-    console.log('主人物播放移动攻击动画');
 };
 
 // 播放死亡动画
@@ -856,8 +826,6 @@ Character.prototype.playDeathAnimation = function () {
     this.animationFrame = 0;
     var animationConfig = window.ConfigManager ? window.ConfigManager.get('ANIMATION') : null;
     this.animationSpeed = animationConfig ? (animationConfig.DEATH_ANIMATION_SPEED || 0.1) : 0.1; // 从配置读取死亡动画速度
-
-    console.log('主人物播放死亡动画');
 };
 
 
@@ -885,15 +853,7 @@ Character.prototype.setMoveTarget = function (targetX, targetY) {
         this.rotationY = mathUtils.angle(this.x, this.y, targetX, targetY);
     }
 
-    console.log('角色设置移动目标成功:', {
-        idd: this.id,
-        role: this.role,
-        from: {x: this.x, y: this.y},
-        to: {x: targetX, y: targetY},
-        distance: Math.sqrt(deltaX * deltaX + deltaY * deltaY),
-        isMoving: this.isMoving,
-        status: this.status
-    });
+    // 角色设置移动目标成功
 
     return true;
 };
@@ -904,7 +864,6 @@ Character.prototype.stopMovement = function () {
     this.status = STATUS.IDLE;
     this.targetX = this.x; // 将目标位置设为当前位置
     this.targetY = this.y;
-    console.log('角色停止移动，当前位置:', this.x, this.y);
 };
 
 // 更新移动 - 只处理动画更新，实际移动由checkJoystickInput处理
@@ -915,7 +874,6 @@ Character.prototype.updateMovement = function (deltaTime = 1 / 60) {
 
     // 🔴 修复：检查是否卡住，如果卡住则重置移动状态
     if (this.isStuck()) {
-        console.log('检测到人物卡住，重置移动状态');
         this.resetMovementState();
         return;
     }
@@ -1063,13 +1021,11 @@ var CharacterManager = {
         character.animationFrame = 0;
         character.frameCount = 0;
 
-        console.log('✅ 角色状态重置完成:', character.id, '移动速度:', character.moveSpeed);
+        // 角色状态重置完成
     },
 
     // 创建主人物
     createMainCharacter: function (x, y) {
-        console.log('🔍 CharacterManager.createMainCharacter: 开始创建主人物，参数:', {x: x, y: y});
-
         var validationUtils = UtilsManager.getValidationUtils();
 
         // 使用验证工具检查参数
@@ -1078,16 +1034,12 @@ var CharacterManager = {
             return null;
         }
 
-        console.log('✅ 位置参数验证通过');
-
         var mainChar = null;
 
         // 优先使用对象池
         if (this.objectPool) {
-            console.log('🔍 尝试从对象池获取主人物...');
             mainChar = this.objectPool.get();
             if (mainChar) {
-                console.log('✅ 从对象池获取到对象:', mainChar);
                 // 重新初始化主人物属性
                 mainChar.role = ROLE.MAIN;
                 mainChar.id = CHARACTER_ID.MAIN;
@@ -1095,47 +1047,26 @@ var CharacterManager = {
                 mainChar.y = y;
                 mainChar.setupRoleProperties();
                 mainChar.initializeStateMachine();
-
-                console.log('✅ 从对象池获取主人物:', mainChar.id, '位置:', x, y);
-            } else {
-        
             }
-        } else {
-            console.log('🔍 对象池不可用，将使用传统创建方式');
         }
 
         // 对象池不可用时，使用传统创建方式
         if (!mainChar) {
-            console.log('🔍 使用传统方式创建主人物...');
             mainChar = new Character(ROLE.MAIN, x, y);
-            console.log('✅ 传统方式创建主人物成功:', mainChar);
-            console.log('✅ 传统方式创建主人物:', mainChar.role, 'ID:', mainChar.id, '位置:', mainChar.x, mainChar.y, 'hp:', mainChar.hp);
         }
         
         // 🔴 协调对象管理器：注册新创建的角色
         if (mainChar && window.objectManager) {
             window.objectManager.registerObject(mainChar, 'character', mainChar.id);
-            console.log('✅ 角色已注册到对象管理器:', mainChar.id);
         } else {
             throw new Error('对象管理器未初始化或主人物创建失败');
         }
 
         // 🔴 重构：不再存储到内部存储，对象管理器作为唯一数据源
-        console.log('✅ 主人物创建完成并注册到对象管理器:', mainChar.id, '位置:', x, y);
-        console.log('🔍 角色管理器状态检查:', {
-            hasObjectManager: !!window.objectManager,
-            mainCharacterId: mainChar.id,
-            mainCharacterRole: mainChar.role,
-            mainCharacterType: mainChar.type,
-            mainCharacterHp: mainChar.hp
-        });
-
         // 🔴 验证：直接检查对象管理器中的对象
         if (window.objectManager) {
             const objectInfo = window.objectManager.getObjectInfo(mainChar.id);
-            if (objectInfo) {
-                console.log('✅ 立即验证成功：主人物已正确注册到对象管理器');
-            } else {
+            if (!objectInfo) {
                 console.error('❌ 立即验证失败：主人物未正确注册到对象管理器！');
             }
         }
@@ -1171,7 +1102,6 @@ var CharacterManager = {
         }
         
         const characters = window.objectManager.getAllCharacters();
-        console.log('CharacterManager.getAllCharacters: 从对象管理器获取到角色数量:', characters.length);
         return characters;
     },
 
@@ -1225,7 +1155,6 @@ export default Character;
 Character.prototype.updateMainCharacter = function (deltaTime) {
     // 🔴 修复：首先检查血量，如果血量小于等于0，立即切换到死亡状态
     if (this.hp <= 0 && this.stateMachine.currentState !== MAIN_CHARACTER_STATES.DIE) {
-        console.log('💀 主人物血量归零，强制切换到死亡状态');
         this.stateMachine.forceState(MAIN_CHARACTER_STATES.DIE);
         return; // 进入死亡状态后不再执行其他逻辑
     }
@@ -1315,7 +1244,6 @@ Character.prototype.checkJoystickInput = function () {
 
         // 🔴 核心：强制状态机进入移动状态，打断任何其他状态（包括攻击状态）
         if (this.stateMachine && this.stateMachine.currentState !== MAIN_CHARACTER_STATES.MOVE) {
-            console.log('🔴 摇杆输入检测到，强制切换到移动状态，打断当前状态:', this.stateMachine.currentState);
             this.stateMachine.forceState(MAIN_CHARACTER_STATES.MOVE);
         }
     }

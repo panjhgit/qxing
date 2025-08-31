@@ -88,19 +88,11 @@ export class RenderManager {
         this.frameCount = 0;
         this.fpsUpdateInterval = 0;
         
-        console.log('🎨 统一渲染管理器初始化完成');
+        // 统一渲染管理器初始化完成
     }
 
     // 应用摄像机变换
     applyCameraTransform() {
-        console.log('🎨 应用相机变换:', {
-            cameraX: this.camera.x,
-            cameraY: this.camera.y,
-            canvasWidth: this.camera.canvas.width,
-            canvasHeight: this.camera.canvas.height,
-            zoom: this.camera.zoom
-        });
-        
         this.ctx.save();
         this.ctx.translate(this.camera.canvas.width / 2, this.camera.canvas.height / 2);
         this.ctx.scale(this.camera.zoom, this.camera.zoom);
@@ -144,17 +136,7 @@ export class RenderManager {
             return false;
         }
 
-        // 🔴 新增：建筑物渲染调试信息
-        if (entityType === ENTITY_TYPE.BUILDING) {
-            console.log('🔍 渲染管理器处理建筑物:', {
-                type: entity.type,
-                color: entity.color,
-                x: entity.x,
-                y: entity.y,
-                inView: this.isEntityInView(entity),
-                distance: this.getDistanceToCamera(entity)
-            });
-        }
+        // 建筑物渲染处理
 
         // 使用实体渲染器
         const success = this.entityRenderer.renderEntity(entity, entityType);
@@ -174,7 +156,6 @@ export class RenderManager {
                     break;
                 case ENTITY_TYPE.BUILDING:
                     this.renderStats.buildingsRendered++;
-                    console.log('📊 建筑物渲染统计更新:', this.renderStats.buildingsRendered);
                     break;
                 case ENTITY_TYPE.ITEM:
                     this.renderStats.itemsRendered++;
@@ -319,13 +300,11 @@ export class RenderManager {
     // 添加渲染插件
     addPlugin(name, plugin) {
         this.plugins.set(name, plugin);
-        console.log('🔌 渲染插件已添加:', name);
     }
 
     // 移除渲染插件
     removePlugin(name) {
         this.plugins.delete(name);
-        console.log('🔌 渲染插件已移除:', name);
     }
 
     // 执行渲染插件
@@ -340,7 +319,6 @@ export class RenderManager {
     // 设置渲染配置
     setConfig(config) {
         Object.assign(RENDER_CONFIG, config);
-        console.log('⚙️ 渲染配置已更新');
     }
 
     // 获取渲染配置
@@ -351,20 +329,17 @@ export class RenderManager {
     // 暂停渲染
     pause() {
         this.state = RENDER_STATE.PAUSED;
-        console.log('⏸️ 渲染已暂停');
     }
 
     // 恢复渲染
     resume() {
         this.state = RENDER_STATE.IDLE;
-        console.log('▶️ 渲染已恢复');
     }
 
     // 清理资源
     cleanup() {
         this.renderQueue.clear();
         this.plugins.clear();
-        console.log('🧹 渲染管理器资源已清理');
     }
 }
 
