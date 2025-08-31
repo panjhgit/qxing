@@ -204,34 +204,6 @@ class MemoryMonitor {
         };
     }
     
-    // 执行内存优化
-    performOptimization() {
-        console.log('⚡ 执行内存优化...');
-        
-        try {
-            // 清理对象池
-            if (window.objectPoolManager) {
-                window.objectPoolManager.performCleanup();
-            }
-            
-            // 强制垃圾回收（如果可用）
-            if (window.gc) {
-                window.gc();
-                console.log('✅ 强制垃圾回收完成');
-            }
-            
-            // 清理警告
-            this.stats.warnings = this.stats.warnings.filter(
-                warning => Date.now() - warning.timestamp < 60000
-            );
-            
-            console.log('✅ 内存优化完成');
-            
-        } catch (error) {
-            console.error('内存优化失败:', error);
-        }
-    }
-    
     // 重置监控器
     reset() {
         this.stats = {

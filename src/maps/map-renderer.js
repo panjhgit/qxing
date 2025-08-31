@@ -3,7 +3,6 @@
  * 专门处理统一格式的地图（包含config、buildingTypes、matrix等属性）
  */
 
-import MapManager from './map-manager.js';
 
 /**
  * 地图渲染器类

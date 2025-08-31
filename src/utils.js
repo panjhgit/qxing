@@ -52,7 +52,7 @@ const AnimationUtils = {
 // 移动工具类
 const MovementUtils = {
     // 计算移动向量 - 平滑的匀速移动
-    calculateMoveVector: function (fromX, fromY, toX, toY, deltaTime = 1/60) {
+    calculateMoveVector: function (fromX, fromY, toX, toY, deltaTime = 1 / 60) {
         var deltaX = toX - fromX;
         var deltaY = toY - fromY;
         var distance = MathUtils.distance(fromX, fromY, toX, toY);
@@ -63,7 +63,7 @@ const MovementUtils = {
 
         // 平滑移动：每帧移动固定距离，不受目标距离影响
         var moveDistance = 50 * deltaTime; // 50px/秒 × deltaTime秒
-        
+
         // 确保每帧至少移动一个最小距离，避免卡顿
         var minMoveDistance = 0.5; // 每帧最小移动0.5像素
         if (moveDistance < minMoveDistance) {
@@ -159,20 +159,6 @@ const PerformanceUtils = {
             return duration;
         }
         return 0;
-    },
-
-    // 测量函数执行时间
-    measureFunction: function (name, func, context) {
-        this.startTimer(name);
-        var result = func.call(context);
-        var duration = this.endTimer(name);
-        console.log('函数执行时间:', name, duration.toFixed(2), 'ms');
-        return result;
-    },
-
-    // 验证数值是否有效
-    isValidNumber: function (value) {
-        return typeof value === 'number' && !isNaN(value) && isFinite(value);
     }
 };
 

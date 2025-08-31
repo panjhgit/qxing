@@ -9,7 +9,6 @@
  */
 
 import ConfigManager from './config.js';
-import UtilsManager from './utils.js';
 
 // 僵尸类型枚举
 const ZOMBIE_TYPE = {
@@ -162,10 +161,6 @@ Zombie.prototype.update = function(deltaTime, characters, currentFrame = 0) {
     return true;
 };
 
-// 获取更新间隔
-Zombie.prototype.getUpdateInterval = function() {
-    return 1; // 所有僵尸每帧更新，提高响应性
-};
 
 // 进入死亡状态
 Zombie.prototype.onEnterDead = function() {
