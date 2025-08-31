@@ -978,7 +978,8 @@ Partner.prototype.forceFollow = function () {
 
 // 伙伴管理器
 var PartnerManager = {
-    partners: [], maxPartners: 10,
+    partners: [], 
+    maxPartners: 9999, // 🔴 修改：直接设置为9999，移除伙伴数量限制
     
     // 对象池引用
     objectPool: null,

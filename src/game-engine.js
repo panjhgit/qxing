@@ -984,6 +984,9 @@ GameEngine.prototype.spawnOneZombiePerDay = function() {
             // 🔴 简化：简化版碰撞系统不需要空间索引计数
         var currentZombies = this.zombieManager.getAllZombies();
         console.log('GameEngine: 简化版碰撞系统，当前僵尸数量:', currentZombies.length);
+        
+        // 🔴 新增：每天刷新伙伴
+        this.spawnPartnersPerDay();
 },
 
 // 分批创建僵尸（性能优化）- 使用配置文件中的距离范围
@@ -1079,6 +1082,138 @@ GameEngine.prototype.createZombieBatchAroundPlayer = function(batchSize, mainCha
     console.log('GameEngine:', (minDistance - 100) + '-' + (maxDistance + 100) + 'px范围内的僵尸数量:', zombiesInRange.length);
 };
 
+// 🔴 新增：每天刷新伙伴
+GameEngine.prototype.spawnPartnersPerDay = function() {
+    if (!window.partnerManager || !this.characterManager) {
+        console.log('GameEngine: 伙伴管理器或角色管理器未初始化，跳过伙伴刷新');
+        return;
+    }
+    
+    var mainChar = this.characterManager.getMainCharacter();
+    if (!mainChar) {
+        console.log('GameEngine: 主人物未找到，跳过伙伴刷新');
+        return;
+    }
+    
+    // 从配置文件获取伙伴生成设置
+    var timeConfig = window.ConfigManager ? window.ConfigManager.get('TIME_SYSTEM') : null;
+    var partnersPerDay = timeConfig ? timeConfig.PARTNERS_PER_DAY : 2;
+    var minDistance = timeConfig ? timeConfig.PARTNER_SPAWN_RANGE.MIN_DISTANCE : 200;
+    var maxDistance = timeConfig ? timeConfig.PARTNER_SPAWN_RANGE.MAX_DISTANCE : 400;
+    
+    console.log('GameEngine: 新的一天开始，刷新', partnersPerDay, '个伙伴，当前天数:', this.timeSystem.day, '主人物位置:', mainChar.x, mainChar.y);
+    console.log('GameEngine: 伙伴生成范围:', minDistance, '-', maxDistance, 'px');
+    
+    // 创建伙伴批次
+    this.createPartnerBatchAroundPlayer(partnersPerDay, mainChar, minDistance, maxDistance);
+    
+    var currentPartners = window.partnerManager.getAllPartners();
+    console.log('GameEngine: 当前伙伴数量:', currentPartners.length);
+},
+
+// 分批创建伙伴（性能优化）- 使用配置文件中的距离范围
+GameEngine.prototype.createPartnerBatchAroundPlayer = function(batchSize, mainChar, minDistance, maxDistance) {
+    if (!window.partnerManager) {
+        console.error('GameEngine: 伙伴管理器未初始化，无法创建伙伴批次');
+        return;
+    }
+
+    if (!this.characterManager) {
+        console.error('GameEngine: 角色管理器未初始化，无法获取主人物');
+        return;
+    }
+
+    if (!mainChar) {
+        console.error('GameEngine: 主人物未找到，无法创建伙伴批次');
+        return;
+    }
+
+    console.log('GameEngine: 创建伙伴批次，数量:', batchSize, '在人物位置:', mainChar.x, mainChar.y, minDistance + '-' + maxDistance + 'px范围内');
+
+    var createdPartners = [];
+    var maxAttempts = 100; // 每个伙伴最多尝试100次找位置
+
+    for (var i = 0; i < batchSize; i++) {
+        var partnerCreated = false;
+        var attempts = 0;
+
+        while (!partnerCreated && attempts < maxAttempts) {
+            attempts++;
+
+            // 在距离主人物minDistance-maxDistance的位置随机生成
+            var angle = Math.random() * Math.PI * 2; // 随机角度
+            var distance = minDistance + Math.random() * (maxDistance - minDistance);
+
+            // 使用正确的伙伴职业类型
+            var partnerTypes = ['police', 'civilian', 'doctor', 'nurse', 'chef'];
+            var randomType = partnerTypes[Math.floor(Math.random() * partnerTypes.length)];
+
+            // 计算伙伴生成位置
+            var partnerX = mainChar.x + Math.cos(angle) * distance;
+            var partnerY = mainChar.y + Math.sin(angle) * distance;
+
+            // 检查位置是否有效（不在建筑物上，在400px范围内）
+            if (this.isValidPartnerSpawnPosition(partnerX, partnerY, mainChar, createdPartners)) {
+                console.log('GameEngine: 找到有效位置，生成伙伴', i + 1, '类型:', randomType, '位置:', partnerX, partnerY, '距离:', distance, '尝试次数:', attempts);
+
+                // 创建伙伴（指定位置和类型）
+                var createdPartner = window.partnerManager.createPartner(randomType, partnerX, partnerY);
+
+                if (createdPartner) {
+                    createdPartners.push(createdPartner);
+                    partnerCreated = true;
+
+                    console.log('GameEngine: 伙伴创建成功:', {
+                        id: createdPartner.id,
+                        type: createdPartner.type,
+                        partnerType: createdPartner.partnerType,
+                        x: createdPartner.x,
+                        y: createdPartner.y,
+                        hp: createdPartner.hp,
+                        hasSpatialIndexId: !!createdPartner._spatialIndexId,
+                        spatialIndexId: createdPartner._spatialIndexId,
+                        distanceFromMain: Math.sqrt(Math.pow(createdPartner.x - mainChar.x, 2) + Math.pow(createdPartner.y - mainChar.y, 2))
+                    });
+
+                    // 🔴 重构：验证伙伴是否在空间索引中
+                    if (createdPartner._spatialIndexId) {
+                        console.log('GameEngine: 伙伴已正确添加到空间索引:', createdPartner._spatialIndexId);
+                    } else {
+                        console.error('GameEngine: 伙伴未添加到空间索引！');
+                    }
+                } else {
+                    console.error('GameEngine: 伙伴创建失败');
+                }
+            } else {
+                // 如果位置无效，尝试在附近找新位置
+                if (attempts % 20 === 0) {
+                    // 每20次尝试，稍微调整角度和距离
+                    angle += Math.PI / 6; // 旋转30度
+                    distance += (Math.random() - 0.5) * 100; // 随机调整距离
+                    
+                    // 确保距离在合理范围内
+                    distance = Math.max(200, Math.min(400, distance));
+                }
+            }
+        }
+
+        if (!partnerCreated) {
+            throw new Error('GameEngine: 伙伴' + (i + 1) + '无法找到有效位置，跳过创建');
+        }
+    }
+
+    var finalPartnerCount = window.partnerManager.getAllPartners().length;
+    console.log('GameEngine: 批次创建完成，成功创建:', createdPartners.length, '个伙伴，当前总伙伴数:', finalPartnerCount);
+
+    // 验证新创建的伙伴是否都在配置的距离范围内
+    var allPartners = window.partnerManager.getAllPartners();
+    var partnersInRange = allPartners.filter(p => {
+        var distance = Math.sqrt(Math.pow(p.x - mainChar.x, 2) + Math.pow(p.y - mainChar.y, 2));
+        return distance >= (minDistance - 100) && distance <= (maxDistance + 100);
+    });
+    console.log('GameEngine:', (minDistance - 100) + '-' + (maxDistance + 100) + 'px范围内的伙伴数量:', partnersInRange.length);
+},
+
 // 检查僵尸生成位置是否有效
 GameEngine.prototype.isValidZombieSpawnPosition = function(x, y, mainChar, existingZombies) {
     // 从配置文件获取距离范围
@@ -1133,6 +1268,37 @@ GameEngine.prototype.isValidZombieSpawnPosition = function(x, y, mainChar, exist
         if (!hasWalkableSpace) {
             return false;
         }
+    }
+    
+    return true;
+},
+
+// 🔴 新增：检查伙伴生成位置是否有效
+GameEngine.prototype.isValidPartnerSpawnPosition = function(x, y, mainChar, existingPartners) {
+    var timeConfig = window.ConfigManager ? window.ConfigManager.get('TIME_SYSTEM') : null;
+    var minDistance = timeConfig ? timeConfig.PARTNER_SPAWN_RANGE.MIN_DISTANCE : 200;
+    var maxDistance = timeConfig ? timeConfig.PARTNER_SPAWN_RANGE.MAX_DISTANCE : 400;
+    
+    // 检查距离
+    var distance = Math.sqrt(Math.pow(x - mainChar.x, 2) + Math.pow(y - mainChar.y, 2));
+    if (distance < minDistance || distance > maxDistance) {
+        return false;
+    }
+    
+    // 检查是否与现有伙伴重叠
+    if (existingPartners && existingPartners.length > 0) {
+        for (var i = 0; i < existingPartners.length; i++) {
+            var existingPartner = existingPartners[i];
+            var partnerDistance = Math.sqrt(Math.pow(x - existingPartner.x, 2) + Math.pow(y - existingPartner.y, 2));
+            if (partnerDistance < 50) { // 最小间距50px
+                return false;
+            }
+        }
+    }
+    
+    // 检查是否在建筑物上
+    if (window.collisionSystem && window.collisionSystem.isPositionWalkable) {
+        return window.collisionSystem.isPositionWalkable(x, y);
     }
     
     return true;

@@ -240,10 +240,15 @@ const GAME_CONFIG = {
     TIME_SYSTEM: {
         DAY_DURATION: 10,              // 一天的长度（秒）- 白天5秒，晚上5秒
         DAY_PHASE_DURATION: 5,         // 白天/夜晚阶段长度（秒）
-        ZOMBIES_PER_DAY: 10,           // 每天刷新的僵尸数量
+        ZOMBIES_PER_DAY: 1,           // 每天刷新的僵尸数量
+        PARTNERS_PER_DAY: 1,          // 🔴 新增：每天刷新的伙伴数量
         SPAWN_RANGE: {
             MIN_DISTANCE: 500,         // 僵尸生成最小距离（px）
             MAX_DISTANCE: 700          // 僵尸生成最大距离（px）
+        },
+        PARTNER_SPAWN_RANGE: {         // 🔴 新增：伙伴生成距离范围
+            MIN_DISTANCE: 200,         // 伙伴生成最小距离（px）
+            MAX_DISTANCE: 400          // 伙伴生成最大距离（px）
         }
     },
 
@@ -320,6 +325,7 @@ const GAME_CONFIG = {
     PERFORMANCE: {
         MAX_ZOMBIES: 100,               // 最大僵尸数量
         MAX_CHARACTERS: 50,             // 最大人物数量
+        MAX_PARTNERS: 9999,             // 🔴 新增：最大伙伴数量（设置为9999，基本无限制）
         QUADTREE_MAX_OBJECTS: 8,        // 四叉树最大对象数
         QUADTREE_MAX_DEPTH: 6,          // 四叉树最大深度
         CACHE_CLEANUP_THRESHOLD: 1000,  // 缓存清理阈值
