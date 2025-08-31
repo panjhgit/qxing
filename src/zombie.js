@@ -811,16 +811,19 @@ var ZombieManager = {
     },
     
     // 🔴 核心：获取活跃僵尸 - 从内部存储获取
-    getActiveZombies: function(mainCharacter) {
+    getActiveZombies: function(mainCharacter, maxDistance = 1000) {
         if (!mainCharacter) return [];
         
         var allZombies = this.getAllZombies();
-        return allZombies.filter(zombie => 
-            zombie && 
-            zombie.hp > 0 && 
-            zombie.state !== ZOMBIE_STATE.DEAD &&
-            zombie.isActive
-        );
+        return allZombies.filter(zombie => {
+            if (!zombie || zombie.hp <= 0 || zombie.state === ZOMBIE_STATE.DEAD || !zombie.isActive) {
+                return false;
+            }
+            
+            // 计算距离
+            var distance = Math.sqrt(Math.pow(zombie.x - mainCharacter.x, 2) + Math.pow(zombie.y - mainCharacter.y, 2));
+            return distance <= maxDistance;
+        });
     },
     
     // 🔴 核心：获取批次信息 - 从内部存储获取
