@@ -256,7 +256,10 @@ export class RenderManager {
     // 检查实体是否在视野内
     isEntityInView(entity) {
         const size = entity.width || entity.size || 32;
-        return this.camera.isInView(entity.x, entity.y, size, size);
+        const bufferSize = 20; // 增加20px缓冲区域，避免边缘闪烁
+        
+        // 🔴 修复：增加缓冲区域，避免僵尸在视野边缘反复进入退出
+        return this.camera.isInView(entity.x, entity.y, size + bufferSize, size + bufferSize);
     }
 
     // 获取实体到摄像机的距离

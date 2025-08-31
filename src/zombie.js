@@ -124,7 +124,7 @@ Zombie.prototype.update = function(deltaTime, characters, currentFrame = 0) {
         return false;
     }
     
-    // 活性检查 - 但不要完全跳过更新
+    // 🔴 修复：总是更新活性状态，不要跳过
     if (characters && characters.length > 0) {
         var mainCharacter = characters.find(c => c.role === 1);
         if (mainCharacter) {
@@ -132,18 +132,24 @@ Zombie.prototype.update = function(deltaTime, characters, currentFrame = 0) {
         }
     }
     
-    // 帧间隔更新 - 只影响AI逻辑，不影响动画
+    // 🔴 修复：使用统一的更新间隔，确保所有僵尸都有均匀的更新频率
     if (!this._updateFrame) this._updateFrame = 0;
     this._updateFrame++;
-    
-    // 🔴 修复：减少更新间隔对AI的影响
-    var shouldUpdateAI = this._updateFrame % this.updateInterval === 0;
     
     // 总是更新动画
     this.updateAnimation(deltaTime);
     
-    // 如果不在更新间隔，只更新动画
+    // 🔴 修复：使用固定的更新间隔，避免僵尸更新不均匀
+    var performanceConfig = ConfigManager.get('PERFORMANCE.OPTIMIZATION');
+    var fixedUpdateInterval = performanceConfig ? performanceConfig.ZOMBIE_UPDATE_INTERVAL : 2;
+    var shouldUpdateAI = this._updateFrame % fixedUpdateInterval === 0;
+    
+    // 如果不在更新间隔，只更新动画和基础逻辑
     if (!shouldUpdateAI) {
+        // 🔴 新增：即使不在更新间隔，也要检查目标有效性
+        if (this.targetCharacter && !this.isTargetValid()) {
+            this.findNearestEnemy();
+        }
         return true;
     }
     
@@ -254,14 +260,7 @@ Zombie.prototype.chaseTarget = function(deltaTime) {
         return;
     }
     
-    // 🔴 修复：增加更宽松的检测范围检查，避免僵尸轻易丢失目标
-    var extendedDetectionRange = this.detectionRange * 1.5; // 扩展检测范围50%
-    
-    if (distance > extendedDetectionRange) {
-        // 只有在距离很远时才清除目标
-        this.targetCharacter = null;
-        this.targetX = this.x;
-        this.targetY = this.y;
+    if (distance > this.detectionRange) {
         this.state = ZOMBIE_STATE.IDLE;
         return;
     }
@@ -497,21 +496,17 @@ Zombie.prototype.isTargetValid = function() {
 Zombie.prototype.updateActivationStatus = function(playerX, playerY) {
     var distance = this.getDistanceTo(playerX, playerY);
     var zombieBehaviorConfig = ConfigManager.get('ZOMBIE.BEHAVIOR');
-    var wasActive = this.isActive;
     this.isActive = distance <= zombieBehaviorConfig.ACTIVATION_DISTANCE;
     
     if (this.isActive) {
         this.updateInterval = zombieBehaviorConfig.ACTIVE_UPDATE_INTERVAL;
-        // 🔴 修复：只有在状态变化时才切换状态，避免频繁切换
-        if (this.state === ZOMBIE_STATE.IDLE && this.targetCharacter && !wasActive) {
+        if (this.state === ZOMBIE_STATE.IDLE && this.targetCharacter) {
             this.state = ZOMBIE_STATE.CHASING;
-            console.log('🧟‍♂️ 僵尸激活，开始追击:', this.id);
         }
         return true;
     } else {
         this.updateInterval = zombieBehaviorConfig.IDLE_UPDATE_INTERVAL;
-        // 🔴 修复：即使未激活也保持当前状态，不要强制切换到IDLE
-        return true; // 改为true，让僵尸继续更新
+        return false;
     }
 };
 
@@ -569,7 +564,7 @@ var ZombieManager = {
         // 🔴 修复：重新设置移动速度，确保从对象池复用的僵尸有正确的速度
         var movementConfig = window.ConfigManager ? window.ConfigManager.get('MOVEMENT') : null;
         var zombieConfig = window.ConfigManager ? window.ConfigManager.get('ZOMBIE') : null;
-        var expectedSpeed = 5; // 默认基础速度
+        var expectedSpeed = 2; // 默认基础速度
         
         if (movementConfig && zombieConfig && zombieConfig.TYPES && zombie.zombieType) {
             var zombieTypeConfig = zombieConfig.TYPES[zombie.zombieType.toUpperCase()];
@@ -579,7 +574,7 @@ var ZombieManager = {
                 expectedSpeed = movementConfig.ZOMBIE_MOVE_SPEED; // 默认速度
             }
         } else {
-            expectedSpeed = 5; // 备用默认速度
+            expectedSpeed = 2; // 备用默认速度
         }
         
         zombie.moveSpeed = expectedSpeed;

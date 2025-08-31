@@ -106,8 +106,14 @@ export class Camera {
         var screenPos = this.worldToScreen(worldX, worldY);
         var screenWidth = width * this.zoom;
         var screenHeight = height * this.zoom;
-
-        return screenPos.x + screenWidth >= 0 && screenPos.x <= this.screenWidth && screenPos.y + screenHeight >= 0 && screenPos.y <= this.screenHeight;
+        
+        // 🔴 修复：增加缓冲区域，避免僵尸在屏幕边缘闪烁
+        var bufferSize = 50; // 50px缓冲区域
+        
+        return screenPos.x + screenWidth >= -bufferSize && 
+               screenPos.x <= this.screenWidth + bufferSize && 
+               screenPos.y + screenHeight >= -bufferSize && 
+               screenPos.y <= this.screenHeight + bufferSize;
     }
 
     // 获取摄像机位置

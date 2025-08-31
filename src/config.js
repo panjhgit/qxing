@@ -74,9 +74,9 @@
 const GAME_CONFIG = {
     // 移动系统配置
     MOVEMENT: {
-        CHARACTER_MOVE_SPEED: 4,        // ✅ 人物移动速度 (像素/帧)
-        ZOMBIE_MOVE_SPEED: 2,           // ✅ 僵尸基础移动速度 (像素/帧) - 与注释一致
-        PARTNER_MOVE_SPEED: 4,        // ✅ 伙伴移动速度 (像素/帧) - 比主人物慢0.5
+        CHARACTER_MOVE_SPEED: 4,        // ✅ 恢复：人物移动速度 (像素/帧)
+        ZOMBIE_MOVE_SPEED: 2,           // ✅ 恢复：僵尸移动速度 (像素/帧)
+        PARTNER_MOVE_SPEED: 4,          // ✅ 伙伴移动速度 (像素/帧)
         
         // 贴着建筑物移动配置
         WALL_FOLLOWING: {
@@ -121,8 +121,8 @@ const GAME_CONFIG = {
     // 攻击系统配置
     COMBAT: {
         DEFAULT_ATTACK_COOLDOWN: 500,   // 攻击冷却时间500ms (1秒攻击2下)
-        MIN_ATTACK_RANGE: 80,           // 最小攻击距离100px
-        MAX_ATTACK_RANGE: 80,           // 最大攻击距离100px
+        MIN_ATTACK_RANGE: 100,           // 最小攻击距离10px
+        MAX_ATTACK_RANGE: 100,           // 最大攻击距离10px
         DAMAGE_REDUCTION_FACTOR: 0.8,   // 伤害衰减因子
         
         // 角色基础属性配置
@@ -132,10 +132,10 @@ const GAME_CONFIG = {
         MOVING_ATTACK_INTERVAL: 0.5,    // 移动攻击间隔0.5秒 (1秒攻击2下)
         
         // 角色攻击范围配置
-        POLICE_ATTACK_RANGE: 80,        // 警察攻击范围100px
-        DOCTOR_ATTACK_RANGE: 80,        // 医生攻击范围100px
-        NURSE_ATTACK_RANGE: 80,         // 护士攻击范围100px
-        CHEF_ATTACK_RANGE: 80,         // 厨师攻击范围100px
+        POLICE_ATTACK_RANGE: 100,        // 警察攻击范围10px
+        DOCTOR_ATTACK_RANGE: 100,        // 医生攻击范围10px
+        NURSE_ATTACK_RANGE: 100,         // 护士攻击范围10px
+        CHEF_ATTACK_RANGE: 100,         // 厨师攻击范围10px
         
         // 僵尸攻击配置
         ZOMBIE_ATTACK_RANGE: 80,        // 僵尸攻击范围（像素）
@@ -162,42 +162,42 @@ const GAME_CONFIG = {
             // 瘦僵尸：轻量级，基础检测能力
             SKINNY: {
                 DETECTION_RANGE: 1000,    // 检测范围：1000px
-                ATTACK_RANGE: 80,        // 攻击范围：80px
+                ATTACK_RANGE: 80,        // 攻击范围：10px
                 PRIORITY: 'normal'       // 优先级：普通
             },
 
             // 胖僵尸：中等重量，基础检测能力
             FAT: {
                 DETECTION_RANGE: 1000,    // 检测范围：1000px
-                ATTACK_RANGE: 80,        // 攻击范围：80px
+                ATTACK_RANGE: 80,        // 攻击范围：10px
                 PRIORITY: 'normal'       // 优先级：普通
             },
 
             // Boss僵尸：重量级，增强检测能力
             BOSS: {
                 DETECTION_RANGE: 1000,    // 检测范围：1000px
-                ATTACK_RANGE: 80,        // 攻击范围：80px
+                ATTACK_RANGE: 80,        // 攻击范围：10px
                 PRIORITY: 'normal'       // 优先级：普通
             },
 
             // 快速僵尸：轻量级，增强检测能力
             FAST: {
                 DETECTION_RANGE: 1000,    // 检测范围：1000px
-                ATTACK_RANGE: 80,        // 攻击范围：80px
+                ATTACK_RANGE: 80,        // 攻击范围：10px
                 PRIORITY: 'normal'       // 优先级：普通
             },
 
             // 坦克僵尸：重量级，减少检测能力
             TANK: {
                 DETECTION_RANGE: 1000,    // 检测范围：1000px
-                ATTACK_RANGE: 80,        // 攻击范围：80px
+                ATTACK_RANGE: 80,        // 攻击范围：10px
                 PRIORITY: 'normal'       // 优先级：普通
             },
 
             // 默认僵尸：标准配置
             DEFAULT: {
                 DETECTION_RANGE: 1000,    // 检测范围：1000px
-                ATTACK_RANGE: 80,        // 攻击范围：80px
+                ATTACK_RANGE: 80,        // 攻击范围：10px
                 PRIORITY: 'normal'       // 优先级：普通
             }
         },
@@ -294,7 +294,7 @@ const GAME_CONFIG = {
         
         // 行为配置
         BEHAVIOR: {
-            ACTIVATION_DISTANCE: 1200,   // 激活距离（像素）
+            ACTIVATION_DISTANCE: 700,    // 🔴 修复：激活距离改为700px，确保700px范围内都追击人物
             IDLE_UPDATE_INTERVAL: 5,     // 待机状态更新间隔（帧数）
             ACTIVE_UPDATE_INTERVAL: 1,   // 活跃状态更新间隔（帧数）
             RANDOM_WALK_PROBABILITY: 0.1, // 随机游荡概率

@@ -160,15 +160,20 @@ export class ViewSystem {
         var mainCharacter = characterManager ? characterManager.getMainCharacter() : null;
         if (!mainCharacter) return;
 
-        // 获取活跃僵尸列表（在主人物周围1000px范围内）
-        var activeZombies = zombieManager.getActiveZombies(mainCharacter, 1000);
-        console.log('renderZombies: 活跃僵尸数量:', activeZombies.length);
+        // 🔴 修复：获取所有僵尸，渲染所有有效的僵尸
+        var allZombies = zombieManager.getAllZombies();
+        var zombiesToRender = allZombies.filter(zombie => {
+            // 只渲染血量大于0且不在死亡状态的僵尸
+            return zombie && zombie.hp > 0 && zombie.state !== 'dead';
+        });
+
+        console.log('renderZombies: 总僵尸数量:', allZombies.length, '渲染数量:', zombiesToRender.length);
 
         // 应用摄像机变换
         this.renderManager.applyCameraTransform();
 
         // 使用统一渲染管理器渲染僵尸
-        this.renderManager.renderEntityList(activeZombies, ENTITY_TYPE.ZOMBIE);
+        this.renderManager.renderEntityList(zombiesToRender, ENTITY_TYPE.ZOMBIE);
 
         // 恢复变换
         this.renderManager.restoreTransform();
