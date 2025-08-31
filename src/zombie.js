@@ -597,6 +597,12 @@ var ZombieManager = {
             console.log('✅ 传统方式创建僵尸:', zombie.zombieType, '位置:', x, y);
         }
         
+        // 🔴 协调对象管理器：注册新创建的僵尸
+        if (zombie && window.objectManager) {
+            window.objectManager.registerObject(zombie, 'zombie', zombie.id);
+            console.log('✅ 僵尸已注册到对象管理器:', zombie.id);
+        }
+        
         // 🔴 协调四叉树：四叉树只负责空间索引，不管理对象生命周期
         if (window.collisionSystem && window.collisionSystem.addToSpatialIndex) {
             console.log('🔍 僵尸创建: 碰撞系统状态检查 - 僵尸ID:', zombie.id, '类型:', zombie.type, '位置:', zombie.x, zombie.y);
@@ -848,6 +854,16 @@ var ZombieManager = {
         if (!zombie) return;
         
         console.log('🗑️ 销毁僵尸:', zombie.id, '类型:', zombie.zombieType);
+        
+        // 🔴 协调对象管理器：从对象管理器中移除
+        if (window.objectManager) {
+            const destroyResult = window.objectManager.destroyObject(zombie.id);
+            if (destroyResult) {
+                console.log('✅ 僵尸已从对象管理器移除:', zombie.id);
+            } else {
+                console.warn('⚠️ 僵尸从对象管理器移除失败:', zombie.id);
+            }
+        }
         
         // 🔴 协调四叉树：从空间索引中移除（不管理对象生命周期）
         if (window.collisionSystem && window.collisionSystem.removeFromSpatialIndex) {

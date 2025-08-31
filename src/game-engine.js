@@ -1197,9 +1197,25 @@ GameEngine.prototype.update = function() {
         window.objectPoolManager.update();
     }
     
+    // 更新对象管理器
+    if (window.objectManager) {
+        // 定期清理死亡对象
+        if (this.frameCount % 60 === 0) { // 每秒清理一次
+            window.objectManager.cleanupDeadObjects();
+        }
+    }
+    
     // 更新内存监控器
     if (window.memoryMonitor) {
         window.memoryMonitor.checkMemoryUsage();
+    }
+    
+    // 更新健康检查器
+    if (window.objectHealthChecker) {
+        const healthStatus = window.objectHealthChecker.checkHealth();
+        if (healthStatus.overall === 'critical') {
+            console.error('🚨 对象管理系统健康状态严重:', healthStatus);
+        }
     }
     
     // 更新视觉系统
@@ -1278,6 +1294,28 @@ GameEngine.prototype.logSystemStatus = function() {
             averageHitRate: (poolStats.averageHitRate * 100).toFixed(1) + '%',
             memoryUsage: (poolStats.totalMemoryUsage / 1024).toFixed(1) + 'KB',
             leakWarnings: poolStats.leakWarnings
+        });
+    }
+    
+    // 对象管理器统计
+    if (window.objectManager) {
+        var objectStats = window.objectManager.getStats();
+        console.log('🔴 对象管理器统计:', {
+            totalObjects: objectStats.totalObjects,
+            activeObjects: objectStats.activeObjects,
+            objectCounts: objectStats.objectCounts
+        });
+    }
+    
+    // 健康检查报告
+    if (window.objectHealthChecker) {
+        var healthReport = window.objectHealthChecker.getHealthReport();
+        console.log('🔍 对象管理健康报告:', {
+            status: healthReport.currentStatus.overall,
+            memoryLeaks: healthReport.currentStatus.memoryLeaks.length,
+            referenceIssues: healthReport.currentStatus.referenceIssues.length,
+            performanceIssues: healthReport.currentStatus.performanceIssues.length,
+            recommendations: healthReport.recommendations
         });
     }
     

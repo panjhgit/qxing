@@ -822,6 +822,53 @@ Partner.prototype.getHeadColor = function () {
 // 伙伴管理器
 var PartnerManager = {
     partners: [], maxPartners: 10,
+    
+    // 对象池引用
+    objectPool: null,
+
+    // 初始化对象池
+    initObjectPool: function() {
+        if (!window.objectPoolManager) {
+            return;
+        }
+        
+        // 创建伙伴对象池
+        this.objectPool = window.objectPoolManager.createPool('partner', 
+            // 创建函数
+            () => new Partner(PARTNER_ROLE.CIVILIAN, 0, 0),
+            // 重置函数
+            (partner) => this.resetPartner(partner)
+        );
+        
+        console.log('✅ 伙伴对象池初始化完成');
+    },
+    
+    // 重置伙伴状态（对象池复用）
+    resetPartner: function(partner) {
+        if (!partner) return;
+        
+        // 重置基础属性
+        partner.hp = partner.maxHp || 50;
+        partner.status = PARTNER_STATE.IDLE;
+        partner.isMoving = false;
+        partner.targetX = partner.x;
+        partner.targetY = partner.y;
+        partner.attackCooldown = 0;
+        partner.attackTarget = null;
+        partner.stuckTime = 0;
+        partner.lastPosition = null;
+        
+        // 重置状态机
+        if (partner.stateMachine) {
+            partner.stateMachine.forceState(PARTNER_STATE.IDLE);
+        }
+        
+        // 重置动画
+        partner.animationFrame = 0;
+        partner.frameCount = 0;
+        
+        console.log('✅ 伙伴状态重置完成:', partner.id);
+    },
 
     // 创建伙伴
     createPartner: function (role, x, y) {
@@ -830,9 +877,36 @@ var PartnerManager = {
             return null;
         }
 
-        var partner = new Partner(role, x, y);
+        var partner = null;
+        
+        // 优先使用对象池
+        if (this.objectPool) {
+            partner = this.objectPool.get();
+            if (partner) {
+                // 重新初始化伙伴属性
+                partner.role = role;
+                partner.x = x;
+                partner.y = y;
+                partner.setupRoleProperties();
+                partner.initializeStateMachine();
+                
+                console.log('✅ 从对象池获取伙伴:', partner.role, '位置:', x, y);
+            }
+        }
+        
+        // 对象池不可用时，使用传统创建方式
+        if (!partner) {
+            partner = new Partner(role, x, y);
+            console.log('✅ 传统方式创建伙伴:', partner.role, '位置:', x, y);
+        }
+        
+        // 🔴 协调对象管理器：注册新创建的伙伴
+        if (partner && window.objectManager) {
+            window.objectManager.registerObject(partner, 'partner', partner.id);
+            console.log('✅ 伙伴已注册到对象管理器:', partner.id);
+        }
+        
         this.partners.push(partner);
-
         console.log('创建伙伴:', partner.role, '位置:', x, y);
         return partner;
     },
@@ -855,10 +929,41 @@ var PartnerManager = {
 
     // 销毁伙伴
     destroyPartner: function (partner) {
+        if (!partner) return;
+        
+        console.log('🗑️ 销毁伙伴:', partner.id, '角色:', partner.role);
+        
+        // 🔴 协调对象管理器：从对象管理器中移除
+        if (window.objectManager) {
+            const destroyResult = window.objectManager.destroyObject(partner.id);
+            if (destroyResult) {
+                console.log('✅ 伙伴已从对象管理器移除:', partner.id);
+            } else {
+                console.warn('⚠️ 伙伴从对象管理器移除失败:', partner.id);
+            }
+        }
+        
+        // 🔴 协调对象池：使用对象池管理对象生命周期
+        if (this.objectPool) {
+            // 重置伙伴状态
+            partner.hp = 0;
+            partner.status = PARTNER_STATE.DIE;
+            partner.isActive = false;
+            
+            // 归还到对象池
+            this.objectPool.return(partner);
+            console.log('✅ 伙伴已归还到对象池:', partner.id);
+        } else {
+            // 对象池不可用时，直接删除引用
+            partner.isActive = false;
+            console.log('✅ 伙伴已标记为非活跃:', partner.id);
+        }
+        
+        // 从伙伴列表中移除
         var index = this.partners.indexOf(partner);
         if (index > -1) {
             this.partners.splice(index, 1);
-            console.log('伙伴已从管理器移除');
+            console.log('✅ 伙伴已从列表移除:', partner.id);
         }
     },
 
@@ -872,7 +977,7 @@ var PartnerManager = {
         }
             
             // 伙伴职业类型
-            var partnerRoles = [2, 3, 4, 5, 6]; // 警察、平民、医生、护士、厨师
+            var partnerRoles = [PARTNER_ROLE.POLICE, PARTNER_ROLE.CIVILIAN, PARTNER_ROLE.DOCTOR, PARTNER_ROLE.NURSE, PARTNER_ROLE.CHEF]; // 警察、平民、医生、护士、厨师
             var partnerCount = 5; // 生成5个伙伴
             
             for (var i = 0; i < partnerCount; i++) {

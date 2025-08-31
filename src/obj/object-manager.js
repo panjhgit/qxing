@@ -12,7 +12,7 @@ import {objectPoolManager} from './object-pool.js';
 
 // 对象类型枚举
 const OBJECT_TYPE = {
-    CHARACTER: 'character', ZOMBIE: 'zombie', BUILDING: 'building', ITEM: 'item'
+    CHARACTER: 'character', ZOMBIE: 'zombie', PARTNER: 'partner', BUILDING: 'building', ITEM: 'item'
 };
 
 // 对象状态枚举
@@ -35,11 +35,48 @@ class ObjectManager {
         console.log('🚀 对象管理器初始化完成');
     }
 
+    // 注册对象
+    registerObject(object, type, objectId = null) {
+        if (!object || !type) {
+            throw new Error('对象和类型不能为空');
+        }
+
+        const id = objectId || object.id || `obj_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        this.objects.set(id, {
+            object: object,
+            type: type,
+            state: OBJECT_STATE.ACTIVE,
+            registeredAt: Date.now()
+        });
+
+        // 更新计数
+        const currentCount = this.objectCounts.get(type) || 0;
+        this.objectCounts.set(type, currentCount + 1);
+
+        console.log('✅ 对象已注册:', type, id);
+        return id;
+    }
+
+    // 获取对象信息
+    getObjectInfo(objectId) {
+        return this.objects.get(objectId);
+    }
+
+    // 更新对象状态
+    updateObjectState(objectId, state) {
+        const objectInfo = this.objects.get(objectId);
+        if (objectInfo) {
+            objectInfo.state = state;
+            objectInfo.lastUpdated = Date.now();
+        }
+    }
+
     // 销毁对象
     destroyObject(objectId) {
         const objectInfo = this.objects.get(objectId);
         if (!objectInfo) {
-            throw new Error('对象不存在: ' + objectId);
+            console.warn('对象不存在: ' + objectId);
             return false;
         }
 
@@ -52,7 +89,7 @@ class ObjectManager {
             if (removeResult) {
                 console.log('✅ 对象已从空间索引移除:', objectId);
             } else {
-                throw new Error('对象从空间索引移除失败: ' + objectId);
+                console.warn('对象从空间索引移除失败: ' + objectId);
             }
         }
 
@@ -82,6 +119,29 @@ class ObjectManager {
         return true;
     }
 
+    // 批量清理死亡对象
+    cleanupDeadObjects() {
+        let cleanedCount = 0;
+        const deadObjects = [];
+
+        for (const [id, info] of this.objects) {
+            if (info.object.hp <= 0 || info.state === OBJECT_STATE.DEAD) {
+                deadObjects.push(id);
+            }
+        }
+
+        deadObjects.forEach(id => {
+            if (this.destroyObject(id)) {
+                cleanedCount++;
+            }
+        });
+
+        if (cleanedCount > 0) {
+            console.log(`🧹 批量清理完成，销毁 ${cleanedCount} 个死亡对象`);
+        }
+
+        return cleanedCount;
+    }
 
     // 获取所有活跃对象
     getAllActiveObjects() {
@@ -94,6 +154,16 @@ class ObjectManager {
         return activeObjects;
     }
 
+    // 获取指定类型的对象
+    getObjectsByType(type) {
+        const objects = [];
+        for (const [id, info] of this.objects) {
+            if (info.type === type && info.state === OBJECT_STATE.ACTIVE) {
+                objects.push(info.object);
+            }
+        }
+        return objects;
+    }
 
     // 获取对象数量
     getObjectCount(type = null) {

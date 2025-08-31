@@ -186,7 +186,7 @@ class MemoryMonitor {
         if (level === 'CRITICAL') {
             console.error('🚨', message);
         } else {
-            throw new Error(message);
+            console.warn('⚠️', message);
         }
     }
     

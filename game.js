@@ -11,6 +11,8 @@ import ViewSystem from './src/view.js';
 import CollisionSystem from './src/obj/collision.js';
 import objectPoolManager from './src/obj/object-pool.js';
 import memoryMonitor from './src/obj/memory-optimization.js';
+import objectManager from './src/obj/object-manager.js';
+import objectHealthChecker from './src/obj/health-checker.js';
 import ConfigManager from './src/config.js';
 
 // 全局变量声明
@@ -111,9 +113,19 @@ function clearGameData() {
         window.objectPoolManager.resetAllPools();
     }
     
+    // 重置对象管理器
+    if (window.objectManager) {
+        window.objectManager.reset();
+    }
+    
     // 停止内存监控
     if (window.memoryMonitor) {
         window.memoryMonitor.stop();
+    }
+    
+    // 重置健康检查器
+    if (window.objectHealthChecker) {
+        window.objectHealthChecker.reset();
     }
     
     // 清空碰撞系统
@@ -165,8 +177,10 @@ function resetGameState() {
         delete window.gameEngine;
         delete window.MapManager;
         delete window.ViewSystem;
-        delete window.objectPoolManager;
-        delete window.memoryMonitor;
+            delete window.objectPoolManager;
+    delete window.objectManager;
+    delete window.memoryMonitor;
+    delete window.objectHealthChecker;
     }
     
     console.log('✅ 游戏状态重置完成');
@@ -349,8 +363,10 @@ function initCharacterAndZombieSystems() {
     try {
         // 🔴 修复：先设置对象池管理器为全局变量，确保角色和僵尸管理器可以访问
         if (typeof window !== 'undefined') {
-            window.objectPoolManager = objectPoolManager;
-            window.memoryMonitor = memoryMonitor;
+                window.objectPoolManager = objectPoolManager;
+    window.memoryMonitor = memoryMonitor;
+    window.objectManager = objectManager;
+    window.objectHealthChecker = objectHealthChecker;
             window.ConfigManager = ConfigManager; // 🔴 修复：确保ConfigManager在角色创建前可用
         }
         
@@ -369,6 +385,7 @@ function initCharacterAndZombieSystems() {
         // 初始化伙伴管理器
         console.log('👥 初始化伙伴管理器');
         var partnerManager = Object.create(PartnerManager);
+        partnerManager.initObjectPool(); // 🔴 新增：初始化对象池
         
         // 设置其他全局变量
         if (typeof window !== 'undefined') {
@@ -704,6 +721,10 @@ function continueGameSystemsInit() {
             if (window.memoryMonitor) {
                 window.memoryMonitor.start();
                 console.log('🔍 内存监控已启动');
+            }
+            
+            if (window.objectHealthChecker) {
+                console.log('🔍 健康检查器已启动');
             }
             
             // 隐藏加载提示

@@ -1031,6 +1031,12 @@ var CharacterManager = {
             console.log('✅ 传统方式创建主人物成功:', mainChar);
             console.log('✅ 传统方式创建主人物:', mainChar.role, 'ID:', mainChar.id, '位置:', mainChar.x, mainChar.y, 'hp:', mainChar.hp);
         }
+        
+        // 🔴 协调对象管理器：注册新创建的角色
+        if (mainChar && window.objectManager) {
+            window.objectManager.registerObject(mainChar, 'character', mainChar.id);
+            console.log('✅ 角色已注册到对象管理器:', mainChar.id);
+        }
 
         // 验证角色创建是否成功
         console.log('🔍 验证角色创建结果...');
