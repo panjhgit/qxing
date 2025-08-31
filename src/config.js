@@ -75,7 +75,7 @@ const GAME_CONFIG = {
     // 移动系统配置
     MOVEMENT: {
         CHARACTER_MOVE_SPEED: 3,        // ✅ 恢复：人物移动速度 (像素/帧)
-        ZOMBIE_MOVE_SPEED: 3,           // ✅ 恢复：僵尸移动速度 (像素/帧)
+        ZOMBIE_MOVE_SPEED: 2,           // ✅ 恢复：僵尸移动速度 (像素/帧)
         
         // 贴着建筑物移动配置
         WALL_FOLLOWING: {
@@ -119,21 +119,25 @@ const GAME_CONFIG = {
 
     // 攻击系统配置
     COMBAT: {
-        DEFAULT_ATTACK_COOLDOWN: 500,   // 🔴 修复：减少攻击冷却时间从1000ms到500ms，让僵尸攻击更连贯
-        MIN_ATTACK_RANGE: 30,           // 最小攻击距离
-        MAX_ATTACK_RANGE: 50,          // 最大攻击距离
+        DEFAULT_ATTACK_COOLDOWN: 500,   // 攻击冷却时间500ms
+        MIN_ATTACK_RANGE: 30,           // 最小攻击距离10px
+        MAX_ATTACK_RANGE: 30,           // 最大攻击距离10px
         DAMAGE_REDUCTION_FACTOR: 0.8,   // 伤害衰减因子
         
         // 角色攻击配置
-        DEFAULT_ATTACK: 10,             // 默认攻击力
-        DEFAULT_ATTACK_INTERVAL: 1.0,   // 默认攻击间隔（秒）
-        MOVING_ATTACK_INTERVAL: 0.8,    // 移动攻击间隔（秒）
+        DEFAULT_ATTACK: 30,             // 默认攻击力10
+        DEFAULT_ATTACK_INTERVAL: 0.5,   // 默认攻击间隔0.5秒
+        MOVING_ATTACK_INTERVAL: 0.5,    // 移动攻击间隔0.5秒
         
         // 角色攻击范围配置
-        POLICE_ATTACK_RANGE: 30,       // 警察攻击范围
-        DOCTOR_ATTACK_RANGE: 30,        // 医生攻击范围
-        NURSE_ATTACK_RANGE: 30,         // 护士攻击范围
-        CHEF_ATTACK_RANGE: 30           // 厨师攻击范围
+        POLICE_ATTACK_RANGE: 80,        // 警察攻击范围10px
+        DOCTOR_ATTACK_RANGE: 80,        // 医生攻击范围10px
+        NURSE_ATTACK_RANGE: 80,         // 护士攻击范围10px
+        CHEF_ATTACK_RANGE: 80,         // 厨师攻击范围10px
+        
+        // 僵尸攻击配置
+        ZOMBIE_ATTACK_RANGE: 80,        // 僵尸攻击范围（像素）
+        ZOMBIE_ATTACK_COOLDOWN: 500     // 僵尸攻击冷却时间（毫秒）
     },
 
     // 检测范围配置
@@ -148,43 +152,43 @@ const GAME_CONFIG = {
         ZOMBIE_TYPES: {
             // 瘦僵尸：轻量级，基础检测能力
             SKINNY: {
-                DETECTION_RANGE: 700,    // 检测范围：200px（改回合理值）
-                ATTACK_RANGE: 30,        // 攻击范围：30px
+                DETECTION_RANGE: 1000,    // 检测范围：1000px
+                ATTACK_RANGE: 80,        // 攻击范围：10px
                 PRIORITY: 'normal'       // 优先级：普通
             },
 
             // 胖僵尸：中等重量，基础检测能力
             FAT: {
-                DETECTION_RANGE: 700,    // 检测范围：200px（改回合理值）
-                ATTACK_RANGE: 30,        // 攻击范围：30px
+                DETECTION_RANGE: 1000,    // 检测范围：1000px
+                ATTACK_RANGE: 80,        // 攻击范围：10px
                 PRIORITY: 'normal'       // 优先级：普通
             },
 
             // Boss僵尸：重量级，增强检测能力
             BOSS: {
-                DETECTION_RANGE: 700,    // 检测范围：300px（改回合理值）
-                ATTACK_RANGE: 30,        // 攻击范围：30px
-                PRIORITY: 'high'         // 优先级：高
+                DETECTION_RANGE: 1000,    // 检测范围：1000px
+                ATTACK_RANGE: 80,        // 攻击范围：10px
+                PRIORITY: 'normal'       // 优先级：普通
             },
 
             // 快速僵尸：轻量级，增强检测能力
             FAST: {
-                DETECTION_RANGE: 700,    // 检测范围：250px（改回合理值）
-                ATTACK_RANGE: 30,        // 攻击范围：30px
-                PRIORITY: 'high'         // 优先级：高
+                DETECTION_RANGE: 1000,    // 检测范围：1000px
+                ATTACK_RANGE: 80,        // 攻击范围：10px
+                PRIORITY: 'normal'       // 优先级：普通
             },
 
             // 坦克僵尸：重量级，减少检测能力
             TANK: {
-                DETECTION_RANGE: 700,    // 检测范围：150px（改回合理值）
-                ATTACK_RANGE: 30,        // 攻击范围：30px
-                PRIORITY: 'low'          // 优先级：低
+                DETECTION_RANGE: 1000,    // 检测范围：1000px
+                ATTACK_RANGE: 80,        // 攻击范围：10px
+                PRIORITY: 'normal'       // 优先级：普通
             },
 
             // 默认僵尸：标准配置
             DEFAULT: {
-                DETECTION_RANGE: 700,    // 检测范围：200px（改回合理值）
-                ATTACK_RANGE: 30,        // 攻击范围：30px
+                DETECTION_RANGE: 1000,    // 检测范围：1000px
+                ATTACK_RANGE: 80,        // 攻击范围：10px
                 PRIORITY: 'normal'       // 优先级：普通
             }
         },
@@ -192,7 +196,7 @@ const GAME_CONFIG = {
         // 特殊检测范围配置
         SPECIAL_DETECTION: {
             // 主人物优先检测范围（最高优先级）
-            MAIN_CHARACTER_PRIORITY_RANGE: 700,  // 700px范围内优先检测主人物
+            MAIN_CHARACTER_PRIORITY_RANGE: 1000,  // 700px范围内优先检测主人物
 
         },
 
@@ -231,6 +235,61 @@ const GAME_CONFIG = {
         SPAWN_RANGE: {
             MIN_DISTANCE: 500,         // 僵尸生成最小距离（px）
             MAX_DISTANCE: 700          // 僵尸生成最大距离（px）
+        }
+    },
+
+    // 僵尸配置
+    ZOMBIE: {
+        // 基础属性
+        BASE_HP: 50,                    // 僵尸基础血量
+        BASE_ATTACK: 1,                  // 僵尸基础攻击力
+        
+        // 僵尸类型配置
+        TYPES: {
+            SKINNY: {
+                HP_MULTIPLIER: 1.0,     // 血量倍数
+                ATTACK_MULTIPLIER: 1.0,  // 攻击力倍数
+                SIZE: 32,                // 尺寸
+                COLOR: '#8B4513',        // 颜色
+                SPEED_MULTIPLIER: 1.2    // 速度倍数
+            },
+            FAT: {
+                HP_MULTIPLIER: 1.5,      // 血量倍数
+                ATTACK_MULTIPLIER: 1.2,  // 攻击力倍数
+                SIZE: 48,                // 尺寸
+                COLOR: '#654321',        // 颜色
+                SPEED_MULTIPLIER: 0.8    // 速度倍数
+            },
+            BOSS: {
+                HP_MULTIPLIER: 3.0,      // 血量倍数
+                ATTACK_MULTIPLIER: 2.0,  // 攻击力倍数
+                SIZE: 48,                // 尺寸
+                COLOR: '#8B0000',        // 颜色
+                SPEED_MULTIPLIER: 0.9    // 速度倍数
+            },
+            FAST: {
+                HP_MULTIPLIER: 0.8,      // 血量倍数
+                ATTACK_MULTIPLIER: 0.8,  // 攻击力倍数
+                SIZE: 32,                // 尺寸
+                COLOR: '#228B22',        // 颜色
+                SPEED_MULTIPLIER: 1.5    // 速度倍数
+            },
+            TANK: {
+                HP_MULTIPLIER: 2.5,      // 血量倍数
+                ATTACK_MULTIPLIER: 1.5,  // 攻击力倍数
+                SIZE: 48,                // 尺寸
+                COLOR: '#2F4F4F',        // 颜色
+                SPEED_MULTIPLIER: 0.7    // 速度倍数
+            }
+        },
+        
+        // 行为配置
+        BEHAVIOR: {
+            ACTIVATION_DISTANCE: 1200,   // 激活距离（像素）
+            IDLE_UPDATE_INTERVAL: 5,     // 待机状态更新间隔（帧数）
+            ACTIVE_UPDATE_INTERVAL: 1,   // 活跃状态更新间隔（帧数）
+            RANDOM_WALK_PROBABILITY: 0.1, // 随机游荡概率
+            RANDOM_WALK_DISTANCE: 150    // 随机游荡距离
         }
     },
 

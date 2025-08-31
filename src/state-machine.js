@@ -117,6 +117,11 @@ class StateMachine {
     checkTransitions() {
         if (!this.transitions.has(this.currentState)) return;
         
+        // 🔴 核心：如果当前是移动状态且有摇杆输入，不允许切换到其他状态
+        if (this.currentState === 'MOVE' && this.owner.hasJoystickInput && this.owner.hasJoystickInput()) {
+            return; // 移动状态且有摇杆输入时，不允许状态转换
+        }
+        
         const possibleTransitions = this.transitions.get(this.currentState);
         for (const transition of possibleTransitions) {
             if (transition.condition.call(this.owner, this.stateData)) {

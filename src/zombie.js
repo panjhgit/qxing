@@ -28,13 +28,13 @@ const ZOMBIE_STATE = {
     CHASING: 'chasing'
 };
 
-// 僵尸配置模板
+// 僵尸配置模板 - 完全从config.js获取
 const ZOMBIE_CONFIGS = {
-    [ZOMBIE_TYPE.SKINNY]: { hp: 30, attack: 15, size: 32, color: '#8B4513', attackRange: 40, detectionRange: 200 },
-    [ZOMBIE_TYPE.FAT]: { hp: 60, attack: 25, size: 48, color: '#654321', attackRange: 50, detectionRange: 200 },
-    [ZOMBIE_TYPE.BOSS]: { hp: 200, attack: 50, size: 48, color: '#8B0000', attackRange: 80, detectionRange: 300 },
-    [ZOMBIE_TYPE.FAST]: { hp: 20, attack: 10, size: 32, color: '#228B22', attackRange: 30, detectionRange: 250 },
-    [ZOMBIE_TYPE.TANK]: { hp: 150, attack: 35, size: 48, color: '#2F4F4F', attackRange: 60, detectionRange: 150 }
+    [ZOMBIE_TYPE.SKINNY]: 'SKINNY',
+    [ZOMBIE_TYPE.FAT]: 'FAT',
+    [ZOMBIE_TYPE.BOSS]: 'BOSS',
+    [ZOMBIE_TYPE.FAST]: 'FAST',
+    [ZOMBIE_TYPE.TANK]: 'TANK'
 };
 
 // 基础僵尸类
@@ -60,14 +60,15 @@ var Zombie = function(type, x, y) {
     this.targetY = this.y;
     this.targetCharacter = null;
     
-    // 性能相关
+    // 性能相关 - 从config.js获取
     this.isActive = false;
-    this.updateInterval = 1;
+    var zombieBehaviorConfig = ConfigManager.get('ZOMBIE.BEHAVIOR');
+    this.updateInterval = zombieBehaviorConfig.ACTIVE_UPDATE_INTERVAL;
     
-    // 战斗属性
-    var combatConfig = ConfigManager.get('COMBAT');
+    // 战斗属性 - 从config.js获取
     this.lastAttackTime = 0;
-    this.attackCooldown = combatConfig.DEFAULT_ATTACK_COOLDOWN;
+    var combatConfig = ConfigManager.get('COMBAT');
+    this.attackCooldown = combatConfig.ZOMBIE_ATTACK_COOLDOWN || 500; // 从配置获取攻击冷却时间
     
     // 动画属性
     var animationConfig = ConfigManager.get('ANIMATION');
@@ -76,34 +77,39 @@ var Zombie = function(type, x, y) {
     this.direction = 0;
 };
 
-// 设置僵尸属性 - 使用配置模板
+// 设置僵尸属性 - 完全使用config.js中的配置
 Zombie.prototype.setupProperties = function() {
-    var difficultyConfig = ConfigManager.getDifficultyConfig();
-    var config = ZOMBIE_CONFIGS[this.zombieType] || ZOMBIE_CONFIGS[ZOMBIE_TYPE.SKINNY];
+    var zombieTypeKey = ZOMBIE_CONFIGS[this.zombieType] || 'SKINNY';
     
-    // 应用难度系数
-    this.hp = Math.round(config.hp * difficultyConfig.ZOMBIE_HP_MULTIPLIER);
-    this.maxHp = this.hp;
-    this.attack = Math.round(config.attack * difficultyConfig.ZOMBIE_ATTACK_MULTIPLIER);
+    // 从config.js获取僵尸基础属性
+    var zombieConfig = ConfigManager.get('ZOMBIE');
+    var zombieTypeConfig = zombieConfig.TYPES[zombieTypeKey];
+    var difficultyConfig = ConfigManager.getDifficultyConfig();
     
     // 基础属性
-    this.size = config.size;
-    this.width = config.size;
-    this.height = config.size;
+    this.hp = Math.round(zombieConfig.BASE_HP * zombieTypeConfig.HP_MULTIPLIER * difficultyConfig.ZOMBIE_HP_MULTIPLIER);
+    this.maxHp = this.hp;
+    this.attack = Math.round(zombieConfig.BASE_ATTACK * zombieTypeConfig.ATTACK_MULTIPLIER * difficultyConfig.ZOMBIE_ATTACK_MULTIPLIER);
+    
+    // 尺寸和外观
+    this.size = zombieTypeConfig.SIZE;
+    this.width = this.size;
+    this.height = this.size;
     this.radius = this.size / 2;
-    this.color = config.color;
+    this.color = zombieTypeConfig.COLOR;
     this.icon = '🧟‍♂️';
     
-    // 移动和检测
+    // 移动速度 - 从config.js获取并应用类型倍数
     var movementConfig = ConfigManager.get('MOVEMENT');
-    // 移动速度已固定为5px，不再需要动态配置
+    this.moveSpeed = movementConfig.ZOMBIE_MOVE_SPEED * zombieTypeConfig.SPEED_MULTIPLIER;
     
-    // 攻击和检测范围
-    this.attackRange = config.attackRange + this.radius + 16 + Math.round(config.attackRange * 0.1);
+    // 攻击范围 - 从config.js获取
+    var combatConfig = ConfigManager.get('COMBAT');
+    this.attackRange = combatConfig.ZOMBIE_ATTACK_RANGE;
     
-    // 使用config.js中的检测范围配置，而不是模板中的值
+    // 检测范围 - 从config.js获取
     var detectionConfig = ConfigManager.get('DETECTION');
-    this.detectionRange = detectionConfig.ZOMBIE_DETECTION_RANGE; // 使用700px的配置
+    this.detectionRange = detectionConfig.ZOMBIE_DETECTION_RANGE;
     this.mainCharacterDetectionRange = detectionConfig.MAIN_CHARACTER_DETECTION;
 };
 
@@ -206,7 +212,7 @@ Zombie.prototype.findTarget = function(characters) {
     if (this.targetCharacter) {
         var distance = this.getDistanceTo(this.targetCharacter.x, this.targetCharacter.y);
         
-        if (distance <= this.attackRange) {
+        if (distance <= 10) { // 固定攻击范围10px
             this.state = ZOMBIE_STATE.ATTACKING;
         } else if (distance <= this.detectionRange) {
             this.state = ZOMBIE_STATE.CHASING;
@@ -233,7 +239,7 @@ Zombie.prototype.chaseTarget = function(deltaTime) {
     
     var distance = this.getDistanceTo(this.targetCharacter.x, this.targetCharacter.y);
     
-    if (distance <= this.attackRange) {
+    if (distance <= 10) { // 固定攻击范围10px
         this.state = ZOMBIE_STATE.ATTACKING;
         return;
     }
@@ -258,7 +264,7 @@ Zombie.prototype.attackTarget = function(deltaTime) {
     
     var distance = this.getDistanceTo(this.targetCharacter.x, this.targetCharacter.y);
     
-    if (distance > this.attackRange) {
+    if (distance > 10) { // 固定攻击范围10px
         this.state = ZOMBIE_STATE.CHASING;
         return;
     }
@@ -274,18 +280,16 @@ Zombie.prototype.attackTarget = function(deltaTime) {
 Zombie.prototype.moveTowards = function(targetX, targetY, deltaTime) {
     var distanceToTarget = this.getDistanceTo(targetX, targetY);
     
-    if (distanceToTarget <= this.attackRange) {
+    if (distanceToTarget <= this.attackRange) { // 使用从config.js获取的攻击范围
         this.state = ZOMBIE_STATE.ATTACKING;
         return;
     }
     
     this.direction = Math.atan2(targetY - this.y, targetX - this.x);
     
-    // 每帧直接移动，从配置文件读取僵尸移动速度
-    var movementConfig = ConfigManager.get('MOVEMENT');
-    var moveSpeed = movementConfig ? movementConfig.ZOMBIE_MOVE_SPEED : 5; // 从配置读取僵尸移动速度
-    var newX = this.x + Math.cos(this.direction) * moveSpeed;
-    var newY = this.y + Math.sin(this.direction) * moveSpeed;
+    // 使用从config.js获取的移动速度
+    var newX = this.x + Math.cos(this.direction) * this.moveSpeed;
+    var newY = this.y + Math.sin(this.direction) * this.moveSpeed;
     
     // 检查碰撞
     var finalPosition = this.checkCollision(this.x, this.y, newX, newY);
@@ -311,9 +315,8 @@ Zombie.prototype.checkCollision = function(fromX, fromY, toX, toY) {
     
     // 🔴 优化：使用贴着建筑物移动算法
     if (window.collisionSystem.getWallFollowingPosition) {
-        var moveSpeed = window.ConfigManager ? window.ConfigManager.get('MOVEMENT.ZOMBIE_MOVE_SPEED') : 4;
         var safePos = window.collisionSystem.getWallFollowingPosition(
-            fromX, fromY, toX, toY, this.radius || 16, moveSpeed
+            fromX, fromY, toX, toY, this.radius || 16, this.moveSpeed
         );
         
         if (safePos) {
@@ -352,10 +355,11 @@ Zombie.prototype.idleBehavior = function(deltaTime) {
         }
     }
     
-    // 随机游荡
-    if (Math.random() < 0.1) {
+    // 随机游荡 - 从config.js获取配置
+    var zombieBehaviorConfig = ConfigManager.get('ZOMBIE.BEHAVIOR');
+    if (Math.random() < zombieBehaviorConfig.RANDOM_WALK_PROBABILITY) {
         this.direction = Math.random() * Math.PI * 2;
-        var targetDistance = 50 + Math.random() * 100;
+        var targetDistance = zombieBehaviorConfig.RANDOM_WALK_DISTANCE + Math.random() * 100;
         this.targetX = this.x + Math.cos(this.direction) * targetDistance;
         this.targetY = this.y + Math.sin(this.direction) * targetDistance;
         
@@ -471,16 +475,17 @@ Zombie.prototype.isTargetValid = function() {
 // 更新活性状态
 Zombie.prototype.updateActivationStatus = function(playerX, playerY) {
     var distance = this.getDistanceTo(playerX, playerY);
-    this.isActive = distance <= 1200;
+    var zombieBehaviorConfig = ConfigManager.get('ZOMBIE.BEHAVIOR');
+    this.isActive = distance <= zombieBehaviorConfig.ACTIVATION_DISTANCE;
     
     if (this.isActive) {
-        this.updateInterval = 1;
+        this.updateInterval = zombieBehaviorConfig.ACTIVE_UPDATE_INTERVAL;
         if (this.state === ZOMBIE_STATE.IDLE && this.targetCharacter) {
             this.state = ZOMBIE_STATE.CHASING;
         }
         return true;
     } else {
-        this.updateInterval = 5;
+        this.updateInterval = zombieBehaviorConfig.IDLE_UPDATE_INTERVAL;
         return false;
     }
 };
@@ -682,9 +687,9 @@ var ZombieManager = {
             
             var distance = Math.sqrt(Math.pow(zombie.x - mainChar.x, 2) + Math.pow(zombie.y - mainChar.y, 2));
             
-            if (distance <= zombie.attackRange) {
+                            if (distance <= zombie.attackRange) { // 使用从config.js获取的攻击范围
                 zombie.state = ZOMBIE_STATE.ATTACKING;
-            } else if (distance <= 700) {
+            } else if (distance <= zombie.detectionRange) { // 使用从config.js获取的检测范围
                 zombie.state = ZOMBIE_STATE.CHASING;
             } else {
                 zombie.state = ZOMBIE_STATE.IDLE;

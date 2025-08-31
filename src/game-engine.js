@@ -836,10 +836,13 @@ GameEngine.prototype.updateJoystickMovement = function() {
     
     // 简化移动：直接根据摇杆方向移动角色
     if (Math.abs(direction.x) > 0.1 || Math.abs(direction.y) > 0.1) {
-        // 触摸摇杆有输入，直接移动角色
-        if (!mainChar.isMoving) {
-            mainChar.isMoving = true;
-            mainChar.status = 'MOVING';
+        // 触摸摇杆有输入，强制进入移动状态
+        mainChar.isMoving = true;
+        mainChar.status = 'MOVING';
+        
+        // 强制状态机进入移动状态，打断任何其他状态
+        if (mainChar.stateMachine && mainChar.stateMachine.currentState !== 'MOVE') {
+            mainChar.stateMachine.forceState('MOVE');
         }
         
         // 🔴 优化：使用配置的移动速度，确保匀速移动

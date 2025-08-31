@@ -128,59 +128,59 @@ Character.prototype.setupRoleProperties = function () {
 
     switch (this.role) {
         case ROLE.MAIN: // 主人物
-            this.hp = Math.round(100 * (difficultyConfig ? difficultyConfig.PLAYER_HP_BONUS : 1));
-            this.maxHp = this.hp; // 🔴 新增：设置最大血量
-            this.attack = combatConfig ? (combatConfig.DEFAULT_ATTACK || 10) : 10;
+            this.hp = 100; // 固定血量100
+            this.maxHp = this.hp;
+            this.attack = 10; // 固定攻击力10
             this.weapon = WEAPON.NONE;
-            this.attackRange = combatConfig ? (combatConfig.MAX_ATTACK_RANGE || 120) : 120;
+            this.attackRange = 10; // 固定攻击范围10px
             this.icon = '👤';
             break;
 
         case ROLE.POLICE: // 警察
-            this.hp = Math.round(80 * (difficultyConfig ? difficultyConfig.PLAYER_HP_BONUS : 1));
-            this.attack = combatConfig ? (combatConfig.DEFAULT_ATTACK || 10) : 10;
+            this.hp = 100; // 固定血量100
+            this.attack = 10; // 固定攻击力10
             this.weapon = WEAPON.NONE;
-            this.attackRange = combatConfig ? (combatConfig.POLICE_ATTACK_RANGE || 100) : 100;
+            this.attackRange = 10; // 固定攻击范围10px
             this.icon = '👮';
             break;
 
         case ROLE.CIVILIAN: // 平民
-            this.hp = Math.round(50 * (difficultyConfig ? difficultyConfig.PLAYER_HP_BONUS : 1));
-            this.attack = combatConfig ? (combatConfig.DEFAULT_ATTACK || 5) : 5;
+            this.hp = 100; // 固定血量100
+            this.attack = 10; // 固定攻击力10
             this.weapon = WEAPON.NONE;
-            this.attackRange = combatConfig ? combatConfig.MIN_ATTACK_RANGE : 60;
+            this.attackRange = 10; // 固定攻击范围10px
             this.icon = '👨';
             break;
 
         case ROLE.DOCTOR: // 医生
-            this.hp = Math.round(60 * (difficultyConfig ? difficultyConfig.PLAYER_HP_BONUS : 1));
-            this.attack = combatConfig ? (combatConfig.DEFAULT_ATTACK || 5) : 5;
+            this.hp = 100; // 固定血量100
+            this.attack = 10; // 固定攻击力10
             this.weapon = WEAPON.NONE;
-            this.attackRange = combatConfig ? (combatConfig.DOCTOR_ATTACK_RANGE || 80) : 80;
+            this.attackRange = 10; // 固定攻击范围10px
             this.icon = '👨‍⚕️';
             break;
 
         case ROLE.NURSE: // 护士
-            this.hp = Math.round(55 * (difficultyConfig ? difficultyConfig.PLAYER_HP_BONUS : 1));
-            this.attack = combatConfig ? (combatConfig.DEFAULT_ATTACK || 5) : 5;
+            this.hp = 100; // 固定血量100
+            this.attack = 10; // 固定攻击力10
             this.weapon = WEAPON.NONE;
-            this.attackRange = combatConfig ? (combatConfig.NURSE_ATTACK_RANGE || 60) : 60;
+            this.attackRange = 10; // 固定攻击范围10px
             this.icon = '👩‍⚕️';
             break;
 
         case ROLE.CHEF: // 厨师
-            this.hp = Math.round(70 * (difficultyConfig ? difficultyConfig.PLAYER_HP_BONUS : 1));
-            this.attack = combatConfig ? (combatConfig.DEFAULT_ATTACK || 5) : 5;
+            this.hp = 100; // 固定血量100
+            this.attack = 10; // 固定攻击力10
             this.weapon = WEAPON.NONE;
-            this.attackRange = combatConfig ? (combatConfig.CHEF_ATTACK_RANGE || 70) : 70;
+            this.attackRange = 10; // 固定攻击范围10px
             this.icon = '👨‍🍳';
             break;
 
         default:
-            this.hp = Math.round(50 * (difficultyConfig ? difficultyConfig.PLAYER_HP_BONUS : 1));
-            this.attack = combatConfig ? (combatConfig.DEFAULT_ATTACK || 5) : 5;
+            this.hp = 100; // 固定血量100
+            this.attack = 10; // 固定攻击力10
             this.weapon = WEAPON.NONE;
-            this.attackRange = combatConfig ? combatConfig.MIN_ATTACK_RANGE : 60;
+            this.attackRange = 10; // 固定攻击范围10px
             this.icon = '❓';
     }
 };
@@ -220,10 +220,10 @@ Character.prototype.setupMainCharacterStateMachine = function () {
         return !this.hasJoystickInput() && !this.hasZombieInRange(50);
     });
 
-    sm.addTransition(MAIN_CHARACTER_STATES.MOVE, MAIN_CHARACTER_STATES.ATTACK, () => {
-        // 摇杆输入消失且50px内有僵尸
-        return !this.hasJoystickInput() && this.hasZombieInRange(50);
-    });
+    // 移除从移动状态到攻击状态的转换，移动时不允许自动攻击
+    // sm.addTransition(MAIN_CHARACTER_STATES.MOVE, MAIN_CHARACTER_STATES.ATTACK, () => {
+    //     return !this.hasJoystickInput() && this.hasZombieInRange(50);
+    // });
 
     // 攻击状态：摇杆有输入时立即打断攻击
     sm.addTransition(MAIN_CHARACTER_STATES.ATTACK, MAIN_CHARACTER_STATES.MOVE, () => {
@@ -432,13 +432,11 @@ Character.prototype.onEnterMove = function (stateData) {
 };
 
 Character.prototype.onUpdateMove = function (deltaTime, stateData) {
-    // 移动状态下的行为：处理移动逻辑（优先级最高）
+    // 移动状态下的行为：只处理移动逻辑，不进行攻击
     this.updateMovement(deltaTime);
-
-    // 移动中若攻击范围内有僵尸，播放攻击动画但不停止移动
-    if (this.hasZombieInRange(50)) {
-        this.playAttackAnimationWhileMoving(deltaTime);
-    }
+    
+    // 移动时不允许自动攻击，保持移动优先级
+    // 只有在停止移动且无摇杆输入时才会进入攻击状态
 };
 
 Character.prototype.onExitMove = function (stateData) {
@@ -531,8 +529,7 @@ Character.prototype.updateAttack = function (deltaTime) {
 
     // 检查攻击冷却
     this.attackCooldown += deltaTime;
-    var combatConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT') : null;
-    var attackInterval = combatConfig ? combatConfig.DEFAULT_ATTACK_INTERVAL : 1.0; // 从配置读取攻击间隔
+    var attackInterval = 0.5; // 固定攻击间隔0.5秒
 
     if (this.attackCooldown >= attackInterval) {
         // 执行攻击
@@ -583,7 +580,7 @@ Character.prototype.findAttackTarget = function () {
         var zombie = zombies[i];
         var distance = mathUtils.distance(this.x, this.y, zombie.x, zombie.y);
 
-        if (distance <= this.attackRange && distance < closestDistance) {
+        if (distance <= 10 && distance < closestDistance) { // 固定攻击范围10px
             closestDistance = distance;
             closestZombie = zombie;
         }
@@ -617,8 +614,8 @@ Character.prototype.isAttackTargetValid = function () {
     var mathUtils = UtilsManager.getMathUtils();
     var distance = mathUtils.distance(this.x, this.y, this.attackTarget.x, this.attackTarget.y);
 
-    if (distance > this.attackRange) {
-        console.log('主人物攻击目标超出范围，距离:', distance, '攻击范围:', this.attackRange);
+    if (distance > 10) { // 固定攻击范围10px
+        console.log('主人物攻击目标超出范围，距离:', distance, '攻击范围: 10px');
         this.attackTarget = null;
         return false;
     }
@@ -635,7 +632,7 @@ Character.prototype.moveToAttackRange = function () {
 
     var mathUtils = UtilsManager.getMathUtils();
     var distance = mathUtils.distance(this.x, this.y, this.attackTarget.x, this.attackTarget.y);
-    var targetDistance = this.attackRange - 5;
+    var targetDistance = 5; // 固定攻击距离5px（10px攻击范围减去5px缓冲）
 
     if (distance > targetDistance) {
         var angle = mathUtils.angle(this.x, this.y, this.attackTarget.x, this.attackTarget.y);
@@ -1180,7 +1177,7 @@ Character.prototype.updateMainCharacter = function (deltaTime) {
         return; // 进入死亡状态后不再执行其他逻辑
     }
     
-    // 然后检查摇杆输入并设置移动目标
+    // 🔴 核心：优先检查摇杆输入，确保移动优先级最高
     this.checkJoystickInput();
 
     // 更新状态机
@@ -1234,13 +1231,14 @@ Character.prototype.checkJoystickInput = function () {
         var targetX = this.x + direction.x * moveDistance;
         var targetY = this.y + direction.y * moveDistance;
 
-
         // 设置移动目标并激活移动状态
         this.setMoveTarget(targetX, targetY);
         this.isMoving = true;
         this.status = STATUS.MOVING;
 
+        // 🔴 核心：强制状态机进入移动状态，打断任何其他状态（包括攻击状态）
         if (this.stateMachine && this.stateMachine.currentState !== MAIN_CHARACTER_STATES.MOVE) {
+            console.log('🔴 摇杆输入检测到，强制切换到移动状态，打断当前状态:', this.stateMachine.currentState);
             this.stateMachine.forceState(MAIN_CHARACTER_STATES.MOVE);
         }
     }

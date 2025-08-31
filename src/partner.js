@@ -123,10 +123,10 @@ Partner.prototype.setupRoleProperties = function () {
 
     switch (this.role) {
         case PARTNER_ROLE.POLICE:
-            this.hp = Math.round(80 * (difficultyConfig ? difficultyConfig.PLAYER_HP_BONUS : 1));
+            this.hp = 100; // 固定血量100
             this.maxHp = this.hp;
-            this.attack = combatConfig ? (combatConfig.DEFAULT_ATTACK || 10) : 10;
-            this.attackRange = 20; // 警察攻击范围20px
+            this.attack = 10; // 固定攻击力10
+            this.attackRange = 10; // 固定攻击范围10px
             this.detectionRange = 100; // 检测范围100px
             this.icon = '👮';
             this.color = '#2c3e50';
@@ -134,10 +134,10 @@ Partner.prototype.setupRoleProperties = function () {
             break;
 
         case PARTNER_ROLE.CIVILIAN:
-            this.hp = Math.round(50 * (difficultyConfig ? difficultyConfig.PLAYER_HP_BONUS : 1));
+            this.hp = 100; // 固定血量100
             this.maxHp = this.hp;
-            this.attack = combatConfig ? (combatConfig.DEFAULT_ATTACK || 5) : 5;
-            this.attackRange = 15;
+            this.attack = 10; // 固定攻击力10
+            this.attackRange = 10; // 固定攻击范围10px
             this.detectionRange = 100;
             this.icon = '👨';
             this.color = '#95a5a6';
@@ -145,10 +145,10 @@ Partner.prototype.setupRoleProperties = function () {
             break;
 
         case PARTNER_ROLE.DOCTOR:
-            this.hp = Math.round(60 * (difficultyConfig ? difficultyConfig.PLAYER_HP_BONUS : 1));
+            this.hp = 100; // 固定血量100
             this.maxHp = this.hp;
-            this.attack = combatConfig ? (combatConfig.DEFAULT_ATTACK || 5) : 5;
-            this.attackRange = 18;
+            this.attack = 10; // 固定攻击力10
+            this.attackRange = 10; // 固定攻击范围10px
             this.detectionRange = 100;
             this.icon = '👨‍⚕️';
             this.color = '#e74c3c';
@@ -156,10 +156,10 @@ Partner.prototype.setupRoleProperties = function () {
             break;
 
         case PARTNER_ROLE.NURSE:
-            this.hp = Math.round(55 * (difficultyConfig ? difficultyConfig.PLAYER_HP_BONUS : 1));
+            this.hp = 100; // 固定血量100
             this.maxHp = this.hp;
-            this.attack = combatConfig ? (combatConfig.DEFAULT_ATTACK || 5) : 5;
-            this.attackRange = 16;
+            this.attack = 10; // 固定攻击力10
+            this.attackRange = 10; // 固定攻击范围10px
             this.detectionRange = 100;
             this.icon = '👩‍⚕️';
             this.color = '#e91e63';
@@ -167,10 +167,10 @@ Partner.prototype.setupRoleProperties = function () {
             break;
 
         case PARTNER_ROLE.CHEF:
-            this.hp = Math.round(70 * (difficultyConfig ? difficultyConfig.PLAYER_HP_BONUS : 1));
+            this.hp = 100; // 固定血量100
             this.maxHp = this.hp;
-            this.attack = combatConfig ? (combatConfig.DEFAULT_ATTACK || 5) : 5;
-            this.attackRange = 17;
+            this.attack = 10; // 固定攻击力10
+            this.attackRange = 10; // 固定攻击范围10px
             this.detectionRange = 100;
             this.icon = '👨‍🍳';
             this.color = '#f39c12';
@@ -178,10 +178,10 @@ Partner.prototype.setupRoleProperties = function () {
             break;
 
         default:
-            this.hp = Math.round(50 * (difficultyConfig ? difficultyConfig.PLAYER_HP_BONUS : 1));
+            this.hp = 100; // 固定血量100
             this.maxHp = this.hp;
-            this.attack = combatConfig ? (combatConfig.DEFAULT_ATTACK || 5) : 5;
-            this.attackRange = 15;
+            this.attack = 10; // 固定攻击力10
+            this.attackRange = 10; // 固定攻击范围10px
             this.detectionRange = 100;
             this.icon = '❓';
             this.color = '#95a5a6';
@@ -455,11 +455,10 @@ Partner.prototype.updateAttack = function (deltaTime) {
 
     var distance = this.getDistanceTo(this.attackTarget.x, this.attackTarget.y);
 
-    if (distance <= this.attackRange) {
+    if (distance <= 10) { // 固定攻击范围10px
         // 在攻击范围内，执行攻击
         this.attackCooldown += deltaTime;
-        var combatConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT') : null;
-        var attackInterval = combatConfig ? combatConfig.DEFAULT_ATTACK_INTERVAL : 1.0;
+        var attackInterval = 0.5; // 固定攻击间隔0.5秒
 
         if (this.attackCooldown >= attackInterval) {
             this.performAttack();
@@ -508,7 +507,7 @@ Partner.prototype.moveToAttackRange = function () {
     if (!this.attackTarget || this.attackTarget.hp <= 0) return;
 
     var distance = this.getDistanceTo(this.attackTarget.x, this.attackTarget.y);
-    var targetDistance = this.attackRange - 2;
+    var targetDistance = 8; // 固定攻击距离8px（10px攻击范围减去2px缓冲）
 
     if (distance > targetDistance) {
         var angle = Math.atan2(this.attackTarget.y - this.y, this.attackTarget.x - this.x);
