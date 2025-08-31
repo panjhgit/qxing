@@ -132,21 +132,25 @@ Zombie.prototype.update = function(deltaTime, characters, currentFrame = 0) {
         }
     }
     
-    // 🔴 修复：使用统一的更新间隔，确保所有僵尸都有均匀的更新频率
+    // 🔴 修复：简化更新逻辑，确保僵尸不会卡住
     if (!this._updateFrame) this._updateFrame = 0;
     this._updateFrame++;
     
     // 总是更新动画
     this.updateAnimation(deltaTime);
     
-    // 🔴 修复：使用固定的更新间隔，避免僵尸更新不均匀
+    // 🔴 修复：简化更新间隔检查，确保僵尸能正常更新
     var performanceConfig = ConfigManager.get('PERFORMANCE.OPTIMIZATION');
     var fixedUpdateInterval = performanceConfig ? performanceConfig.ZOMBIE_UPDATE_INTERVAL : 2;
     var shouldUpdateAI = this._updateFrame % fixedUpdateInterval === 0;
     
-    // 如果不在更新间隔，只更新动画和基础逻辑
+    // 即使不在更新间隔，也要执行基本的状态检查
     if (!shouldUpdateAI) {
-        // 🔴 新增：即使不在更新间隔，也要检查目标有效性
+        // 🔴 新增：确保僵尸不会卡在某个状态
+        if (this.state === ZOMBIE_STATE.IDLE) {
+            this.idleBehavior(deltaTime);
+        }
+        // 🔴 新增：检查目标有效性
         if (this.targetCharacter && !this.isTargetValid()) {
             this.findNearestEnemy();
         }
@@ -260,7 +264,10 @@ Zombie.prototype.chaseTarget = function(deltaTime) {
         return;
     }
     
-    if (distance > this.detectionRange) {
+    var zombieBehaviorConfig = ConfigManager.get('ZOMBIE.BEHAVIOR');
+    var activationDistance = zombieBehaviorConfig.ACTIVATION_DISTANCE;
+    
+    if (distance > activationDistance) {
         this.state = ZOMBIE_STATE.IDLE;
         return;
     }
@@ -355,21 +362,23 @@ Zombie.prototype.checkCollision = function(fromX, fromY, toX, toY) {
 
 // 待机行为
 Zombie.prototype.idleBehavior = function(deltaTime) {
-    var detectionConfig = ConfigManager.get('DETECTION');
-    var mainCharacterPriorityRange = detectionConfig.SPECIAL_DETECTION.MAIN_CHARACTER_PRIORITY_RANGE;
+    var zombieBehaviorConfig = ConfigManager.get('ZOMBIE.BEHAVIOR');
+    var activationDistance = zombieBehaviorConfig.ACTIVATION_DISTANCE; // 使用激活距离
     
-    // 检查主人物
+    // 🔴 修复：检查主人物，确保700px范围内的僵尸都能追击
     if (window.characterManager && window.characterManager.getAllCharacters) {
         var allCharacters = window.characterManager.getAllCharacters();
         var mainCharacter = allCharacters.find(c => c.role === 1 && c.hp > 0);
         
         if (mainCharacter) {
             var distance = this.getDistanceTo(mainCharacter.x, mainCharacter.y);
-            if (distance <= mainCharacterPriorityRange) {
+            // 🔴 修复：使用激活距离而不是主人物优先检测范围
+            if (distance <= activationDistance) {
                 this.targetCharacter = mainCharacter;
                 this.targetX = mainCharacter.x;
                 this.targetY = mainCharacter.y;
                 this.state = ZOMBIE_STATE.CHASING;
+                console.log('🧟‍♂️ 僵尸从待机状态开始追击:', this.id, '距离:', distance);
                 return;
             }
         }
@@ -479,8 +488,11 @@ Zombie.prototype.isTargetValid = function() {
     }
     
     var distance = this.getDistanceTo(this.targetCharacter.x, this.targetCharacter.y);
+    var zombieBehaviorConfig = ConfigManager.get('ZOMBIE.BEHAVIOR');
+    var activationDistance = zombieBehaviorConfig.ACTIVATION_DISTANCE;
     
-    if (distance > this.detectionRange) {
+    // 🔴 修复：使用激活距离而不是检测范围，避免僵尸轻易丢失目标
+    if (distance > activationDistance * 1.5) { // 扩展50%的缓冲范围
         this.targetCharacter = null;
         this.targetX = this.x;
         this.targetY = this.y;
@@ -499,14 +511,15 @@ Zombie.prototype.updateActivationStatus = function(playerX, playerY) {
     this.isActive = distance <= zombieBehaviorConfig.ACTIVATION_DISTANCE;
     
     if (this.isActive) {
-        this.updateInterval = zombieBehaviorConfig.ACTIVE_UPDATE_INTERVAL;
-        if (this.state === ZOMBIE_STATE.IDLE && this.targetCharacter) {
+        // 🔴 修复：确保700px范围内的僵尸都能追击人物
+        if (this.state === ZOMBIE_STATE.IDLE) {
             this.state = ZOMBIE_STATE.CHASING;
+            console.log('🧟‍♂️ 僵尸激活，开始追击:', this.id, '距离:', distance);
         }
         return true;
     } else {
-        this.updateInterval = zombieBehaviorConfig.IDLE_UPDATE_INTERVAL;
-        return false;
+        // 🔴 修复：即使未激活也继续更新，不要强制停止
+        return true;
     }
 };
 
