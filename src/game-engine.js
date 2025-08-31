@@ -1383,15 +1383,13 @@ GameEngine.prototype.render = function() {
             this.viewSystem.renderDebugInfo();
         } else {
             // 回退到原来的渲染方法
-            if (this.mapSystem && this.mapSystem.render) {
-                this.mapSystem.render();
-            }
+            console.warn('⚠️ viewSystem未初始化，使用回退渲染方法');
             this.renderJoystick();
         }
     } else if (this.gameState === 'menu') {
         // 渲染菜单
-        if (this.menuSystem && this.menuSystem.renderMenu) {
-            this.menuSystem.renderMenu();
+        if (this.menuSystem && this.menuSystem.renderGameMenu) {
+            this.menuSystem.renderGameMenu();
         }
     }
 };

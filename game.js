@@ -1,13 +1,12 @@
 // 导入模块
 import eventPrototype from './src/event.js';
-import { MapRenderer } from './src/maps/map-renderer.js';
 import MapManager from './src/maps/map-manager.js';
 import menuPrototype from './src/menu.js';
 import {CharacterManager} from './src/character.js';
 import {ZombieManager} from './src/zombie.js';
 import {PartnerManager} from './src/partner.js';
 import GameEngine from './src/game-engine.js';
-import ViewSystem from './src/view.js';
+import ViewSystem from './src/view/index.js';
 import CollisionSystem from './src/obj/collision.js';
 import objectPoolManager from './src/obj/object-pool.js';
 import memoryMonitor from './src/obj/memory-optimization.js';
@@ -20,6 +19,25 @@ let systemInfo = tt.getSystemInfoSync();
 let canvas = tt.createCanvas(), ctx = canvas.getContext('2d');
 canvas.width = systemInfo.windowWidth;
 canvas.height = systemInfo.windowHeight;
+
+// 设置canvas渲染质量，避免模糊
+ctx.imageSmoothingEnabled = false;
+ctx.mozImageSmoothingEnabled = false;
+ctx.webkitImageSmoothingEnabled = false;
+ctx.msImageSmoothingEnabled = false;
+
+// 测试配置路径
+if (window.ConfigManager && window.ConfigManager.get) {
+    try {
+        const zoomValue = window.ConfigManager.get('PERFORMANCE.OPTIMIZATION.CAMERA.ZOOM');
+        console.log('✅ 配置路径测试成功，ZOOM值:', zoomValue);
+    } catch (error) {
+        console.error('❌ 配置路径测试失败:', error.message);
+        console.log('可用的配置路径示例:');
+        console.log('- PERFORMANCE.OPTIMIZATION.RENDER_DISTANCE');
+        console.log('- MOVEMENT.CHARACTER_MOVE_SPEED');
+    }
+}
 
 // 第一阶段：只初始化菜单系统
 let menuSystem = null;
@@ -603,10 +621,10 @@ function initMapSystem() {
 // 继续地图系统初始化的后续步骤
 function continueMapSystemInit() {
     try {
-        // 第三步：创建地图渲染器
-        console.log('🎨 步骤3: 创建地图渲染器');
-        mapSystem = new MapRenderer(canvas, ctx);
-        mapSystem.init('city'); // 立即初始化地图渲染器
+        // 第三步：初始化地图管理器
+        console.log('🗺️ 步骤3: 初始化地图管理器');
+        mapSystem = MapManager;
+        mapSystem.init('city'); // 立即初始化地图管理器
         
         // 第四步：等待建筑物数据生成完成
         console.log('⏳ 步骤4: 等待建筑物数据生成完成');
@@ -748,13 +766,17 @@ function performInitialRendering() {
     console.log('🎨 开始执行初始渲染...');
     
     try {
-        // 第一步：渲染地图
-        console.log('🗺️ 渲染地图...');
-        if (mapSystem && mapSystem.render) {
-            mapSystem.render();
-            console.log('✅ 地图渲染完成');
-            
-
+        // 第一步：验证地图系统
+        console.log('🗺️ 验证地图系统...');
+        if (mapSystem && mapSystem.getCurrentMap) {
+            const currentMap = mapSystem.getCurrentMap();
+            if (currentMap) {
+                console.log('✅ 地图系统验证完成，当前地图:', currentMap.id);
+            } else {
+                throw new Error('无法获取当前地图');
+            }
+        } else {
+            throw new Error('地图系统未正确初始化');
         }
         
 
@@ -902,9 +924,9 @@ function startGameLoop() {
                 }
             } else if (gameEngine.gameState === 'menu') {
                 // 渲染菜单
-                if (menuSystem && menuSystem.renderMenu) {
-                    menuSystem.renderMenu();
-                }
+                        if (menuSystem && menuSystem.renderGameMenu) {
+            menuSystem.renderGameMenu();
+        }
             }
         } catch (error) {
             console.error('游戏循环执行错误:', error);

@@ -280,7 +280,15 @@ const GAME_CONFIG = {
             // 渲染优化
             RENDER_DISTANCE: 1500,       // 渲染距离限制
             CULLING_ENABLED: true,       // 启用视锥剔除
-            LOD_ENABLED: true            // 启用细节层次
+            LOD_ENABLED: true,           // 启用细节层次
+            
+            // 摄像机配置
+            CAMERA: {
+                ZOOM: 0.7,               // 摄像机缩放比例
+                FOLLOW_SPEED: 0.1,       // 跟随速度
+                MIN_ZOOM: 0.3,           // 最小缩放
+                MAX_ZOOM: 1.2            // 最大缩放
+            }
         }
     }
 };

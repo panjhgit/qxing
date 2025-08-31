@@ -68,6 +68,9 @@ export const MapManager = {
             stats: this.calculateMapStats(mapDefinition)
         };
 
+        // 生成建筑物和可通行区域数据
+        this.generateMapData();
+
         // 标记为已加载
         this.currentMap.isLoaded = true;
         this.currentMap.loadTime = Date.now();
@@ -163,6 +166,108 @@ export const MapManager = {
         stats.uniqueBuildings = Object.keys(stats.buildingCounts).length;
 
         return stats;
+    },
+
+    /**
+     * 生成地图数据（建筑物和可通行区域）
+     */
+    generateMapData: function() {
+        if (!this.currentMap || !this.currentMap.matrix || !this.currentMap.buildingTypes) {
+            console.error('❌ 无法生成地图数据：缺少必要的地图信息');
+            return;
+        }
+
+        console.log('🚀 ===== 开始生成地图数据 =====');
+        
+        const matrix = this.currentMap.matrix;
+        const buildingTypes = this.currentMap.buildingTypes;
+        const cellSize = this.currentMap.config.cellSize || 50;
+
+        // 初始化建筑物和可通行区域数组
+        this.currentMap.buildings = [];
+        this.currentMap.walkableAreas = [];
+
+        console.log('解析参数:', {
+            cellSize: cellSize,
+            matrixRows: matrix.length,
+            matrixCols: matrix[0].length,
+            buildingTypesCount: Object.keys(buildingTypes).length
+        });
+
+        // 遍历矩阵，解析建筑物和可通行区域
+        for (let row = 0; row < matrix.length; row++) {
+            for (let col = 0; col < matrix[row].length; col++) {
+                const cellValue = matrix[row][col];
+                
+                if (cellValue === 0) {
+                    // 可通行区域
+                    this.addWalkableArea(row, col, cellSize);
+                } else if (buildingTypes[cellValue]) {
+                    // 建筑物
+                    this.addBuilding(row, col, cellValue, buildingTypes[cellValue], cellSize);
+                }
+            }
+        }
+
+        console.log('✅ 地图数据生成完成');
+        console.log('建筑物数量:', this.currentMap.buildings.length);
+        console.log('可通行区域数量:', this.currentMap.walkableAreas.length);
+    },
+
+    /**
+     * 添加可通行区域
+     * @param {number} row - 矩阵行
+     * @param {number} col - 矩阵列
+     * @param {number} cellSize - 单元格大小
+     */
+    addWalkableArea: function(row, col, cellSize) {
+        const worldX = col * cellSize + cellSize / 2;
+        const worldY = row * cellSize + cellSize / 2;
+        
+        this.currentMap.walkableAreas.push({
+            x: worldX,
+            y: worldY,
+            width: cellSize,
+            height: cellSize,
+            bounds: {
+                left: worldX - cellSize / 2,
+                top: worldY - cellSize / 2,
+                right: worldX + cellSize / 2,
+                bottom: worldY + cellSize / 2
+            }
+        });
+    },
+
+    /**
+     * 添加建筑物
+     * @param {number} row - 矩阵行
+     * @param {number} col - 矩阵列
+     * @param {number} buildingTypeId - 建筑类型ID
+     * @param {Object} buildingType - 建筑类型配置
+     * @param {number} cellSize - 单元格大小
+     */
+    addBuilding: function(row, col, buildingTypeId, buildingType, cellSize) {
+        const worldX = col * cellSize + cellSize / 2;
+        const worldY = row * cellSize + cellSize / 2;
+        
+        const buildingWidth = buildingType.width || cellSize;
+        const buildingHeight = buildingType.height || cellSize;
+        
+        this.currentMap.buildings.push({
+            x: worldX,
+            y: worldY,
+            width: buildingWidth,
+            height: buildingHeight,
+            type: buildingType.name || '未知建筑',
+            color: buildingType.color || '#8B4513',
+            icon: buildingType.icon || '🏠',
+            bounds: {
+                left: worldX - buildingWidth / 2,
+                top: worldY - buildingHeight / 2,
+                right: worldX + buildingWidth / 2,
+                bottom: worldY + buildingHeight / 2
+            }
+        });
     }
 };
 
