@@ -468,9 +468,9 @@ function createMainCharacter() {
             // 使用碰撞系统生成安全的随机位置
             var safePosition = null;
             if (window.collisionSystem && window.collisionSystem.generateGameSafePosition) {
-                // 尝试在南部公园区生成安全位置
+                // 尝试在地图中心区域生成安全位置
                 safePosition = window.collisionSystem.generateGameSafePosition(
-                    5000, 9600,  // 南部公园区中心
+                    2000, 2000,  // 地图中心区域
                     100, 500,    // 最小距离100，最大距离500
                     32, 48,      // 主人物尺寸
                     16           // 安全半径
@@ -482,8 +482,8 @@ function createMainCharacter() {
                     throw new Error('安全位置生成失败');
                 }
             } else {
-                // 备用位置：南部公园区
-                safePosition = {x: 5000, y: 9600, success: true};
+                // 备用位置：地图中心
+                safePosition = {x: 2000, y: 2000, success: true};
             }
             
             mainChar = window.characterManager.createMainCharacter(safePosition.x, safePosition.y);

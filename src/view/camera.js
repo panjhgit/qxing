@@ -49,11 +49,16 @@ export class Camera {
 
     // 跟随目标
     followTarget(targetX, targetY) {
-        console.log('摄像机跟随目标:', targetX, targetY);
+        console.log('🔍 摄像机跟随目标:', targetX, targetY);
+        console.log('🔍 摄像机当前位置:', this.x, this.y);
+        console.log('🔍 地图边界:', this.mapWidth, 'x', this.mapHeight);
+        console.log('🔍 屏幕尺寸:', this.screenWidth, 'x', this.screenHeight);
+        console.log('🔍 缩放比例:', this.zoom);
+        
         this.x = targetX;
         this.y = targetY;
         this.constrainToMap();
-        console.log('摄像机位置已更新为:', this.x, this.y);
+        console.log('🔍 摄像机位置已更新为:', this.x, this.y);
     }
 
     // 更新摄像机位置

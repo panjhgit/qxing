@@ -55,6 +55,15 @@ export class EntityRenderer {
         const worldX = character.x;
         const worldY = character.y;
 
+        console.log('👤 渲染主人物:', {
+            id: character.id,
+            role: character.role,
+            worldX: worldX,
+            worldY: worldY,
+            width: character.width,
+            height: character.height
+        });
+
         // 绘制阴影
         this.renderShadow(worldX, worldY, character.width / 2, 4, 0.3);
 

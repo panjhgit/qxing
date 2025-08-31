@@ -76,7 +76,24 @@ export class UIRenderer {
      * @returns {boolean} 是否渲染成功
      */
     renderJoystickUI(joystick) {
-        if (!joystick || !joystick.isVisible) return false;
+        if (!joystick || !joystick.isVisible) {
+            console.log('🔴 摇杆渲染失败: 摇杆不可见或不存在', {
+                joystick: !!joystick,
+                isVisible: joystick ? joystick.isVisible : false
+            });
+            return false;
+        }
+
+        console.log('🔴 开始渲染摇杆:', {
+            centerX: joystick.centerX,
+            centerY: joystick.centerY,
+            outerRadius: joystick.outerRadius,
+            innerRadius: joystick.innerRadius,
+            joystickX: joystick.joystickX,
+            joystickY: joystick.joystickY,
+            isActive: joystick.isActive,
+            isDragging: joystick.isDragging
+        });
 
         // 绘制外圈
         this.ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
@@ -89,9 +106,18 @@ export class UIRenderer {
         this.ctx.lineWidth = 2;
         this.ctx.stroke();
 
-        // 计算内圈位置
-        const innerX = joystick.centerX + joystick.joystickX * joystick.outerRadius;
-        const innerY = joystick.centerY + joystick.joystickY * joystick.outerRadius;
+        // 🔴 修复：计算内圈位置（与原始摇杆渲染保持一致）
+        const innerX = joystick.centerX + joystick.joystickX;
+        const innerY = joystick.centerY + joystick.joystickY;
+
+        console.log('🔴 摇杆内圈位置:', {
+            innerX: innerX,
+            innerY: innerY,
+            centerX: joystick.centerX,
+            centerY: joystick.centerY,
+            joystickX: joystick.joystickX,
+            joystickY: joystick.joystickY
+        });
 
         // 绘制内圈
         this.ctx.fillStyle = joystick.isActive ? 'rgba(255, 255, 255, 0.9)' : 'rgba(255, 255, 255, 0.6)';
@@ -110,6 +136,22 @@ export class UIRenderer {
         this.ctx.arc(joystick.centerX, joystick.centerY, 3, 0, Math.PI * 2);
         this.ctx.fill();
 
+        // 🔴 新增：绘制方向指示器
+        if (joystick.isActive && (joystick.joystickX !== 0 || joystick.joystickY !== 0)) {
+            this.ctx.strokeStyle = 'rgba(255, 255, 0, 0.8)';
+            this.ctx.lineWidth = 3;
+            this.ctx.beginPath();
+            this.ctx.moveTo(joystick.centerX, joystick.centerY);
+            this.ctx.lineTo(innerX, innerY);
+            this.ctx.stroke();
+            
+            console.log('🔴 绘制方向指示器:', {
+                from: {x: joystick.centerX, y: joystick.centerY},
+                to: {x: innerX, y: innerY}
+            });
+        }
+
+        console.log('🔴 摇杆渲染完成');
         return true;
     }
 

@@ -656,10 +656,12 @@ Partner.prototype.checkCollisionWithMainCharacter = function () {
     var mathUtils = UtilsManager.getMathUtils();
     var distance = mathUtils.distance(this.x, this.y, mainChar.x, mainChar.y);
     
-    // 如果距离小于20px，认为发生碰撞
-    if (distance <= 20) {
-        console.log('伙伴与主角发生碰撞，距离:', distance);
-        // 状态机会自动处理状态转换
+    // 🔴 修复：增加碰撞检测距离到50px，确保能检测到碰撞
+    if (distance <= 50) {
+        console.log('🔴 伙伴与主角发生碰撞，距离:', distance);
+        
+        // 🔴 新增：碰撞后的特殊处理逻辑
+        this.handleCollisionWithMainCharacter(distance);
     }
 };
 
@@ -819,6 +821,125 @@ Partner.prototype.getHeadColor = function () {
     return '#fdbcb4'; // 肤色
 };
 
+// 🔴 新增：处理与主角碰撞的方法
+Partner.prototype.handleCollisionWithMainCharacter = function (distance) {
+    console.log('🔴 开始处理伙伴与主角的碰撞，当前状态:', this.status);
+    
+    // 确保伙伴已加入对象管理模块
+    this.ensureRegisteredInObjectManager();
+    
+    // 如果距离太近（小于30px），强制调整位置避免重叠
+    if (distance < 30) {
+        this.adjustPositionToAvoidOverlap();
+    }
+    
+    // 🔴 核心：确保跟随状态正确，跟随优先
+    if (this.status === PARTNER_STATE.INIT) {
+        // 如果还在初始状态，强制转换为跟随状态
+        if (this.stateMachine) {
+            this.stateMachine.forceState(PARTNER_STATE.FOLLOW);
+            console.log('🔴 碰撞后强制转换到跟随状态');
+        }
+    } else if (this.status !== PARTNER_STATE.FOLLOW) {
+        // 如果不在跟随状态，也强制转换到跟随状态（跟随优先）
+        if (this.stateMachine) {
+            this.stateMachine.forceState(PARTNER_STATE.FOLLOW);
+            console.log('🔴 碰撞后强制转换到跟随状态（从其他状态）');
+        }
+    }
+    
+    // 更新跟随点，确保跟随逻辑正确
+    this.calculateFollowPoint();
+    
+    // 标记伙伴为活跃状态
+    this.isActive = true;
+    this.isInitialState = false;
+    
+    console.log('🔴 碰撞处理完成，伙伴状态:', this.status);
+};
+
+// 🔴 新增：确保伙伴已注册到对象管理模块
+Partner.prototype.ensureRegisteredInObjectManager = function () {
+    if (!window.objectManager) {
+        console.error('🔴 对象管理器未初始化');
+        return;
+    }
+    
+    // 检查是否已经注册
+    var existingPartner = window.objectManager.getObject(this.id);
+    if (!existingPartner) {
+        // 如果未注册，则注册到对象管理器
+        window.objectManager.registerObject(this, 'partner', this.id);
+        console.log('🔴 伙伴已注册到对象管理器:', this.id);
+    } else {
+        console.log('🔴 伙伴已在对象管理器中注册:', this.id);
+    }
+};
+
+// 🔴 新增：调整位置避免重叠
+Partner.prototype.adjustPositionToAvoidOverlap = function () {
+    var mainChar = this.getMainCharacter();
+    if (!mainChar) return;
+    
+    var mathUtils = UtilsManager.getMathUtils();
+    var distance = mathUtils.distance(this.x, this.y, mainChar.x, mainChar.y);
+    
+    if (distance < 30) {
+        // 计算远离主角的方向
+        var angle = Math.atan2(this.y - mainChar.y, this.x - mainChar.x);
+        var targetDistance = 40; // 目标距离40px
+        
+        // 计算新位置
+        var newX = mainChar.x + Math.cos(angle) * targetDistance;
+        var newY = mainChar.y + Math.sin(angle) * targetDistance;
+        
+        // 检查新位置是否可行走
+        if (window.collisionSystem && window.collisionSystem.isPositionWalkable) {
+            if (window.collisionSystem.isPositionWalkable(newX, newY)) {
+                this.x = newX;
+                this.y = newY;
+                console.log('🔴 调整伙伴位置避免重叠:', this.x, this.y);
+            }
+        }
+    }
+};
+
+// 🔴 新增：调试方法，用于诊断跟随问题
+Partner.prototype.debugFollowStatus = function () {
+    var mainChar = this.getMainCharacter();
+    if (!mainChar) {
+        console.log('🔴 调试: 无法获取主人物');
+        return;
+    }
+    
+    var distance = this.getDistanceTo(mainChar.x, mainChar.y);
+    var isNearby = this.isMainCharacterNearby(50);
+    var isMoving = this.isMainCharacterMoving();
+    var followDistance = this.getDistanceTo(this.followPoint.x, this.followPoint.y);
+    
+    console.log('🔴 伙伴调试信息:', {
+        '伙伴ID': this.id,
+        '伙伴状态': this.status,
+        '距离主角': distance.toFixed(2),
+        '是否在附近(50px)': isNearby,
+        '主角是否移动': isMoving,
+        '距离跟随点': followDistance.toFixed(2),
+        '跟随点位置': {x: this.followPoint.x.toFixed(2), y: this.followPoint.y.toFixed(2)},
+        '伙伴位置': {x: this.x.toFixed(2), y: this.y.toFixed(2)},
+        '主角位置': {x: mainChar.x.toFixed(2), y: mainChar.y.toFixed(2)},
+        '是否活跃': this.isActive,
+        '是否初始状态': this.isInitialState
+    });
+};
+
+// 🔴 新增：强制跟随方法（用于测试）
+Partner.prototype.forceFollow = function () {
+    if (this.stateMachine) {
+        this.stateMachine.forceState(PARTNER_STATE.FOLLOW);
+        console.log('🔴 强制伙伴进入跟随状态');
+    }
+};
+
 // 伙伴管理器
 var PartnerManager = {
     partners: [], maxPartners: 10,
@@ -972,6 +1093,48 @@ var PartnerManager = {
         
         // 🔴 重构：对象已通过对象管理器销毁，无需从内部列表移除
         console.log('✅ 伙伴已通过对象管理器销毁:', partner.id);
+    },
+
+    // 🔴 新增：测试碰撞和跟随功能
+    testCollisionAndFollow: function () {
+        console.log('🔴 开始测试碰撞和跟随功能...');
+        
+        var partners = this.getAllPartners();
+        if (partners.length === 0) {
+            console.log('🔴 没有找到伙伴，无法测试');
+            return;
+        }
+        
+        var mainChar = window.characterManager ? window.characterManager.getMainCharacter() : null;
+        if (!mainChar) {
+            console.log('🔴 没有找到主人物，无法测试');
+            return;
+        }
+        
+        // 测试每个伙伴
+        partners.forEach((partner, index) => {
+            console.log(`🔴 测试伙伴${index + 1}:`, {
+                'ID': partner.id,
+                '状态': partner.status,
+                '位置': {x: partner.x.toFixed(2), y: partner.y.toFixed(2)},
+                '距离主角': partner.getDistanceTo(mainChar.x, mainChar.y).toFixed(2)
+            });
+            
+            // 调用调试方法
+            if (partner.debugFollowStatus) {
+                partner.debugFollowStatus();
+            }
+            
+            // 如果伙伴在INIT状态，尝试强制跟随
+            if (partner.status === PARTNER_STATE.INIT) {
+                console.log('🔴 伙伴在INIT状态，尝试强制跟随');
+                if (partner.forceFollow) {
+                    partner.forceFollow();
+                }
+            }
+        });
+        
+        console.log('🔴 碰撞和跟随功能测试完成');
     },
 
     // 在地图上生成伙伴

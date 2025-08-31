@@ -93,6 +93,14 @@ export class RenderManager {
 
     // 应用摄像机变换
     applyCameraTransform() {
+        console.log('🎨 应用相机变换:', {
+            cameraX: this.camera.x,
+            cameraY: this.camera.y,
+            canvasWidth: this.camera.canvas.width,
+            canvasHeight: this.camera.canvas.height,
+            zoom: this.camera.zoom
+        });
+        
         this.ctx.save();
         this.ctx.translate(this.camera.canvas.width / 2, this.camera.canvas.height / 2);
         this.ctx.scale(this.camera.zoom, this.camera.zoom);

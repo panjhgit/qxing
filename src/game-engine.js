@@ -268,6 +268,42 @@ TouchJoystick.prototype.getMoveDirection = function() {
     return this.moveDirection;
 };
 
+// 🔴 新增：测试摇杆渲染状态
+TouchJoystick.prototype.testRenderStatus = function() {
+    console.log('🔴 摇杆渲染状态测试:', {
+        isVisible: this.isVisible,
+        isActive: this.isActive,
+        isDragging: this.isDragging,
+        centerX: this.centerX,
+        centerY: this.centerY,
+        outerRadius: this.outerRadius,
+        innerRadius: this.innerRadius,
+        joystickX: this.joystickX,
+        joystickY: this.joystickY,
+        moveDirection: this.moveDirection,
+        canvas: this.canvas ? {
+            width: this.canvas.width,
+            height: this.canvas.height
+        } : 'null',
+        ctx: this.ctx ? 'available' : 'null'
+    });
+    
+    // 强制显示摇杆进行测试
+    if (!this.isVisible) {
+        console.log('🔴 强制显示摇杆进行测试');
+        this.show();
+    }
+    
+    // 模拟摇杆移动进行测试
+    this.joystickX = 30;
+    this.joystickY = 20;
+    this.isActive = true;
+    this.moveDirection.x = 0.5;
+    this.moveDirection.y = 0.3;
+    
+    console.log('🔴 摇杆测试状态已设置');
+};
+
 // 游戏引擎主类
 var GameEngine = function(canvas, ctx) {
     this.canvas = canvas;
@@ -882,6 +918,29 @@ GameEngine.prototype.renderJoystick = function() {
     }
 };
 
+// 🔴 新增：测试摇杆渲染
+GameEngine.prototype.testJoystickRender = function() {
+    console.log('🔴 开始测试摇杆渲染...');
+    
+    if (!this.joystick) {
+        console.error('🔴 摇杆未初始化');
+        return;
+    }
+    
+    if (!this.viewSystem) {
+        console.error('🔴 视觉系统未初始化');
+        return;
+    }
+    
+    // 测试摇杆状态
+    this.joystick.testRenderStatus();
+    
+    // 强制渲染摇杆
+    console.log('🔴 强制渲染摇杆...');
+    this.viewSystem.renderJoystick(this.joystick);
+    
+    console.log('🔴 摇杆渲染测试完成');
+};
 
 
 // 更新计时系统
