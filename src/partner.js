@@ -309,7 +309,6 @@ Partner.prototype.onEnterFollow = function (stateData) {
 
 Partner.prototype.onUpdateFollow = function (deltaTime, stateData) {
     // 跟随状态：追逐主人物侧后方跟随点
-    console.warn('🔴 伙伴在FOLLOW状态更新:', this.id, '当前状态:', this.status, '状态机状态:', this.stateMachine.currentState);
     this.updateFollowMovement(deltaTime);
     this.updateAnimation(deltaTime);
 };
@@ -371,23 +370,18 @@ Partner.prototype.updateFollowMovement = function (deltaTime) {
     // 移动到跟随点
     var distance = this.getDistanceTo(this.followPoint.x, this.followPoint.y);
 
-
-
     if (distance > 5) { // 距离跟随点超过5px才移动
         var angle = Math.atan2(this.followPoint.y - this.y, this.followPoint.x - this.x);
-        var moveDistance = this.moveSpeed * deltaTime;
+        var moveDistance = this.moveSpeed; // 🔴 修复：直接使用每帧的像素数，不使用deltaTime
 
         var newX = this.x + Math.cos(angle) * moveDistance;
         var newY = this.y + Math.sin(angle) * moveDistance;
-
-
 
         // 检查碰撞
         var finalPosition = this.checkCollision(this.x, this.y, newX, newY);
         if (finalPosition) {
             this.x = finalPosition.x;
             this.y = finalPosition.y;
-
         }
     }
 };
@@ -585,8 +579,6 @@ Partner.prototype.checkCollisionWithMainCharacter = function () {
     
     // 🔴 修复：增加碰撞检测距离到50px，确保能检测到碰撞
     if (distance <= 50) {
-        console.warn('🔴 伙伴与主角发生碰撞，距离:', distance);
-        
         // 🔴 新增：碰撞后的特殊处理逻辑
         this.handleCollisionWithMainCharacter(distance);
     }
@@ -743,8 +735,6 @@ Partner.prototype.getHeadColor = function () {
 
 // 🔴 新增：处理与主角碰撞的方法
 Partner.prototype.handleCollisionWithMainCharacter = function (distance) {
-    console.warn('🔴 开始处理伙伴与主角的碰撞，当前状态:', this.status);
-    
     // 确保伙伴已加入对象管理模块
     this.ensureRegisteredInObjectManager();
     
@@ -757,9 +747,6 @@ Partner.prototype.handleCollisionWithMainCharacter = function (distance) {
     if (this.status === PARTNER_STATE.INIT) {
         if (this.stateMachine) {
             this.stateMachine.forceState(PARTNER_STATE.FOLLOW);
-            console.warn('🔴 伙伴从INIT状态强制转换为FOLLOW状态');
-            
-
         }
     }
     
@@ -769,23 +756,20 @@ Partner.prototype.handleCollisionWithMainCharacter = function (distance) {
     // 标记伙伴为活跃状态
     this.isActive = true;
     this.isInitialState = false;
-    
-
 };
 
 // 🔴 新增：确保伙伴已注册到对象管理模块
 Partner.prototype.ensureRegisteredInObjectManager = function () {
     if (!window.objectManager) {
-        console.warn('🔴 对象管理器未初始化');
         return;
     }
     
-            // 检查是否已经注册
-        var existingPartner = window.objectManager.getObject(this.id);
-        if (!existingPartner) {
-            // 如果未注册，则注册到对象管理器
-            window.objectManager.registerObject(this, 'partner', this.id);
-        }
+    // 检查是否已经注册
+    var existingPartner = window.objectManager.getObject(this.id);
+    if (!existingPartner) {
+        // 如果未注册，则注册到对象管理器
+        window.objectManager.registerObject(this, 'partner', this.id);
+    }
 };
 
 // 🔴 新增：调整位置避免重叠
