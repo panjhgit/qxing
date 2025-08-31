@@ -36,16 +36,11 @@ const PARTNER_STATE = {
     IDLE: 'IDLE',           // 待机
     FOLLOW: 'FOLLOW',       // 跟随
     ATTACK: 'ATTACK',       // 攻击
-    AVOID: 'AVOID',         // 避障
+
     DIE: 'DIE'              // 死亡
 };
 
-// 避障策略枚举
-const AVOID_STRATEGY = {
-    SIDE_MOVE: 'SIDE_MOVE',     // 侧移
-    FORWARD_MOVE: 'FORWARD_MOVE', // 前移
-    BACKWARD_MOVE: 'BACKWARD_MOVE' // 后移
-};
+
 
 // 伙伴类
 var Partner = function (role, x, y) {
@@ -107,11 +102,7 @@ var Partner = function (role, x, y) {
     this.attackCooldown = 0;
     this.lastAttackTime = 0;
 
-    // 避障属性
-    this.avoidStrategy = AVOID_STRATEGY.SIDE_MOVE;
-    this.avoidTarget = {x: x, y: y};
-    this.avoidProgress = 0;
-    this.avoidDuration = 1.0; // 避障持续时间（秒）
+
 
     // 设置职业属性
     this.setupRoleProperties();
@@ -241,10 +232,7 @@ Partner.prototype.setupPartnerStateMachine = function () {
         return !this.isMainCharacterMoving() && this.hasZombieInRange(this.detectionRange);
     });
 
-    // FOLLOW -> AVOID: 检测到拥堵
-    sm.addTransition(PARTNER_STATE.FOLLOW, PARTNER_STATE.AVOID, () => {
-        return this.isCongested();
-    });
+
 
     // FOLLOW -> DIE: 血量归零
     sm.addTransition(PARTNER_STATE.FOLLOW, PARTNER_STATE.DIE, () => {
@@ -266,27 +254,14 @@ Partner.prototype.setupPartnerStateMachine = function () {
         return this.hp <= 0;
     });
 
-    // AVOID -> FOLLOW: 避障完成且主人物移动
-    sm.addTransition(PARTNER_STATE.AVOID, PARTNER_STATE.FOLLOW, () => {
-        return this.isAvoidanceComplete() && this.isMainCharacterMoving();
-    });
 
-    // AVOID -> ATTACK: 避障完成且主人物停止且有僵尸
-    sm.addTransition(PARTNER_STATE.AVOID, PARTNER_STATE.ATTACK, () => {
-        return this.isAvoidanceComplete() && !this.isMainCharacterMoving() && this.hasZombieInRange(this.detectionRange);
-    });
-
-    // AVOID -> DIE: 血量归零
-    sm.addTransition(PARTNER_STATE.AVOID, PARTNER_STATE.DIE, () => {
-        return this.hp <= 0;
-    });
 
     // 添加状态行为
     sm.addBehavior(PARTNER_STATE.INIT, this.onEnterInit.bind(this), this.onUpdateInit.bind(this), this.onExitInit.bind(this));
     sm.addBehavior(PARTNER_STATE.IDLE, this.onEnterIdle.bind(this), this.onUpdateIdle.bind(this), this.onExitIdle.bind(this));
     sm.addBehavior(PARTNER_STATE.FOLLOW, this.onEnterFollow.bind(this), this.onUpdateFollow.bind(this), this.onExitFollow.bind(this));
     sm.addBehavior(PARTNER_STATE.ATTACK, this.onEnterAttack.bind(this), this.onUpdateAttack.bind(this), this.onExitAttack.bind(this));
-    sm.addBehavior(PARTNER_STATE.AVOID, this.onEnterAvoid.bind(this), this.onUpdateAvoid.bind(this), this.onExitAvoid.bind(this));
+
     sm.addBehavior(PARTNER_STATE.DIE, this.onEnterDie.bind(this), this.onUpdateDie.bind(this), this.onExitDie.bind(this));
 };
 
@@ -329,10 +304,12 @@ Partner.prototype.onExitIdle = function (stateData) {
 Partner.prototype.onEnterFollow = function (stateData) {
     this.status = PARTNER_STATE.FOLLOW;
     this.isMoving = true;
+
 };
 
 Partner.prototype.onUpdateFollow = function (deltaTime, stateData) {
     // 跟随状态：追逐主人物侧后方跟随点
+    console.warn('🔴 伙伴在FOLLOW状态更新:', this.id, '当前状态:', this.status, '状态机状态:', this.stateMachine.currentState);
     this.updateFollowMovement(deltaTime);
     this.updateAnimation(deltaTime);
 };
@@ -359,23 +336,7 @@ Partner.prototype.onExitAttack = function (stateData) {
     this.attackTarget = null;
 };
 
-// AVOID状态
-Partner.prototype.onEnterAvoid = function (stateData) {
-    this.status = PARTNER_STATE.AVOID;
-    this.isMoving = true;
-    this.avoidProgress = 0;
-    this.calculateAvoidanceTarget();
-};
 
-Partner.prototype.onUpdateAvoid = function (deltaTime, stateData) {
-    // 避障状态：按避障策略移动
-    this.updateAvoidance(deltaTime);
-    this.updateAnimation(deltaTime);
-};
-
-Partner.prototype.onExitAvoid = function (stateData) {
-    this.isMoving = false;
-};
 
 // DIE状态
 Partner.prototype.onEnterDie = function (stateData) {
@@ -410,16 +371,7 @@ Partner.prototype.updateFollowMovement = function (deltaTime) {
     // 移动到跟随点
     var distance = this.getDistanceTo(this.followPoint.x, this.followPoint.y);
 
-    // 🔴 调试：输出跟随信息
-    console.warn('🔴 伙伴跟随调试:', {
-        partnerId: this.id,
-        partnerPos: {x: this.x, y: this.y},
-        followPoint: {x: this.followPoint.x, y: this.followPoint.y},
-        distance: distance,
-        moveSpeed: this.moveSpeed,
-        deltaTime: deltaTime,
-        shouldMove: distance > 5
-    });
+
 
     if (distance > 5) { // 距离跟随点超过5px才移动
         var angle = Math.atan2(this.followPoint.y - this.y, this.followPoint.x - this.x);
@@ -428,15 +380,14 @@ Partner.prototype.updateFollowMovement = function (deltaTime) {
         var newX = this.x + Math.cos(angle) * moveDistance;
         var newY = this.y + Math.sin(angle) * moveDistance;
 
+
+
         // 检查碰撞
         var finalPosition = this.checkCollision(this.x, this.y, newX, newY);
         if (finalPosition) {
             this.x = finalPosition.x;
             this.y = finalPosition.y;
-            console.warn('🔴 伙伴移动了:', {
-                from: {x: this.x - moveDistance * Math.cos(angle), y: this.y - moveDistance * Math.sin(angle)},
-                to: {x: this.x, y: this.y}
-            });
+
         }
     }
 };
@@ -474,15 +425,7 @@ Partner.prototype.calculateFollowPoint = function () {
     this.lastMainCharPosition.x = mainChar.x;
     this.lastMainCharPosition.y = mainChar.y;
     
-    // 🔴 调试：输出跟随点计算信息
-    console.warn('🔴 跟随点计算:', {
-        partnerId: this.id,
-        mainCharPos: {x: mainChar.x, y: mainChar.y},
-        followPoint: {x: this.followPoint.x, y: this.followPoint.y},
-        followAngle: this.followAngle,
-        followDistance: this.followDistance,
-        mainCharDirection: mainCharDirection
-    });
+
 };
 
 // 更新攻击
@@ -585,70 +528,9 @@ Partner.prototype.performAttack = function () {
     this.playAttackAnimation();
 };
 
-// 更新避障
-Partner.prototype.updateAvoidance = function (deltaTime) {
-    this.avoidProgress += deltaTime;
 
-    if (this.avoidProgress >= this.avoidDuration) {
-        // 避障完成
-        this.avoidProgress = this.avoidDuration;
-        return;
-    }
 
-    // 计算避障移动
-    var progress = this.avoidProgress / this.avoidDuration;
-    var easeProgress = this.easeInOutQuad(progress);
 
-    var newX = this.x + (this.avoidTarget.x - this.x) * easeProgress * deltaTime * 2;
-    var newY = this.y + (this.avoidTarget.y - this.y) * easeProgress * deltaTime * 2;
-
-    // 检查碰撞
-    var finalPosition = this.checkCollision(this.x, this.y, newX, newY);
-    if (finalPosition) {
-        this.x = finalPosition.x;
-        this.y = finalPosition.y;
-    }
-};
-
-// 计算避障目标
-Partner.prototype.calculateAvoidanceTarget = function () {
-    var mainChar = this.getMainCharacter();
-    if (!mainChar) return;
-
-    var mainCharDirection = this.getMainCharacterDirection();
-    var distance = this.getDistanceTo(mainChar.x, mainChar.y);
-
-    // 根据避障策略计算目标位置
-    switch (this.avoidStrategy) {
-        case AVOID_STRATEGY.SIDE_MOVE:
-            // 侧移：垂直于主人物移动方向
-            var perpendicularAngle = mainCharDirection + Math.PI / 2;
-            this.avoidTarget.x = this.x + Math.cos(perpendicularAngle) * 50;
-            this.avoidTarget.y = this.y + Math.sin(perpendicularAngle) * 50;
-            break;
-
-        case AVOID_STRATEGY.FORWARD_MOVE:
-            // 前移：在主人物移动方向前方
-            this.avoidTarget.x = this.x + Math.cos(mainCharDirection) * 50;
-            this.avoidTarget.y = this.y + Math.sin(mainCharDirection) * 50;
-            break;
-
-        case AVOID_STRATEGY.BACKWARD_MOVE:
-            // 后移：在主人物移动方向后方
-            this.avoidTarget.x = this.x + Math.cos(mainCharDirection + Math.PI) * 50;
-            this.avoidTarget.y = this.y + Math.sin(mainCharDirection + Math.PI) * 50;
-            break;
-    }
-
-    // 确保避障目标在可行走区域
-    if (window.collisionSystem && window.collisionSystem.isPositionWalkable) {
-        if (!window.collisionSystem.isPositionWalkable(this.avoidTarget.x, this.avoidTarget.y)) {
-            // 如果目标位置不可行走，尝试其他策略
-            this.avoidStrategy = AVOID_STRATEGY.SIDE_MOVE;
-            this.calculateAvoidanceTarget();
-        }
-    }
-};
 
 // ==================== 辅助方法 ====================
 
@@ -747,29 +629,9 @@ Partner.prototype.hasZombieInRange = function (range) {
     });
 };
 
-// 检查是否拥堵
-Partner.prototype.isCongested = function () {
-    var mainChar = this.getMainCharacter();
-    if (!mainChar) return false;
 
-    var distance = this.getDistanceTo(mainChar.x, mainChar.y);
-    var mainCharDirection = this.getMainCharacterDirection();
 
-    // 检查主人物移动方向是否朝向自身
-    var angleToMainChar = Math.atan2(mainChar.y - this.y, mainChar.x - this.x);
-    var angleDiff = Math.abs(angleToMainChar - mainCharDirection);
 
-    // 🔴 修复：从配置获取拥堵检测距离
-    var combatConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT') : null;
-    var congestionDistance = combatConfig ? combatConfig.MIN_ATTACK_RANGE : 100;
-    // 如果角度差小于90度且距离小于配置距离，认为拥堵
-    return angleDiff < Math.PI / 2 && distance < congestionDistance;
-};
-
-// 检查避障是否完成
-Partner.prototype.isAvoidanceComplete = function () {
-    return this.avoidProgress >= this.avoidDuration;
-};
 
 // 计算距离
 Partner.prototype.getDistanceTo = function (targetX, targetY) {
@@ -794,9 +656,7 @@ Partner.prototype.updateAnimation = function (deltaTime) {
         case PARTNER_STATE.ATTACK:
             adjustedSpeed = baseSpeed * 2.0;
             break;
-        case PARTNER_STATE.AVOID:
-            adjustedSpeed = baseSpeed * 1.8;
-            break;
+
         case PARTNER_STATE.DIE:
             adjustedSpeed = baseSpeed * 0.5;
             break;
@@ -898,6 +758,8 @@ Partner.prototype.handleCollisionWithMainCharacter = function (distance) {
         if (this.stateMachine) {
             this.stateMachine.forceState(PARTNER_STATE.FOLLOW);
             console.warn('🔴 伙伴从INIT状态强制转换为FOLLOW状态');
+            
+
         }
     }
     
@@ -908,14 +770,7 @@ Partner.prototype.handleCollisionWithMainCharacter = function (distance) {
     this.isActive = true;
     this.isInitialState = false;
     
-    // 🔴 调试：检查状态转换是否成功
-    setTimeout(() => {
-        console.warn('🔴 碰撞后状态检查:', {
-            partnerId: this.id,
-            status: this.status,
-            stateMachineState: this.stateMachine ? this.stateMachine.currentState : 'no state machine'
-        });
-    }, 100);
+
 };
 
 // 🔴 新增：确保伙伴已注册到对象管理模块
@@ -1258,6 +1113,6 @@ var PartnerManager = {
 };
 
 // 导出
-export {PARTNER_ROLE, PARTNER_STATE, AVOID_STRATEGY};
+export {PARTNER_ROLE, PARTNER_STATE};
 export {PartnerManager};
 export default Partner;

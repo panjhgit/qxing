@@ -17,7 +17,6 @@ const PARTNER_STATES = {
     IDLE: 'IDLE',           // 待机
     FOLLOW: 'FOLLOW',       // 跟随
     ATTACK: 'ATTACK',       // 攻击
-    AVOID: 'AVOID',         // 避障
     DIE: 'DIE'              // 死亡
 };
 

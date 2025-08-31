@@ -1195,6 +1195,7 @@ GameEngine.prototype.update = function() {
             var deltaTime = (currentTime - this.lastUpdateTime) / 1000;
             deltaTime = Math.min(deltaTime, 1/30);
             window.partnerManager.updateAllPartners(deltaTime);
+            this.lastUpdateTime = currentTime; // 🔴 修复：更新lastUpdateTime
         }
     
     // 更新动态障碍物
