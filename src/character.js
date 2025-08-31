@@ -1038,12 +1038,20 @@ var CharacterManager = {
 
         // 🔴 修复：重新设置移动速度，确保从对象池复用的角色有正确的速度
         var movementConfig = window.ConfigManager ? window.ConfigManager.get('MOVEMENT') : null;
+        var expectedSpeed = movementConfig ? movementConfig.CHARACTER_MOVE_SPEED : 4;
+        
         if (character.role === ROLE.MAIN) {
             // 主人物移动速度
-            character.moveSpeed = movementConfig ? movementConfig.CHARACTER_MOVE_SPEED : 4;
+            character.moveSpeed = expectedSpeed;
         } else {
             // 其他角色移动速度（如果有不同设置）
-            character.moveSpeed = movementConfig ? movementConfig.CHARACTER_MOVE_SPEED : 4;
+            character.moveSpeed = expectedSpeed;
+        }
+        
+        // 🔴 新增：验证移动速度
+        if (character.moveSpeed !== expectedSpeed) {
+            console.warn('⚠️ 角色移动速度不一致:', character.moveSpeed, 'vs', expectedSpeed);
+            character.moveSpeed = expectedSpeed;
         }
 
         // 重置状态机

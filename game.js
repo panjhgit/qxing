@@ -553,12 +553,18 @@ function initCharacterAndZombieSystems() {
         
         // 🔴 修复：先设置对象池管理器为全局变量，确保角色和僵尸管理器可以访问
         if (typeof window !== 'undefined') {
-                window.objectPoolManager = objectPoolManager;
-    window.memoryMonitor = memoryMonitor;
-    window.objectManager = objectManager;
-    window.objectHealthChecker = objectHealthChecker;
+            window.objectPoolManager = objectPoolManager;
+            window.memoryMonitor = memoryMonitor;
+            window.objectManager = objectManager;
+            window.objectHealthChecker = objectHealthChecker;
             window.ConfigManager = ConfigManager; // 🔴 修复：确保ConfigManager在角色创建前可用
         }
+        
+        // 🔴 新增：验证移动速度配置
+        console.log('🔍 验证移动速度配置:');
+        console.log('- CHARACTER_MOVE_SPEED:', ConfigManager.get('MOVEMENT.CHARACTER_MOVE_SPEED'));
+        console.log('- ZOMBIE_MOVE_SPEED:', ConfigManager.get('MOVEMENT.ZOMBIE_MOVE_SPEED'));
+        console.log('- PARTNER_MOVE_SPEED:', ConfigManager.get('MOVEMENT.PARTNER_MOVE_SPEED'));
         
         // 🔴 新增：验证对象管理器设置
         if (window.objectManager) {

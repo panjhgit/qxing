@@ -89,8 +89,8 @@ var Partner = function (role, x, y) {
     this.isMoving = false;
     this.targetX = x;
     this.targetY = y;
-    // 伙伴移动速度比主人物慢0.5px/帧，符合文档要求
-    this.moveSpeed = movementConfig ? (movementConfig.CHARACTER_MOVE_SPEED - 0.5) : 4.5;
+    // 伙伴移动速度 - 从配置获取
+    this.moveSpeed = movementConfig ? movementConfig.PARTNER_MOVE_SPEED : 4.5;
 
     // 🔴 修复：从配置获取跟随距离
     var combatConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT') : null;
@@ -1017,11 +1017,14 @@ var PartnerManager = {
         
         // 🔴 修复：重新设置移动速度，确保从对象池复用的伙伴有正确的速度
         var movementConfig = window.ConfigManager ? window.ConfigManager.get('MOVEMENT') : null;
-        if (movementConfig) {
-            // 伙伴移动速度比主人物慢0.5px/帧
-            partner.moveSpeed = movementConfig.CHARACTER_MOVE_SPEED - 0.5;
-        } else {
-            partner.moveSpeed = 3.5; // 备用默认速度
+        var expectedSpeed = movementConfig ? movementConfig.PARTNER_MOVE_SPEED : 4.5;
+        
+        partner.moveSpeed = expectedSpeed;
+        
+        // 🔴 新增：验证移动速度
+        if (partner.moveSpeed !== expectedSpeed) {
+            console.warn('⚠️ 伙伴移动速度不一致:', partner.moveSpeed, 'vs', expectedSpeed, '角色:', partner.role);
+            partner.moveSpeed = expectedSpeed;
         }
         
         // 重置状态机

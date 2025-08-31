@@ -124,21 +124,27 @@ Zombie.prototype.update = function(deltaTime, characters, currentFrame = 0) {
         return false;
     }
     
-    // 活性检查
+    // 活性检查 - 但不要完全跳过更新
     if (characters && characters.length > 0) {
         var mainCharacter = characters.find(c => c.role === 1);
-        if (mainCharacter && !this.updateActivationStatus(mainCharacter.x, mainCharacter.y)) {
-            return false;
+        if (mainCharacter) {
+            this.updateActivationStatus(mainCharacter.x, mainCharacter.y);
         }
     }
     
-    // 帧间隔更新
+    // 帧间隔更新 - 只影响AI逻辑，不影响动画
     if (!this._updateFrame) this._updateFrame = 0;
     this._updateFrame++;
     
-    if (this._updateFrame % this.updateInterval !== 0) {
-        this.updateAnimation(deltaTime);
-        return false;
+    // 🔴 修复：减少更新间隔对AI的影响
+    var shouldUpdateAI = this._updateFrame % this.updateInterval === 0;
+    
+    // 总是更新动画
+    this.updateAnimation(deltaTime);
+    
+    // 如果不在更新间隔，只更新动画
+    if (!shouldUpdateAI) {
+        return true;
     }
     
     // 寻找目标
@@ -163,7 +169,6 @@ Zombie.prototype.update = function(deltaTime, characters, currentFrame = 0) {
             break;
     }
     
-    this.updateAnimation(deltaTime);
     return true;
 };
 
@@ -249,7 +254,14 @@ Zombie.prototype.chaseTarget = function(deltaTime) {
         return;
     }
     
-    if (distance > this.detectionRange) {
+    // 🔴 修复：增加更宽松的检测范围检查，避免僵尸轻易丢失目标
+    var extendedDetectionRange = this.detectionRange * 1.5; // 扩展检测范围50%
+    
+    if (distance > extendedDetectionRange) {
+        // 只有在距离很远时才清除目标
+        this.targetCharacter = null;
+        this.targetX = this.x;
+        this.targetY = this.y;
         this.state = ZOMBIE_STATE.IDLE;
         return;
     }
@@ -485,17 +497,21 @@ Zombie.prototype.isTargetValid = function() {
 Zombie.prototype.updateActivationStatus = function(playerX, playerY) {
     var distance = this.getDistanceTo(playerX, playerY);
     var zombieBehaviorConfig = ConfigManager.get('ZOMBIE.BEHAVIOR');
+    var wasActive = this.isActive;
     this.isActive = distance <= zombieBehaviorConfig.ACTIVATION_DISTANCE;
     
     if (this.isActive) {
         this.updateInterval = zombieBehaviorConfig.ACTIVE_UPDATE_INTERVAL;
-        if (this.state === ZOMBIE_STATE.IDLE && this.targetCharacter) {
+        // 🔴 修复：只有在状态变化时才切换状态，避免频繁切换
+        if (this.state === ZOMBIE_STATE.IDLE && this.targetCharacter && !wasActive) {
             this.state = ZOMBIE_STATE.CHASING;
+            console.log('🧟‍♂️ 僵尸激活，开始追击:', this.id);
         }
         return true;
     } else {
         this.updateInterval = zombieBehaviorConfig.IDLE_UPDATE_INTERVAL;
-        return false;
+        // 🔴 修复：即使未激活也保持当前状态，不要强制切换到IDLE
+        return true; // 改为true，让僵尸继续更新
     }
 };
 
@@ -553,15 +569,25 @@ var ZombieManager = {
         // 🔴 修复：重新设置移动速度，确保从对象池复用的僵尸有正确的速度
         var movementConfig = window.ConfigManager ? window.ConfigManager.get('MOVEMENT') : null;
         var zombieConfig = window.ConfigManager ? window.ConfigManager.get('ZOMBIE') : null;
+        var expectedSpeed = 5; // 默认基础速度
+        
         if (movementConfig && zombieConfig && zombieConfig.TYPES && zombie.zombieType) {
             var zombieTypeConfig = zombieConfig.TYPES[zombie.zombieType.toUpperCase()];
             if (zombieTypeConfig) {
-                zombie.moveSpeed = movementConfig.ZOMBIE_MOVE_SPEED * zombieTypeConfig.SPEED_MULTIPLIER;
+                expectedSpeed = movementConfig.ZOMBIE_MOVE_SPEED * zombieTypeConfig.SPEED_MULTIPLIER;
             } else {
-                zombie.moveSpeed = movementConfig.ZOMBIE_MOVE_SPEED; // 默认速度
+                expectedSpeed = movementConfig.ZOMBIE_MOVE_SPEED; // 默认速度
             }
         } else {
-            zombie.moveSpeed = 2; // 备用默认速度
+            expectedSpeed = 5; // 备用默认速度
+        }
+        
+        zombie.moveSpeed = expectedSpeed;
+        
+        // 🔴 新增：验证移动速度
+        if (zombie.moveSpeed !== expectedSpeed) {
+            console.warn('⚠️ 僵尸移动速度不一致:', zombie.moveSpeed, 'vs', expectedSpeed, '类型:', zombie.zombieType);
+            zombie.moveSpeed = expectedSpeed;
         }
         
         // 重置性能相关
