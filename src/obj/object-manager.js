@@ -183,7 +183,8 @@ class ObjectManager {
 
     getMainCharacter() {
         const characters = this.getObjectsByType('character');
-        return characters.find(char => char.role === ROLE.MAIN);
+        const mainChar = characters.find(char => char.role === ROLE.MAIN);
+        return mainChar;
     }
 
     getAllZombies() {

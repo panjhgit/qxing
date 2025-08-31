@@ -377,6 +377,11 @@ function initGameEngine() {
 // 初始化角色和僵尸系统
 function initCharacterAndZombieSystems() {
     try {
+        // 🔴 新增：检查对象管理器导入状态
+        console.log('🔍 检查对象管理器导入状态...');
+        console.log('objectManager:', objectManager);
+        console.log('typeof objectManager:', typeof objectManager);
+        
         // 🔴 修复：先设置对象池管理器为全局变量，确保角色和僵尸管理器可以访问
         if (typeof window !== 'undefined') {
                 window.objectPoolManager = objectPoolManager;
@@ -384,6 +389,14 @@ function initCharacterAndZombieSystems() {
     window.objectManager = objectManager;
     window.objectHealthChecker = objectHealthChecker;
             window.ConfigManager = ConfigManager; // 🔴 修复：确保ConfigManager在角色创建前可用
+        }
+        
+        // 🔴 新增：验证对象管理器设置
+        if (window.objectManager) {
+            console.log('✅ 对象管理器已正确设置为全局变量');
+        } else {
+            console.error('❌ 对象管理器设置失败');
+            throw new Error('对象管理器设置失败');
         }
         
         // 初始化角色管理器

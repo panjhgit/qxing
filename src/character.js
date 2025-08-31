@@ -1040,16 +1040,6 @@ var CharacterManager = {
             throw new Error('对象管理器未初始化或主人物创建失败');
         }
 
-        // 验证角色创建是否成功
-        console.log('🔍 验证角色创建结果...');
-        if (!validationUtils.validateObject(mainChar, ['role', 'x', 'y', 'hp'])) {
-            console.error('❌ 主人物创建失败，验证不通过');
-            console.error('🔍 主人物对象详情:', mainChar);
-            return null;
-        }
-
-        console.log('✅ 角色创建验证通过');
-
         // 🔴 重构：不再存储到内部存储，对象管理器作为唯一数据源
         console.log('✅ 主人物创建完成并注册到对象管理器:', mainChar.id, '位置:', x, y);
         console.log('🔍 角色管理器状态检查:', {
@@ -1060,12 +1050,14 @@ var CharacterManager = {
             mainCharacterHp: mainChar.hp
         });
 
-        // 🔴 验证：立即验证对象管理器注册是否成功
-        var immediateCheck = this.getMainCharacter();
-        if (immediateCheck) {
-            console.log('✅ 立即验证成功：主人物已正确注册到对象管理器');
-        } else {
-            console.error('❌ 立即验证失败：主人物未正确注册到对象管理器！');
+        // 🔴 验证：直接检查对象管理器中的对象
+        if (window.objectManager) {
+            const objectInfo = window.objectManager.getObjectInfo(mainChar.id);
+            if (objectInfo) {
+                console.log('✅ 立即验证成功：主人物已正确注册到对象管理器');
+            } else {
+                console.error('❌ 立即验证失败：主人物未正确注册到对象管理器！');
+            }
         }
 
         return mainChar;
