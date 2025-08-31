@@ -379,54 +379,34 @@ ViewSystem.prototype.renderZombies = function (zombieManager) {
         return;
     }
 
-    // 尝试获取主人物
+    // 🔴 获取主人物位置
     mainCharacter = window.characterManager.getMainCharacter();
-
     if (!mainCharacter) {
-        console.warn('renderZombies: 无法获取主人物位置，系统可能还在初始化中');
-
-        // 检查四叉树状态
-        if (window.collisionSystem.dynamicQuadTree) {
-            var allObjects = window.collisionSystem.dynamicQuadTree.getAllObjects();
-            console.log('renderZombies: 四叉树状态 - 总对象数:', allObjects.length);
-
-            // 查找主人物
-            var foundMainChar = allObjects.find(obj => obj && obj.role === 1);
-            if (foundMainChar) {
-                console.log('renderZombies: 在四叉树中找到主人物，但characterManager未返回');
-                mainCharacter = foundMainChar;
-            }
-        }
-
-        // 如果仍然没有主人物，回退到传统渲染
-        if (!mainCharacter) {
-            console.warn('renderZombies: 回退到传统渲染');
-            // 🔴 修复：直接从僵尸管理器内部存储获取
-            var zombies = zombieManager.getAllZombies();
-            this.renderZombieList(zombies);
-            return;
-        }
-    }
-
-    // 🔴 使用新的高性能活跃僵尸列表
-    var activeZombies = [];
-    if (zombieManager.getActiveZombies && typeof zombieManager.getActiveZombies === 'function') {
-        activeZombies = zombieManager.getActiveZombies(mainCharacter);
-        console.log('🔴 高性能渲染: 活跃僵尸数量:', activeZombies.length, '主人物位置:', mainCharacter.x, mainCharacter.y);
-    } else {
-        // 回退到传统方法
-        // 🔴 修复：直接从僵尸管理器内部存储获取
-        activeZombies = zombieManager.getAllZombies();
-        console.log('renderZombies: 回退到传统方法，僵尸数量:', activeZombies.length);
-    }
-
-    if (activeZombies.length === 0) {
-        console.log('renderZombies: 没有活跃僵尸需要渲染');
+        console.warn('renderZombies: 无法获取主人物，等待角色系统准备就绪');
         return;
     }
 
-    // 🔴 渲染活跃僵尸列表
-    this.renderZombieList(activeZombies);
+    // 🔴 获取活跃僵尸列表（在主人物周围1000px范围内）
+    var activeZombies = zombieManager.getActiveZombies(mainCharacter.x, mainCharacter.y, 1000);
+    console.log('renderZombies: 活跃僵尸数量:', activeZombies.length);
+
+    // 保存当前上下文状态
+    this.ctx.save();
+
+    // 应用摄像机变换
+    this.ctx.translate(this.canvas.width / 2, this.canvas.height / 2);
+    this.ctx.scale(this.camera.zoom, this.camera.zoom);
+    this.ctx.translate(-this.camera.x, -this.camera.y);
+
+    // 渲染活跃僵尸
+    activeZombies.forEach(zombie => {
+        if (zombie && zombie.hp > 0) {
+            this.renderZombie(zombie, zombie.x, zombie.y);
+        }
+    });
+
+    // 恢复上下文状态
+    this.ctx.restore();
 };
 
 // 🔴 新增：渲染僵尸列表的通用方法
@@ -574,6 +554,82 @@ ViewSystem.prototype.renderCharacterHealthBar = function (character, worldX, wor
         this.ctx.textAlign = 'center';
         this.ctx.fillText(character.hp + '/' + character.maxHp, worldX, barY - 5);
     }
+};
+
+// 渲染伙伴（带摄像机变换）
+ViewSystem.prototype.renderPartners = function (partnerManager) {
+    if (!partnerManager) {
+        console.warn('renderPartners: partnerManager 为空');
+        return;
+    }
+
+    // 保存当前上下文状态
+    this.ctx.save();
+
+    // 应用摄像机变换
+    this.ctx.translate(this.canvas.width / 2, this.canvas.height / 2);
+    this.ctx.scale(this.camera.zoom, this.camera.zoom);
+    this.ctx.translate(-this.camera.x, -this.camera.y);
+
+    // 获取所有伙伴
+    var partners = partnerManager.getAllPartners();
+    console.log('renderPartners: 伙伴数量:', partners.length);
+
+    // 渲染伙伴
+    partners.forEach(partner => {
+        if (partner && partner.hp > 0) {
+            this.renderPartner(partner, partner.x, partner.y);
+        }
+    });
+
+    // 恢复上下文状态
+    this.ctx.restore();
+};
+
+// 渲染单个伙伴
+ViewSystem.prototype.renderPartner = function (partner, worldX, worldY) {
+    // 绘制阴影
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+    this.ctx.beginPath();
+    this.ctx.ellipse(worldX, worldY + partner.height / 2 + 4, partner.width / 2, 4, 0, 0, Math.PI * 2);
+    this.ctx.fill();
+
+    // 绘制伙伴主体（圆形设计）
+    var bodyY = worldY - partner.height / 2;
+
+    // 身体 - 圆形
+    this.ctx.fillStyle = partner.getBodyColor();
+    this.ctx.beginPath();
+    this.ctx.arc(worldX, bodyY + partner.height / 2, partner.width / 2, 0, Math.PI * 2);
+    this.ctx.fill();
+
+    // 头部 - 圆形
+    this.ctx.fillStyle = partner.getHeadColor();
+    this.ctx.beginPath();
+    this.ctx.arc(worldX, bodyY + partner.height / 6, partner.width / 3, 0, Math.PI * 2);
+    this.ctx.fill();
+
+    // 绘制图标
+    this.ctx.font = '16px Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillStyle = '#000';
+    this.ctx.fillText(partner.icon, worldX, bodyY + partner.height / 2);
+
+    // 绘制状态指示器
+    if (partner.status === 'FOLLOW') {
+        this.ctx.fillStyle = '#00ff00';
+        this.ctx.beginPath();
+        this.ctx.arc(worldX, bodyY - 6, 4, 0, Math.PI * 2);
+        this.ctx.fill();
+    } else if (partner.status === 'INIT') {
+        this.ctx.fillStyle = '#95a5a6';
+        this.ctx.beginPath();
+        this.ctx.arc(worldX, bodyY - 6, 4, 0, Math.PI * 2);
+        this.ctx.fill();
+    }
+
+    // 绘制伙伴血条
+    this.renderCharacterHealthBar(partner, worldX, worldY);
 };
 
 // 渲染触摸摇杆（不受摄像机变换影响）

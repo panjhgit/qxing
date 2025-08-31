@@ -461,7 +461,7 @@ GameEngine.prototype.initTimeSystemConfig = function() {
             this.timeSystem.dayDuration = 10; // 默认10秒
         }
     } else {
-        console.warn('⚠️ ConfigManager不可用，使用默认时间设置');
+        console.log('ℹ️ ConfigManager不可用，使用默认时间设置');
         this.timeSystem.dayDuration = 10; // 默认10秒
     }
 };
@@ -519,17 +519,9 @@ GameEngine.prototype.setSystems = function(mapSystem, characterManager, menuSyst
     console.log('- this.zombieManager:', !!this.zombieManager);
     console.log('- this.collisionSystem:', !!this.collisionSystem);
     
-    // 同步初始化NavMesh导航系统
-    var navResult = this.initNavigationSystem();
-    var obstacleResult = this.initDynamicObstacleManager();
-    
-    // 记录初始化结果
-    if (navResult) {
-        console.log('[GameEngine] NavMesh导航系统初始化成功');
-    }
-    if (obstacleResult) {
-        console.log('[GameEngine] 动态障碍物管理器初始化成功');
-    }
+    // 延迟初始化NavMesh导航系统和动态障碍物管理器
+    // 这些系统需要地图系统完全准备好，所以延迟到地图系统初始化完成后
+    this.retryInitAdvancedSystems();
     
     // 初始化对象池系统
     this.initObjectPools();
@@ -596,7 +588,7 @@ GameEngine.prototype.initNavigationSystem = function() {
     
     // 同步检查地图系统是否完全初始化
     if (!this.mapSystem.buildings || this.mapSystem.buildings.length === 0) {
-        console.warn('[GameEngine] 建筑物数据未生成，地图系统未完全初始化');
+        console.log('[GameEngine] 建筑物数据未生成，地图系统未完全初始化，稍后重试');
         return false;
     }
     
@@ -657,6 +649,38 @@ GameEngine.prototype.initObjectPools = function() {
 };
 
 /**
+ * 重试初始化高级系统（NavMesh和动态障碍物管理器）
+ */
+GameEngine.prototype.retryInitAdvancedSystems = function() {
+    var self = this;
+    var retryCount = 0;
+    var maxRetries = 10;
+    
+    function attemptInit() {
+        if (retryCount >= maxRetries) {
+            console.log('[GameEngine] 达到最大重试次数，跳过高级系统初始化');
+            return;
+        }
+        
+        retryCount++;
+        console.log('[GameEngine] 尝试初始化高级系统，第', retryCount, '次');
+        
+        var navResult = self.initNavigationSystem();
+        var obstacleResult = self.initDynamicObstacleManager();
+        
+        if (navResult && obstacleResult) {
+            console.log('[GameEngine] 高级系统初始化成功');
+        } else {
+            // 如果还有系统未初始化成功，继续重试
+            setTimeout(attemptInit, 200); // 200ms后重试
+        }
+    }
+    
+    // 延迟100ms开始第一次尝试
+    setTimeout(attemptInit, 100);
+};
+
+/**
  * 初始化动态障碍物管理器
  */
 GameEngine.prototype.initDynamicObstacleManager = function() {
@@ -667,7 +691,7 @@ GameEngine.prototype.initDynamicObstacleManager = function() {
     
     // 同步检查地图系统是否完全初始化
     if (!this.mapSystem.mapWidth || !this.mapSystem.mapHeight) {
-        console.warn('[GameEngine] 地图尺寸未设置，地图系统未完全初始化');
+        console.log('[GameEngine] 地图尺寸未设置，地图系统未完全初始化，稍后重试');
         return false;
     }
     
@@ -1127,21 +1151,29 @@ GameEngine.prototype.update = function() {
         console.log('GameEngine: 简化版碰撞系统状态检查...');
     }
     
-    // 🔴 更新僵尸 - 使用高性能分帧更新策略
-    if (this.zombieManager) {
-        // 🔴 修复：直接从角色管理器内部存储获取
-        var characters = this.characterManager && this.characterManager.mainCharacter ? [this.characterManager.mainCharacter] : [];
-        // 计算真实的deltaTime，确保移动平滑
-        var currentTime = performance.now();
-        var deltaTime = (currentTime - this.lastUpdateTime) / 1000; // 转换为秒
-        this.lastUpdateTime = currentTime;
+            // 🔴 更新僵尸 - 使用高性能分帧更新策略
+        if (this.zombieManager) {
+            // 🔴 修复：直接从角色管理器内部存储获取
+            var characters = this.characterManager && this.characterManager.mainCharacter ? [this.characterManager.mainCharacter] : [];
+            // 计算真实的deltaTime，确保移动平滑
+            var currentTime = performance.now();
+            var deltaTime = (currentTime - this.lastUpdateTime) / 1000; // 转换为秒
+            this.lastUpdateTime = currentTime;
+            
+            // 限制deltaTime，防止跳帧导致的瞬移
+            deltaTime = Math.min(deltaTime, 1/30); // 最大30fps的deltaTime
+            
+            // 🔴 传递当前帧数，启用分帧更新策略
+            this.zombieManager.updateAllZombies(characters, deltaTime, this.frameCount);
+        }
         
-        // 限制deltaTime，防止跳帧导致的瞬移
-        deltaTime = Math.min(deltaTime, 1/30); // 最大30fps的deltaTime
-        
-        // 🔴 传递当前帧数，启用分帧更新策略
-        this.zombieManager.updateAllZombies(characters, deltaTime, this.frameCount);
-    }
+        // 更新伙伴
+        if (window.partnerManager) {
+            var currentTime = performance.now();
+            var deltaTime = (currentTime - this.lastUpdateTime) / 1000;
+            deltaTime = Math.min(deltaTime, 1/30);
+            window.partnerManager.updateAllPartners(deltaTime);
+        }
     
     // 更新动态障碍物
     if (this.dynamicObstacleManager) {
@@ -1287,6 +1319,16 @@ GameEngine.prototype.render = function() {
                 this.viewSystem.renderZombies(this.zombieManager);
             } else {
                 console.warn('GameEngine.render: zombieManager未初始化');
+            }
+            
+            // 渲染伙伴
+            if (window.partnerManager) {
+                console.log('GameEngine.render: 开始渲染伙伴');
+                var partners = window.partnerManager.getAllPartners();
+                console.log('GameEngine.render: 获取到伙伴数量:', partners.length);
+                this.viewSystem.renderPartners(window.partnerManager);
+            } else {
+                console.warn('GameEngine.render: partnerManager未初始化');
             }
             
             // 渲染触摸摇杆

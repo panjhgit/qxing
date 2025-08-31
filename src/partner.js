@@ -71,6 +71,7 @@ var Partner = function (role, x, y) {
     this.y = y;
     this.status = PARTNER_STATE.INIT;
     this.type = 'partner';
+    this.isInitialState = true; // 初始状态为灰色
 
     // 从配置获取对象尺寸
     var objectSizes = window.ConfigManager ? window.ConfigManager.get('OBJECT_SIZES.CHARACTER') : null;
@@ -128,6 +129,7 @@ Partner.prototype.setupRoleProperties = function () {
             this.detectionRange = 100; // 检测范围100px
             this.icon = '👮';
             this.color = '#2c3e50';
+            this.initialColor = '#95a5a6'; // 初始状态为灰色
             break;
 
         case PARTNER_ROLE.CIVILIAN:
@@ -138,6 +140,7 @@ Partner.prototype.setupRoleProperties = function () {
             this.detectionRange = 100;
             this.icon = '👨';
             this.color = '#95a5a6';
+            this.initialColor = '#95a5a6'; // 初始状态为灰色
             break;
 
         case PARTNER_ROLE.DOCTOR:
@@ -148,6 +151,7 @@ Partner.prototype.setupRoleProperties = function () {
             this.detectionRange = 100;
             this.icon = '👨‍⚕️';
             this.color = '#e74c3c';
+            this.initialColor = '#95a5a6'; // 初始状态为灰色
             break;
 
         case PARTNER_ROLE.NURSE:
@@ -158,6 +162,7 @@ Partner.prototype.setupRoleProperties = function () {
             this.detectionRange = 100;
             this.icon = '👩‍⚕️';
             this.color = '#e91e63';
+            this.initialColor = '#95a5a6'; // 初始状态为灰色
             break;
 
         case PARTNER_ROLE.CHEF:
@@ -168,6 +173,7 @@ Partner.prototype.setupRoleProperties = function () {
             this.detectionRange = 100;
             this.icon = '👨‍🍳';
             this.color = '#f39c12';
+            this.initialColor = '#95a5a6'; // 初始状态为灰色
             break;
 
         default:
@@ -178,6 +184,7 @@ Partner.prototype.setupRoleProperties = function () {
             this.detectionRange = 100;
             this.icon = '❓';
             this.color = '#95a5a6';
+            this.initialColor = '#95a5a6'; // 初始状态为灰色
     }
 };
 
@@ -287,9 +294,13 @@ Partner.prototype.onEnterInit = function (stateData) {
 Partner.prototype.onUpdateInit = function (deltaTime, stateData) {
     // 初始状态：静止不动，渲染待机动画
     this.updateAnimation(deltaTime);
+    
+    // 检查与主角的碰撞
+    this.checkCollisionWithMainCharacter();
 };
 
 Partner.prototype.onExitInit = function (stateData) {
+    this.isInitialState = false; // 退出初始状态，不再显示灰色
     console.log('伙伴退出初始状态');
 };
 
@@ -637,6 +648,21 @@ Partner.prototype.isMainCharacterNearby = function (distance) {
     return dist <= distance;
 };
 
+// 检查与主角的碰撞
+Partner.prototype.checkCollisionWithMainCharacter = function () {
+    var mainChar = this.getMainCharacter();
+    if (!mainChar) return;
+
+    var mathUtils = UtilsManager.getMathUtils();
+    var distance = mathUtils.distance(this.x, this.y, mainChar.x, mainChar.y);
+    
+    // 如果距离小于20px，认为发生碰撞
+    if (distance <= 20) {
+        console.log('伙伴与主角发生碰撞，距离:', distance);
+        // 状态机会自动处理状态转换
+    }
+};
+
 // 检查主人物是否在移动
 Partner.prototype.isMainCharacterMoving = function () {
     var mainChar = this.getMainCharacter();
@@ -781,6 +807,10 @@ Partner.prototype.destroy = function () {
 
 // 获取身体颜色
 Partner.prototype.getBodyColor = function () {
+    // 如果是初始状态，返回初始颜色（灰色）
+    if (this.isInitialState) {
+        return this.initialColor || '#95a5a6'; // 灰色
+    }
     return this.color;
 };
 
@@ -833,6 +863,92 @@ var PartnerManager = {
         if (index > -1) {
             this.partners.splice(index, 1);
             console.log('伙伴已从管理器移除');
+        }
+    },
+
+    // 在地图上生成伙伴
+    generatePartnersOnMap: function () {
+        console.log('🗺️ 开始在地图上生成伙伴...');
+        
+        try {
+            if (!this.partners) {
+                console.error('❌ 伙伴管理器未初始化');
+                return;
+            }
+            
+            // 伙伴职业类型
+            var partnerRoles = [2, 3, 4, 5, 6]; // 警察、平民、医生、护士、厨师
+            var partnerCount = 5; // 生成5个伙伴
+            
+            for (var i = 0; i < partnerCount; i++) {
+                // 随机选择职业
+                var role = partnerRoles[Math.floor(Math.random() * partnerRoles.length)];
+                
+                // 生成安全位置
+                var safePosition = null;
+                if (window.collisionSystem && window.collisionSystem.generateGameSafePosition) {
+                    // 在地图不同区域生成伙伴
+                    var centerX, centerY;
+                    switch (i) {
+                        case 0: // 北部区域
+                            centerX = 5000;
+                            centerY = 2000;
+                            break;
+                        case 1: // 东部区域
+                            centerX = 8000;
+                            centerY = 5000;
+                            break;
+                        case 2: // 西部区域
+                            centerX = 2000;
+                            centerY = 5000;
+                            break;
+                        case 3: // 南部区域
+                            centerX = 5000;
+                            centerY = 8000;
+                            break;
+                        case 4: // 中心区域
+                            centerX = 5000;
+                            centerY = 5000;
+                            break;
+                        default:
+                            centerX = 5000;
+                            centerY = 5000;
+                    }
+                    
+                    safePosition = window.collisionSystem.generateGameSafePosition(
+                        centerX, centerY,  // 中心位置
+                        200, 800,          // 最小距离200，最大距离800
+                        32, 48,            // 伙伴尺寸
+                        16                 // 安全半径
+                    );
+                    
+                    if (safePosition && safePosition.success) {
+                        console.log(`✅ 伙伴${i+1}安全位置生成成功:`, safePosition);
+                    } else {
+                        console.warn(`⚠️ 伙伴${i+1}安全位置生成失败，使用备用位置`);
+                        safePosition = {x: centerX, y: centerY, success: true};
+                    }
+                } else {
+                    // 备用位置
+                    var centerX = 5000 + (i - 2) * 1000;
+                    var centerY = 5000 + (i - 2) * 1000;
+                    safePosition = {x: centerX, y: centerY, success: true};
+                }
+                
+                // 创建伙伴
+                var partner = this.createPartner(role, safePosition.x, safePosition.y);
+                if (partner) {
+                    console.log(`✅ 伙伴${i+1}创建成功:`, partner.role, '位置:', safePosition.x, safePosition.y);
+                } else {
+                    console.error(`❌ 伙伴${i+1}创建失败`);
+                }
+            }
+            
+            var partners = this.getAllPartners();
+            console.log(`✅ 伙伴生成完成，伙伴数量: ${partners.length}`);
+            
+        } catch (error) {
+            console.error('❌ 伙伴生成失败:', error);
         }
     }
 };

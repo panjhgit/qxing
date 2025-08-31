@@ -5,6 +5,7 @@ import MapManager from './src/maps/map-manager.js';
 import menuPrototype from './src/menu.js';
 import {CharacterManager} from './src/character.js';
 import {ZombieManager} from './src/zombie.js';
+import {PartnerManager} from './src/partner.js';
 import GameEngine from './src/game-engine.js';
 import ViewSystem from './src/view.js';
 import CollisionSystem from './src/obj/collision.js';
@@ -100,6 +101,17 @@ function clearGameData() {
         window.zombieManager = null;
     }
     
+    // 清空伙伴管理器
+    if (window.partnerManager) {
+        // 清空伙伴列表
+        if (window.partnerManager.partners) {
+            window.partnerManager.partners = [];
+        }
+        
+        // 重置伙伴管理器
+        window.partnerManager = null;
+    }
+    
     // 清理对象池
     if (window.objectPoolManager) {
         window.objectPoolManager.resetAllPools();
@@ -153,6 +165,7 @@ function resetGameState() {
         // 清空游戏相关全局变量
         delete window.characterManager;
         delete window.zombieManager;
+        delete window.partnerManager;
         delete window.collisionSystem;
         delete window.mapSystem;
         delete window.gameEngine;
@@ -318,6 +331,12 @@ function initGameEngine() {
     try {
         console.log('🔧 初始化游戏引擎...');
         
+        // 确保ConfigManager在游戏引擎初始化前可用
+        if (typeof window !== 'undefined' && !window.ConfigManager && typeof ConfigManager !== 'undefined') {
+            window.ConfigManager = ConfigManager;
+            console.log('✅ ConfigManager已设置为全局可用');
+        }
+        
         // 将视觉系统设置为全局变量，供游戏引擎使用
         window.ViewSystem = ViewSystem;
         
@@ -353,13 +372,18 @@ function initCharacterAndZombieSystems() {
         zombieManager.difficulty = zombieManager.difficulty || 1;
         zombieManager.initObjectPool(); // 🔴 新增：初始化对象池
         
+        // 初始化伙伴管理器
+        console.log('👥 初始化伙伴管理器');
+        var partnerManager = Object.create(PartnerManager);
+        
         // 设置其他全局变量
         if (typeof window !== 'undefined') {
             window.characterManager = characterManager;
             window.zombieManager = zombieManager;
+            window.partnerManager = partnerManager;
         }
         
-        console.log('✅ 角色和僵尸系统初始化完成');
+        console.log('✅ 角色、僵尸和伙伴系统初始化完成');
         
     } catch (error) {
         console.error('❌ 角色和僵尸系统初始化失败:', error);
@@ -599,36 +623,39 @@ function continueGameSystemsInit() {
         console.log('🔍 步骤2: 初始化碰撞系统');
         initCollisionSystem();
         
-        // 第三步：设置游戏引擎系统
-        console.log('⚙️ 步骤3: 设置游戏引擎系统');
-        setupGameEngineSystems();
-        
-        // 第四步：执行初始渲染
-        console.log('🎨 步骤4: 执行初始渲染');
-        performInitialRendering();
-        
-        // 第五步：切换到游戏状态
-        console.log('🚀 步骤5: 切换到游戏状态');
-        gameEngine.setGameState('playing');
-        
-        // 第六步：启动游戏循环
-        console.log('🔄 步骤6: 启动游戏循环');
-        startGameLoop();
-        
-        // 标记游戏初始化完成
-        isGameInitialized = true;
-        isInitializing = false;
-        
-        console.log('🎉 游戏系统初始化完成！游戏可以开始！');
-        
-        // 启动内存监控
-        if (window.memoryMonitor) {
-            window.memoryMonitor.start();
-            console.log('🔍 内存监控已启动');
-        }
-        
-        // 隐藏加载提示
-        hideLoadingMessage();
+        // 第三步：等待地图系统完全准备好后设置游戏引擎系统
+        console.log('⚙️ 步骤3: 等待地图系统完全准备好...');
+        setTimeout(() => {
+            console.log('⚙️ 设置游戏引擎系统');
+            setupGameEngineSystems();
+            
+            // 第四步：执行初始渲染
+            console.log('🎨 步骤4: 执行初始渲染');
+            performInitialRendering();
+            
+            // 第五步：切换到游戏状态
+            console.log('🚀 步骤5: 切换到游戏状态');
+            gameEngine.setGameState('playing');
+            
+            // 第六步：启动游戏循环
+            console.log('🔄 步骤6: 启动游戏循环');
+            startGameLoop();
+            
+            // 标记游戏初始化完成
+            isGameInitialized = true;
+            isInitializing = false;
+            
+            console.log('🎉 游戏系统初始化完成！游戏可以开始！');
+            
+            // 启动内存监控
+            if (window.memoryMonitor) {
+                window.memoryMonitor.start();
+                console.log('🔍 内存监控已启动');
+            }
+            
+            // 隐藏加载提示
+            hideLoadingMessage();
+        }, 500); // 等待500ms确保地图系统完全初始化
         
     } catch (error) {
         console.error('❌ 游戏系统初始化失败:', error);
@@ -746,6 +773,15 @@ function performInitialRendering() {
             console.log(`✅ 僵尸渲染设置完成，僵尸数量: ${zombies.length}`);
         } else {
             console.warn('⚠️ 僵尸管理器或视觉系统未初始化');
+        }
+        
+        // 第五步半：生成伙伴
+        console.log('👥 生成伙伴...');
+        if (gameEngine.viewSystem && window.partnerManager) {
+            // 在地图上随机生成伙伴
+            window.partnerManager.generatePartnersOnMap();
+        } else {
+            console.warn('⚠️ 伙伴管理器或视觉系统未初始化');
         }
         
         // 第六步：渲染UI元素
