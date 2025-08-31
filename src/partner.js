@@ -92,9 +92,9 @@ var Partner = function (role, x, y) {
     // 伙伴移动速度 - 从配置获取
     this.moveSpeed = movementConfig ? movementConfig.PARTNER_MOVE_SPEED : 4.5;
 
-    // 🔴 修复：从配置获取跟随距离
+    // 🔴 修复：设置合理的跟随距离
     var combatConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT') : null;
-    this.followDistance = combatConfig ? combatConfig.MIN_ATTACK_RANGE : 100; // 从config.js获取跟随距离
+    this.followDistance = 60; // 🔴 修复：设置合理的跟随距离60px，而不是使用攻击范围
     this.followAngle = Math.PI;          // 跟随角度（后方）
     this.followPoint = {x: x, y: y};     // 跟随点
     this.lastMainCharPosition = {x: 0, y: 0}; // 主人物上次位置
@@ -128,7 +128,7 @@ Partner.prototype.setupRoleProperties = function () {
             this.maxHp = this.hp;
             this.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取攻击力
             this.attackRange = combatConfig ? combatConfig.POLICE_ATTACK_RANGE : 100; // 从config.js获取攻击范围
-            this.detectionRange = combatConfig ? combatConfig.MIN_ATTACK_RANGE : 100; // 从config.js获取检测范围
+            this.detectionRange = 150; // 🔴 修复：设置合理的检测范围150px
             this.icon = '👮';
             this.color = '#2c3e50';
             this.initialColor = '#95a5a6'; // 初始状态为灰色
@@ -139,7 +139,7 @@ Partner.prototype.setupRoleProperties = function () {
             this.maxHp = this.hp;
             this.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取攻击力
             this.attackRange = combatConfig ? combatConfig.POLICE_ATTACK_RANGE : 100; // 从config.js获取攻击范围
-            this.detectionRange = combatConfig ? combatConfig.MIN_ATTACK_RANGE : 100; // 从config.js获取检测范围
+            this.detectionRange = 150; // 🔴 修复：设置合理的检测范围150px
             this.icon = '👨';
             this.color = '#95a5a6';
             this.initialColor = '#95a5a6'; // 初始状态为灰色
@@ -150,7 +150,7 @@ Partner.prototype.setupRoleProperties = function () {
             this.maxHp = this.hp;
             this.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取攻击力
             this.attackRange = combatConfig ? combatConfig.DOCTOR_ATTACK_RANGE : 100; // 从config.js获取攻击范围
-            this.detectionRange = combatConfig ? combatConfig.MIN_ATTACK_RANGE : 100; // 从config.js获取检测范围
+            this.detectionRange = 150; // 🔴 修复：设置合理的检测范围150px
             this.icon = '👨‍⚕️';
             this.color = '#e74c3c';
             this.initialColor = '#95a5a6'; // 初始状态为灰色
@@ -161,7 +161,7 @@ Partner.prototype.setupRoleProperties = function () {
             this.maxHp = this.hp;
             this.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取攻击力
             this.attackRange = combatConfig ? combatConfig.NURSE_ATTACK_RANGE : 100; // 从config.js获取攻击范围
-            this.detectionRange = combatConfig ? combatConfig.MIN_ATTACK_RANGE : 100; // 从config.js获取检测范围
+            this.detectionRange = 150; // 🔴 修复：设置合理的检测范围150px
             this.icon = '👩‍⚕️';
             this.color = '#e91e63';
             this.initialColor = '#95a5a6'; // 初始状态为灰色
@@ -172,7 +172,7 @@ Partner.prototype.setupRoleProperties = function () {
             this.maxHp = this.hp;
             this.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取攻击力
             this.attackRange = combatConfig ? combatConfig.CHEF_ATTACK_RANGE : 100; // 从config.js获取攻击范围
-            this.detectionRange = combatConfig ? combatConfig.MIN_ATTACK_RANGE : 100; // 从config.js获取检测范围
+            this.detectionRange = 150; // 🔴 修复：设置合理的检测范围150px
             this.icon = '👨‍🍳';
             this.color = '#f39c12';
             this.initialColor = '#95a5a6'; // 初始状态为灰色
@@ -183,7 +183,7 @@ Partner.prototype.setupRoleProperties = function () {
             this.maxHp = this.hp;
             this.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取攻击力
             this.attackRange = combatConfig ? combatConfig.POLICE_ATTACK_RANGE : 100; // 从config.js获取攻击范围
-            this.detectionRange = combatConfig ? combatConfig.MIN_ATTACK_RANGE : 100; // 从config.js获取检测范围
+            this.detectionRange = 150; // 🔴 修复：设置合理的检测范围150px
             this.icon = '❓';
             this.color = '#95a5a6';
             this.initialColor = '#95a5a6'; // 初始状态为灰色
@@ -200,13 +200,24 @@ Partner.prototype.initializeStateMachine = function () {
 Partner.prototype.setupPartnerStateMachine = function () {
     const sm = this.stateMachine;
 
-          // INIT -> FOLLOW: 主人物靠近配置距离
-      sm.addTransition(PARTNER_STATE.INIT, PARTNER_STATE.FOLLOW, () => {
-          // 从配置获取伙伴激活距离
-          var detectionConfig = window.ConfigManager ? window.ConfigManager.get('DETECTION') : null;
-          var activationDistance = detectionConfig ? detectionConfig.SAFE_SPAWN_DISTANCE : 100;
-          return this.isMainCharacterNearby(activationDistance);
-      });
+    // 🔴 核心修复：INIT -> FOLLOW: 主人物靠近配置距离
+    sm.addTransition(PARTNER_STATE.INIT, PARTNER_STATE.FOLLOW, () => {
+        // 从配置获取伙伴激活距离
+        var detectionConfig = window.ConfigManager ? window.ConfigManager.get('DETECTION') : null;
+        var activationDistance = detectionConfig ? detectionConfig.SAFE_SPAWN_DISTANCE : 100;
+        
+        // 🔴 修复：增加更宽松的激活条件
+        var isNearby = this.isMainCharacterNearby(activationDistance);
+        var hasCollision = this.hasCollisionWithMainCharacter();
+        
+        console.log('🔴 伙伴状态转换检查:', {
+            '距离检测': isNearby,
+            '碰撞检测': hasCollision,
+            '激活距离': activationDistance
+        });
+        
+        return isNearby || hasCollision;
+    });
 
     // INIT -> DIE: 血量归零
     sm.addTransition(PARTNER_STATE.INIT, PARTNER_STATE.DIE, () => {
@@ -300,8 +311,26 @@ Partner.prototype.onUpdateInit = function (deltaTime, stateData) {
     // 初始状态：静止不动，渲染待机动画
     this.updateAnimation(deltaTime);
     
-    // 检查与主角的碰撞
+    // 🔴 核心修复：更频繁地检查与主角的碰撞
     this.checkCollisionWithMainCharacter();
+    
+    // 🔴 新增：检查是否应该激活跟随
+    var mainChar = this.getMainCharacter();
+    if (mainChar) {
+        var mathUtils = UtilsManager.getMathUtils();
+        var distance = mathUtils.distance(this.x, this.y, mainChar.x, mainChar.y);
+        
+        // 从配置获取伙伴激活距离
+        var detectionConfig = window.ConfigManager ? window.ConfigManager.get('DETECTION') : null;
+        var activationDistance = detectionConfig ? detectionConfig.SAFE_SPAWN_DISTANCE : 100;
+        
+        if (distance <= activationDistance) {
+            console.log('🔴 伙伴检测到主人物在激活距离内，准备跟随');
+            if (this.stateMachine) {
+                this.stateMachine.forceState(PARTNER_STATE.FOLLOW);
+            }
+        }
+    }
 };
 
 Partner.prototype.onExitInit = function (stateData) {
@@ -411,13 +440,14 @@ Partner.prototype.onExitDie = function (stateData) {
 
 // 更新跟随移动
 Partner.prototype.updateFollowMovement = function (deltaTime) {
-    // 计算跟随点
+    // 🔴 核心修复：确保跟随点计算正确
     this.calculateFollowPoint();
 
     // 移动到跟随点
     var distance = this.getDistanceTo(this.followPoint.x, this.followPoint.y);
 
-    if (distance > 5) { // 距离跟随点超过5px才移动
+    // 🔴 修复：降低移动阈值，让伙伴更积极地跟随
+    if (distance > 3) { // 距离跟随点超过3px就移动
         var angle = Math.atan2(this.followPoint.y - this.y, this.followPoint.x - this.x);
         var moveDistance = this.moveSpeed * deltaTime;
 
@@ -429,6 +459,13 @@ Partner.prototype.updateFollowMovement = function (deltaTime) {
         if (finalPosition) {
             this.x = finalPosition.x;
             this.y = finalPosition.y;
+            
+            // 🔴 新增：记录跟随移动
+            console.log('🔴 伙伴跟随移动:', {
+                '伙伴位置': {x: this.x.toFixed(2), y: this.y.toFixed(2)},
+                '跟随点': {x: this.followPoint.x.toFixed(2), y: this.followPoint.y.toFixed(2)},
+                '距离': distance.toFixed(2)
+            });
         }
     }
 };
@@ -438,16 +475,21 @@ Partner.prototype.calculateFollowPoint = function () {
     var mainChar = this.getMainCharacter();
     if (!mainChar) return;
 
-    // 计算主人物移动方向
-    var mainCharDirection = this.getMainCharacterDirection();
-
-    // 跟随点在主人物后方，距离80px
+    // 🔴 核心修复：简化跟随点计算，确保跟随点正确
+    // 跟随点在主人物后方，距离为配置的跟随距离
     this.followPoint.x = mainChar.x + Math.cos(this.followAngle) * this.followDistance;
     this.followPoint.y = mainChar.y + Math.sin(this.followAngle) * this.followDistance;
 
     // 记录主人物位置
     this.lastMainCharPosition.x = mainChar.x;
     this.lastMainCharPosition.y = mainChar.y;
+    
+    console.log('🔴 跟随点计算完成:', {
+        '主人物位置': {x: mainChar.x.toFixed(2), y: mainChar.y.toFixed(2)},
+        '跟随点位置': {x: this.followPoint.x.toFixed(2), y: this.followPoint.y.toFixed(2)},
+        '跟随距离': this.followDistance,
+        '跟随角度': this.followAngle
+    });
 };
 
 // 更新攻击
@@ -668,13 +710,35 @@ Partner.prototype.checkCollisionWithMainCharacter = function () {
     var mathUtils = UtilsManager.getMathUtils();
     var distance = mathUtils.distance(this.x, this.y, mainChar.x, mainChar.y);
     
-    // 🔴 修复：增加碰撞检测距离到50px，确保能检测到碰撞
-    if (distance <= 50) {
+    // 🔴 修复：增加碰撞检测距离到80px，确保能检测到碰撞
+    if (distance <= 80) {
         console.log('🔴 伙伴与主角发生碰撞，距离:', distance);
+        
+        // 🔴 核心修复：立即强制转换到跟随状态
+        if (this.status === PARTNER_STATE.INIT) {
+            console.log('🔴 伙伴在初始状态，立即强制转换到跟随状态');
+            if (this.stateMachine) {
+                this.stateMachine.forceState(PARTNER_STATE.FOLLOW);
+                this.isInitialState = false; // 标记为非初始状态
+                this.isActive = true; // 标记为活跃状态
+            }
+        }
         
         // 🔴 新增：碰撞后的特殊处理逻辑
         this.handleCollisionWithMainCharacter(distance);
     }
+};
+
+// 🔴 新增：检查是否有碰撞（用于状态转换条件）
+Partner.prototype.hasCollisionWithMainCharacter = function () {
+    var mainChar = this.getMainCharacter();
+    if (!mainChar) return false;
+
+    var mathUtils = UtilsManager.getMathUtils();
+    var distance = mathUtils.distance(this.x, this.y, mainChar.x, mainChar.y);
+    
+    // 使用80px作为碰撞检测距离
+    return distance <= 80;
 };
 
 // 检查主人物是否在移动
@@ -866,12 +930,14 @@ Partner.prototype.handleCollisionWithMainCharacter = function (distance) {
         this.adjustPositionToAvoidOverlap();
     }
     
-    // 🔴 核心：确保跟随状态正确，跟随优先
+    // 🔴 核心修复：确保跟随状态正确，跟随优先
     if (this.status === PARTNER_STATE.INIT) {
         // 如果还在初始状态，强制转换为跟随状态
         if (this.stateMachine) {
             this.stateMachine.forceState(PARTNER_STATE.FOLLOW);
             console.log('🔴 碰撞后强制转换到跟随状态');
+            this.isInitialState = false; // 立即标记为非初始状态
+            this.isActive = true; // 立即标记为活跃状态
         }
     } else if (this.status !== PARTNER_STATE.FOLLOW) {
         // 如果不在跟随状态，也强制转换到跟随状态（跟随优先）
@@ -881,14 +947,14 @@ Partner.prototype.handleCollisionWithMainCharacter = function (distance) {
         }
     }
     
-    // 更新跟随点，确保跟随逻辑正确
+    // 🔴 核心修复：立即更新跟随点，确保跟随逻辑正确
     this.calculateFollowPoint();
     
     // 标记伙伴为活跃状态
     this.isActive = true;
     this.isInitialState = false;
     
-    console.log('🔴 碰撞处理完成，伙伴状态:', this.status);
+    console.log('🔴 碰撞处理完成，伙伴状态:', this.status, '跟随点:', this.followPoint);
 };
 
 // 🔴 新增：确保伙伴已注册到对象管理模块
@@ -945,24 +1011,28 @@ Partner.prototype.debugFollowStatus = function () {
         return;
     }
     
-          var distance = this.getDistanceTo(mainChar.x, mainChar.y);
-      // 从配置获取伙伴激活距离
-      var detectionConfig = window.ConfigManager ? window.ConfigManager.get('DETECTION') : null;
-      var activationDistance = detectionConfig ? detectionConfig.SAFE_SPAWN_DISTANCE : 100;
-      var isNearby = this.isMainCharacterNearby(activationDistance);
+    var distance = this.getDistanceTo(mainChar.x, mainChar.y);
+    // 从配置获取伙伴激活距离
+    var detectionConfig = window.ConfigManager ? window.ConfigManager.get('DETECTION') : null;
+    var activationDistance = detectionConfig ? detectionConfig.SAFE_SPAWN_DISTANCE : 100;
+    var isNearby = this.isMainCharacterNearby(activationDistance);
     var isMoving = this.isMainCharacterMoving();
     var followDistance = this.getDistanceTo(this.followPoint.x, this.followPoint.y);
+    var hasCollision = this.hasCollisionWithMainCharacter();
     
     console.log('🔴 伙伴调试信息:', {
         '伙伴ID': this.id,
         '伙伴状态': this.status,
         '距离主角': distance.toFixed(2),
-        '是否在附近(50px)': isNearby,
+        '是否在附近(100px)': isNearby,
+        '是否有碰撞(80px)': hasCollision,
         '主角是否移动': isMoving,
         '距离跟随点': followDistance.toFixed(2),
         '跟随点位置': {x: this.followPoint.x.toFixed(2), y: this.followPoint.y.toFixed(2)},
         '伙伴位置': {x: this.x.toFixed(2), y: this.y.toFixed(2)},
         '主角位置': {x: mainChar.x.toFixed(2), y: mainChar.y.toFixed(2)},
+        '跟随距离': this.followDistance,
+        '检测范围': this.detectionRange,
         '是否活跃': this.isActive,
         '是否初始状态': this.isInitialState
     });
@@ -1186,6 +1256,14 @@ var PartnerManager = {
                 if (partner.forceFollow) {
                     partner.forceFollow();
                 }
+            }
+            
+            // 🔴 新增：检查状态机转换条件
+            if (partner.stateMachine) {
+                console.log('🔴 伙伴状态机信息:', {
+                    '当前状态': partner.stateMachine.currentState,
+                    '状态机对象': partner.stateMachine
+                });
             }
         });
         
