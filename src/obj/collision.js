@@ -284,7 +284,7 @@ var CollisionSystem = {
             mapId = 'city';
         }
 
-        console.log('🗺️ 初始化简化版碰撞检测系统，地图ID:', mapId);
+
 
         // 获取地图管理器
         if (typeof window !== 'undefined' && window.MapManager) {
@@ -313,8 +313,7 @@ var CollisionSystem = {
                 this.gridCols = mapConfig.config.gridCols;
                 this.gridRows = mapConfig.config.gridRows;
 
-                console.log('✅ 地图配置已加载:', this.currentMap);
-                console.log('✅ 地图矩阵已加载，网格大小:', this.gridCols, 'x', this.gridRows);
+                
             } else {
                 throw new Error('地图配置获取失败');
             }
@@ -322,7 +321,7 @@ var CollisionSystem = {
             throw new Error('地图管理器不可用');
         }
 
-        console.log('✅ 简化版碰撞系统初始化完成');
+
         return true;
     },
 

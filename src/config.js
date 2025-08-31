@@ -431,7 +431,6 @@ const ConfigManager = {
     setDifficulty: function (difficulty) {
         if (DIFFICULTY_CONFIG[difficulty]) {
             this.currentDifficulty = difficulty;
-            console.log('游戏难度已设置为:', difficulty);
         } else {
             throw new Error('无效的难度级别: ' + difficulty);
         }

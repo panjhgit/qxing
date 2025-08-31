@@ -43,7 +43,7 @@ class ObjectManager {
             this.objectCounts.set(type, 0);
         });
 
-        console.log('🚀 对象管理器初始化完成');
+
     }
 
     // 注册对象
@@ -65,7 +65,7 @@ class ObjectManager {
         const currentCount = this.objectCounts.get(type) || 0;
         this.objectCounts.set(type, currentCount + 1);
 
-        console.log('✅ 对象已注册:', type, id);
+
         return id;
     }
 
@@ -92,13 +92,13 @@ class ObjectManager {
         }
 
         const {object, type} = objectInfo;
-        console.log('🗑️ 销毁对象:', type, objectId);
+
 
         // 从空间索引移除
         if (this.spatialIndex && this.spatialIndex.removeFromSpatialIndex) {
             const removeResult = this.spatialIndex.removeFromSpatialIndex(object);
             if (removeResult) {
-                console.log('✅ 对象已从空间索引移除:', objectId);
+        
             } else {
                 console.warn('对象从空间索引移除失败: ' + objectId);
             }
@@ -115,7 +115,7 @@ class ObjectManager {
 
                 // 归还到对象池
                 pool.return(object);
-                console.log('✅ 对象已归还到对象池:', objectId);
+        
             }
         }
 
@@ -126,7 +126,7 @@ class ObjectManager {
         const currentCount = this.objectCounts.get(type) || 0;
         this.objectCounts.set(type, Math.max(0, currentCount - 1));
 
-        console.log('✅ 对象已从管理器移除:', objectId);
+
         return true;
     }
 
@@ -148,7 +148,7 @@ class ObjectManager {
         });
 
         if (cleanedCount > 0) {
-            console.log(`🧹 批量清理完成，销毁 ${cleanedCount} 个死亡对象`);
+    
         }
 
         return cleanedCount;
@@ -242,7 +242,7 @@ class ObjectManager {
 
     // 重置管理器
     reset() {
-        console.log('🔄 重置对象管理器...');
+
 
         // 清理所有对象
         for (const [id, info] of this.objects) {
@@ -254,18 +254,18 @@ class ObjectManager {
             this.objectCounts.set(type, 0);
         });
 
-        console.log('✅ 对象管理器重置完成');
+
     }
 
     // 销毁管理器
     destroy() {
-        console.log('🗑️ 销毁对象管理器...');
+
 
         this.reset();
         this.objects.clear();
         this.spatialIndex = null;
 
-        console.log('✅ 对象管理器销毁完成');
+
     }
 }
 

@@ -94,7 +94,7 @@ class StateMachine {
             }
         }
         
-        console.log(`${this.owner.constructor.name} 状态转换: ${this.previousState} -> ${this.currentState}`);
+        // 状态转换完成
     }
     
     // 更新状态机

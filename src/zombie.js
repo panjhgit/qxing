@@ -619,7 +619,7 @@ var ZombieManager = {
             // 🔴 重构：创建僵尸 - 注册到对象管理器
         createZombie: function(type, x, y) {
         if (!window.collisionSystem) {
-            console.error('碰撞系统未初始化');
+            console.warn('碰撞系统未初始化');
             return null;
         }
         
@@ -870,7 +870,6 @@ var ZombieManager = {
             // 🔴 协调对象池：优先使用对象池归还
             if (this.objectPool) {
                 if (this.objectPool.return(zombie)) {
-                    console.log('✅ 死亡僵尸已归还到对象池:', zombie.id);
                     return; // 使用return而不是continue
                 }
             }

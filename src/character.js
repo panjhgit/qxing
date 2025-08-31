@@ -53,13 +53,13 @@ var Character = function (role, x, y) {
 
     // 验证参数
     if (!validationUtils.validatePosition(x, y)) {
-        console.error('无效的人物位置:', x, y);
+        console.warn('无效的人物位置:', x, y);
         x = 100;
         y = 100; // 使用默认位置
     }
 
     if (!validationUtils.validateRange(role, 1, 6, '角色类型')) {
-        console.error('无效的角色类型:', role);
+        console.warn('无效的角色类型:', role);
         role = ROLE.CIVILIAN; // 使用默认角色
     }
 
@@ -678,14 +678,14 @@ Character.prototype.handleGameOver = function () {
     if (typeof window.handleMainCharacterDeath === 'function') {
         window.handleMainCharacterDeath();
     } else {
-        console.error('❌ handleMainCharacterDeath函数未找到，使用默认处理');
+        console.warn('❌ handleMainCharacterDeath函数未找到，使用默认处理');
         // 延迟执行，让死亡动画播放完成
         setTimeout(() => {
             // 调用环境重置函数
             if (typeof window.resetGame === 'function') {
                 window.resetGame();
             } else {
-                console.error('❌ resetGame函数未找到，无法重置游戏环境');
+                console.warn('❌ resetGame函数未找到，无法重置游戏环境');
                 // 回退到原来的游戏结束处理
                 this.showGameOverScreen();
             }
@@ -695,7 +695,6 @@ Character.prototype.handleGameOver = function () {
 
 // 显示游戏结束界面
 Character.prototype.showGameOverScreen = function () {
-    console.log('显示游戏结束界面');
 
     // 在画布上显示游戏结束文字
     if (window.gameEngine && window.gameEngine.ctx) {
@@ -735,7 +734,7 @@ Character.prototype.addGameOverClickListener = function (canvas) {
         if (window.restartGame) {
             window.restartGame();
         } else {
-            console.error('restartGame函数未找到');
+            console.warn('restartGame函数未找到');
         }
     };
 
@@ -976,7 +975,7 @@ var CharacterManager = {
             () => new Character(ROLE.MAIN, 0, 0), // 重置函数
             (character) => this.resetCharacter(character));
 
-        console.log('✅ 角色对象池初始化完成');
+        // 角色对象池初始化完成
     },
 
     // 重置角色状态（对象池复用）
@@ -1030,7 +1029,7 @@ var CharacterManager = {
 
         // 使用验证工具检查参数
         if (!validationUtils.validatePosition(x, y)) {
-            console.error('❌ 无效的主人物位置:', x, y);
+            console.warn('❌ 无效的主人物位置:', x, y);
             return null;
         }
 
@@ -1067,7 +1066,7 @@ var CharacterManager = {
         if (window.objectManager) {
             const objectInfo = window.objectManager.getObjectInfo(mainChar.id);
             if (!objectInfo) {
-                console.error('❌ 立即验证失败：主人物未正确注册到对象管理器！');
+                console.warn('❌ 立即验证失败：主人物未正确注册到对象管理器！');
             }
         }
 
@@ -1082,13 +1081,6 @@ var CharacterManager = {
         
         const mainChar = window.objectManager.getMainCharacter();
         if (mainChar && mainChar.hp > 0) {
-            console.log('CharacterManager.getMainCharacter: 从对象管理器获取到主人物:', {
-                id: mainChar.id,
-                role: mainChar.role,
-                x: mainChar.x,
-                y: mainChar.y,
-                hp: mainChar.hp
-            });
             return mainChar;
         }
 

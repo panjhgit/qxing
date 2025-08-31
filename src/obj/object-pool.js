@@ -94,7 +94,7 @@ class ObjectPool {
 
     // 初始化对象池
     initialize() {
-        console.log(`🔧 初始化对象池: ${this.type}`);
+
 
         // 预创建初始对象
         for (let i = 0; i < POOL_CONFIG.INITIAL_POOL_SIZE; i++) {
@@ -102,7 +102,7 @@ class ObjectPool {
         }
 
         this.updateStats();
-        console.log(`✅ 对象池初始化完成: ${this.type}, 初始大小: ${this.inactiveItems.length}`);
+
     }
 
     // 创建新对象
@@ -184,7 +184,7 @@ class ObjectPool {
         const expandCount = Math.min(newSize - currentSize, POOL_CONFIG.MAX_POOL_SIZE - currentSize);
 
         if (expandCount > 0) {
-            console.log(`📈 扩容对象池: ${this.type}, 从 ${currentSize} 扩容到 ${currentSize + expandCount}`);
+    
 
             for (let i = 0; i < expandCount; i++) {
                 this.createNewItem();
@@ -201,7 +201,7 @@ class ObjectPool {
         const shrinkCount = currentSize - newSize;
 
         if (shrinkCount > 0 && currentSize > POOL_CONFIG.INITIAL_POOL_SIZE) {
-            console.log(`📉 收缩对象池: ${this.type}, 从 ${currentSize} 收缩到 ${newSize}`);
+    
 
             // 移除最旧的对象
             this.inactiveItems.splice(0, shrinkCount);
@@ -254,7 +254,7 @@ class ObjectPool {
 
     // 重置池
     reset() {
-        console.log(`🔄 重置对象池: ${this.type}`);
+
 
         // 清空所有对象
         this.activeItems.clear();
@@ -270,7 +270,7 @@ class ObjectPool {
 
     // 销毁池
     destroy() {
-        console.log(`🗑️ 销毁对象池: ${this.type}`);
+
 
         this.activeItems.clear();
         this.inactiveItems = [];
@@ -298,7 +298,7 @@ class ObjectPoolManager {
             enabled: true, threshold: POOL_CONFIG.LEAK_DETECTION_THRESHOLD, warnings: []
         };
 
-        console.log('🚀 对象池管理器初始化完成');
+
     }
 
     // 创建对象池
@@ -312,7 +312,7 @@ class ObjectPoolManager {
         this.pools.set(type, pool);
         this.performanceStats.totalPools = this.pools.size;
 
-        console.log(`✅ 创建对象池: ${type}`);
+
         return pool;
     }
 
@@ -356,7 +356,7 @@ class ObjectPoolManager {
 
     // 执行清理
     performCleanup() {
-        console.log('🧹 执行对象池清理...');
+
 
         let cleanedCount = 0;
         for (const [type, pool] of this.pools) {
@@ -367,7 +367,7 @@ class ObjectPoolManager {
         }
 
         if (cleanedCount > 0) {
-            console.log(`✅ 清理完成，释放 ${cleanedCount} 个对象`);
+    
         }
 
         this.updatePerformanceStats();
@@ -375,7 +375,7 @@ class ObjectPoolManager {
 
     // 优化对象池
     optimizePools() {
-        console.log('⚡ 优化对象池...');
+
 
         for (const [type, pool] of this.pools) {
             const stats = pool.getStats();
@@ -453,7 +453,7 @@ class ObjectPoolManager {
 
     // 重置所有池
     resetAllPools() {
-        console.log('🔄 重置所有对象池...');
+
 
         for (const pool of this.pools.values()) {
             pool.reset();

@@ -148,7 +148,6 @@ class IndependentMenuSystem {
         
         // 返回按钮
         this.touchHandlers.set(BUTTON_TYPE.BACK, () => {
-            console.log('⬅️ 返回按钮被点击');
             this.goBack();
         });
     }
@@ -248,7 +247,7 @@ class IndependentMenuSystem {
      */
     render() {
         if (!this.canvas || !this.ctx) {
-            console.error('❌ 菜单系统未正确初始化');
+            console.warn('❌ 菜单系统未正确初始化');
             return;
         }
         

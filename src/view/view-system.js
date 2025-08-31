@@ -26,7 +26,6 @@ export class ViewSystem {
     // 初始化视觉系统
     init(mapWidth, mapHeight) {
         this.camera.setMapBounds(mapWidth, mapHeight);
-        console.log('视觉系统初始化完成');
     }
 
     // 设置跟随目标
@@ -96,7 +95,6 @@ export class ViewSystem {
         const currentMap = mapSystem.getCurrentMap();
         if (!currentMap || !currentMap.walkableAreas) return;
         
-        console.log('渲染可通行区域，数量:', currentMap.walkableAreas.length);
         this.renderManager.renderWalkableAreas(currentMap.walkableAreas);
     }
 
@@ -107,8 +105,6 @@ export class ViewSystem {
         // 获取当前地图数据
         const currentMap = mapSystem.getCurrentMap();
         if (!currentMap || !currentMap.buildings) return;
-
-        console.log('渲染建筑物，数量:', currentMap.buildings.length);
 
         // 应用摄像机变换
         this.renderManager.applyCameraTransform();
@@ -167,8 +163,6 @@ export class ViewSystem {
             return zombie && zombie.hp > 0 && zombie.state !== 'dead';
         });
 
-        console.log('renderZombies: 总僵尸数量:', allZombies.length, '渲染数量:', zombiesToRender.length);
-
         // 应用摄像机变换
         this.renderManager.applyCameraTransform();
 
@@ -188,7 +182,6 @@ export class ViewSystem {
 
         // 获取所有伙伴
         var partners = partnerManager.getAllPartners();
-        console.log('renderPartners: 伙伴数量:', partners.length);
 
         // 使用统一渲染管理器渲染伙伴
         this.renderManager.renderEntityList(partners, ENTITY_TYPE.PARTNER);

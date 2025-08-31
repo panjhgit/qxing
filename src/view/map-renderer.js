@@ -32,8 +32,6 @@ export class MapRenderer {
      * @param {string} mapId - 地图ID
      */
     init(mapId) {
-        console.log('🗺️ 地图渲染器初始化中...');
-        
         // 获取地图数据
         if (window.MapManager && window.MapManager.getCurrentMap) {
             this.currentMap = window.MapManager.getCurrentMap();
@@ -47,31 +45,15 @@ export class MapRenderer {
         
         // 解析地图数据
         if (this.currentMap.matrix && this.currentMap.buildingTypes) {
-            console.log('✅ 地图数据完整，开始解析矩阵...');
-            console.log('矩阵数据:', {
-                matrix: this.currentMap.matrix,
-                matrixLength: this.currentMap.matrix.length,
-                buildingTypes: this.currentMap.buildingTypes,
-                buildingTypesCount: Object.keys(this.currentMap.buildingTypes).length
-            });
             
             this.parseMatrixMap();
             
-            // 检查解析结果
-            console.log('解析完成后的状态:', {
-                buildings: this.currentMap.buildings,
-                buildingsLength: this.currentMap.buildings ? this.currentMap.buildings.length : 'undefined',
-                walkableAreas: this.currentMap.walkableAreas,
-                walkableAreasLength: this.currentMap.walkableAreas ? this.currentMap.walkableAreas.length : 'undefined'
-            });
         } else {
-            console.error('❌ 地图数据不完整:');
-            console.error('- matrix:', this.currentMap.matrix);
-            console.error('- buildingTypes:', this.currentMap.buildingTypes);
+            console.warn('❌ 地图数据不完整:');
+            console.warn('- matrix:', this.currentMap.matrix);
+            console.warn('- buildingTypes:', this.currentMap.buildingTypes);
             throw new Error('地图数据不完整，缺少matrix或buildingTypes');
         }
-        
-        console.log('✅ 地图渲染器初始化完成');
     }
 
     /**
@@ -79,30 +61,15 @@ export class MapRenderer {
      * 将矩阵转换为建筑物和可通行区域
      */
     parseMatrixMap() {
-        console.log('🚀 ===== 开始解析矩阵地图 =====');
-        
         if (!this.currentMap.matrix || !this.currentMap.buildingTypes) {
             throw new Error('矩阵地图数据不完整');
             return;
         }
 
-        console.log('开始解析矩阵地图...');
-        console.log('矩阵尺寸:', this.currentMap.matrix.length, 'x', this.currentMap.matrix[0].length);
-        console.log('建筑类型数量:', Object.keys(this.currentMap.buildingTypes).length);
-        console.log('建筑类型详情:', this.currentMap.buildingTypes);
-        
         // 检查矩阵数据
         const matrix = this.currentMap.matrix;
         const sampleRows = Math.min(5, matrix.length);
         const sampleCols = Math.min(5, matrix[0].length);
-        console.log('矩阵数据样本 (前5x5):');
-        for (let row = 0; row < sampleRows; row++) {
-            let rowStr = '';
-            for (let col = 0; col < sampleCols; col++) {
-                rowStr += matrix[row][col] + ' ';
-            }
-            console.log('行 ' + row + ':', rowStr);
-        }
 
         // 初始化建筑物和可通行区域数组
         this.currentMap.buildings = [];
@@ -113,12 +80,7 @@ export class MapRenderer {
         const matrixRows = matrix.length;
         const matrixCols = matrix[0].length;
 
-        console.log('解析参数:', {
-            cellSize: cellSize,
-            matrixRows: matrixRows,
-            matrixCols: matrixCols,
-            buildingTypesCount: Object.keys(buildingTypes).length
-        });
+
 
         // 遍历矩阵，解析建筑物和可通行区域
         for (let row = 0; row < matrixRows; row++) {
@@ -135,9 +97,7 @@ export class MapRenderer {
             }
         }
 
-        console.log('✅ 矩阵地图解析完成');
-        console.log('建筑物数量:', this.currentMap.buildings.length);
-        console.log('可通行区域数量:', this.currentMap.walkableAreas.length);
+
     }
 
     /**
@@ -352,7 +312,7 @@ export class MapRenderer {
      */
     renderDebugInfo(ctx) {
         // 调试信息渲染已统一到RenderManager中处理
-        console.log('地图渲染器调试信息已统一处理');
+
     }
 
     /**

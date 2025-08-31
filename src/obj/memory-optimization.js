@@ -64,7 +64,7 @@ class MemoryMonitor {
         this.isMonitoring = false;
         this.monitorInterval = null;
         
-        console.log('🔍 内存监控器初始化完成');
+
     }
     
     // 开始监控
@@ -79,7 +79,7 @@ class MemoryMonitor {
             this.checkMemoryUsage();
         }, MEMORY_CONFIG.MONITORING.INTERVAL);
         
-        console.log('✅ 内存监控已启动');
+
     }
     
     // 停止监控
@@ -90,7 +90,7 @@ class MemoryMonitor {
         }
         
         this.isMonitoring = false;
-        console.log('⏹️ 内存监控已停止');
+
     }
     
     // 检查内存使用情况
@@ -211,7 +211,7 @@ class MemoryMonitor {
             optimizations: []
         };
         
-        console.log('🔄 内存监控器已重置');
+
     }
 }
 

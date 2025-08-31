@@ -55,13 +55,13 @@ var Partner = function (role, x, y) {
 
     // 验证参数
     if (!validationUtils.validatePosition(x, y)) {
-        console.error('无效的伙伴位置:', x, y);
+        console.warn('无效的伙伴位置:', x, y);
         x = 100;
         y = 100;
     }
 
     if (!validationUtils.validateRange(role, 2, 6, '伙伴职业类型')) {
-        console.error('无效的伙伴职业类型:', role);
+        console.warn('无效的伙伴职业类型:', role);
         role = PARTNER_ROLE.CIVILIAN;
     }
 
@@ -872,7 +872,7 @@ Partner.prototype.handleCollisionWithMainCharacter = function (distance) {
 // 🔴 新增：确保伙伴已注册到对象管理模块
 Partner.prototype.ensureRegisteredInObjectManager = function () {
     if (!window.objectManager) {
-        console.error('🔴 对象管理器未初始化');
+        console.warn('🔴 对象管理器未初始化');
         return;
     }
     
@@ -1003,7 +1003,8 @@ var PartnerManager = {
     // 创建伙伴
     createPartner: function (role, x, y) {
         if (!window.objectManager) {
-            throw new Error('对象管理器未初始化');
+            console.warn('❌ 对象管理器未初始化');
+            return null;
         }
         
         var currentPartnerCount = window.objectManager.getObjectCount('partner');
@@ -1049,7 +1050,8 @@ var PartnerManager = {
     // 🔴 重构：从对象管理器获取所有伙伴 - 对象管理器作为唯一数据源
     getAllPartners: function () {
         if (!window.objectManager) {
-            throw new Error('对象管理器未初始化');
+            console.warn('❌ 对象管理器未初始化');
+            return [];
         }
         
         return window.objectManager.getAllPartners();
@@ -1133,7 +1135,7 @@ var PartnerManager = {
     // 在地图上生成伙伴
     generatePartnersOnMap: function () {
         if (!window.objectManager) {
-            console.error('❌ 对象管理器未初始化');
+            console.warn('❌ 对象管理器未初始化');
             return;
         }
             
@@ -1196,7 +1198,7 @@ var PartnerManager = {
                 // 创建伙伴
                 var partner = this.createPartner(role, safePosition.x, safePosition.y);
                 if (!partner) {
-                    console.error(`❌ 伙伴${i+1}创建失败`);
+                    console.warn(`❌ 伙伴${i+1}创建失败`);
                 }
             }
             

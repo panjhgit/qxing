@@ -22,8 +22,6 @@ export const MapManager = {
      * @param {string} defaultMapId - 默认地图ID
      */
     init: function (defaultMapId = 'city') {
-        console.log('🗺️ 地图管理器初始化中...');
-        console.log('可用地图:', Object.keys(this.availableMaps));
 
         // 只使用city地图，如果不存在则抛出错误
         if (this.availableMaps[defaultMapId]) {
@@ -32,7 +30,7 @@ export const MapManager = {
             throw new Error(`地图 ${defaultMapId} 不存在，无法初始化地图管理器`);
         }
 
-        console.log('✅ 地图管理器初始化完成');
+
         return this.currentMap;
     },
 
@@ -43,11 +41,11 @@ export const MapManager = {
      */
     switchMap: function (mapId) {
         if (!this.availableMaps[mapId]) {
-            console.error('❌ 地图不存在:', mapId);
+            console.warn('❌ 地图不存在:', mapId);
             return null;
         }
 
-        console.log(`🔄 切换到地图: ${mapId}`);
+
 
         // 获取地图定义
         const mapDefinition = this.availableMaps[mapId];
@@ -78,9 +76,7 @@ export const MapManager = {
         // 缓存地图数据
         this.mapCache.set(mapId, this.currentMap);
 
-        console.log(`✅ 地图切换成功: ${mapDefinition.config.name}`);
-        console.log('地图配置:', this.currentMap.config);
-        console.log('地图统计:', this.currentMap.stats);
+
 
         return this.currentMap;
     },
@@ -97,7 +93,7 @@ export const MapManager = {
     registerMapToObjectManager: function() {
         if (this.currentMap && window.objectManager) {
             window.objectManager.registerObject(this.currentMap, 'map', 'current_map');
-            console.log('✅ 地图已注册到对象管理器');
+    
         }
     },
 
@@ -173,11 +169,11 @@ export const MapManager = {
      */
     generateMapData: function() {
         if (!this.currentMap || !this.currentMap.matrix || !this.currentMap.buildingTypes) {
-            console.error('❌ 无法生成地图数据：缺少必要的地图信息');
+            console.warn('❌ 无法生成地图数据：缺少必要的地图信息');
             return;
         }
 
-        console.log('🚀 ===== 开始生成地图数据 =====');
+
         
         const matrix = this.currentMap.matrix;
         const buildingTypes = this.currentMap.buildingTypes;
@@ -187,12 +183,7 @@ export const MapManager = {
         this.currentMap.buildings = [];
         this.currentMap.walkableAreas = [];
 
-        console.log('解析参数:', {
-            cellSize: cellSize,
-            matrixRows: matrix.length,
-            matrixCols: matrix[0].length,
-            buildingTypesCount: Object.keys(buildingTypes).length
-        });
+
 
         // 遍历矩阵，解析建筑物和可通行区域
         for (let row = 0; row < matrix.length; row++) {
@@ -209,9 +200,7 @@ export const MapManager = {
             }
         }
 
-        console.log('✅ 地图数据生成完成');
-        console.log('建筑物数量:', this.currentMap.buildings.length);
-        console.log('可通行区域数量:', this.currentMap.walkableAreas.length);
+
     },
 
     /**

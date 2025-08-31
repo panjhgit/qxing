@@ -9,7 +9,7 @@ eventPrototype.init = function (canvas, gameState) {
     this.lastTouchX = 0;
     this.lastTouchY = 0;
 
-    console.log('事件系统初始化完成');
+    // 事件系统初始化完成
 };
 
 // 处理触摸开始事件
@@ -18,7 +18,7 @@ eventPrototype.handleTouchStart = function (e) {
     var x = touch.clientX;
     var y = touch.clientY;
 
-    console.log('触摸开始:', x, y, '游戏状态:', this.gameState);
+    // 触摸开始事件
 
     if (this.gameState === 'home') {
         return this.handleHomeTouch(x, y);
@@ -58,7 +58,7 @@ eventPrototype.handleTouchMove = function (e) {
 eventPrototype.handleTouchEnd = function (e) {
     if (this.gameState === 'playing') {
         this.isDragging = false;
-        console.log('触摸结束，停止拖动');
+        // 触摸结束，停止拖动
     }
 
     return false;
@@ -66,22 +66,15 @@ eventPrototype.handleTouchEnd = function (e) {
 
 // 处理首页触摸事件
 eventPrototype.handleHomeTouch = function (x, y) {
-    console.log('=== 处理首页触摸事件 ===');
-    console.log('触摸坐标:', x, y);
-    
     // 检查开始游戏按钮点击
     var result = window.menuSystem.checkHomeButtonClick.call(window.menuSystem, x, y);
-    console.log('按钮点击检测结果:', result);
     
     if (result === 'start_game') {
-        console.log('开始游戏按钮被点击，准备切换状态');
         // 通知游戏状态改变
         window.onGameStateChange('playing');
-        console.log('onGameStateChange调用完成');
         return true;
     }
     
-    console.log('=== 首页触摸事件处理完成 ===');
     return false;
 };
 
@@ -89,7 +82,6 @@ eventPrototype.handleHomeTouch = function (x, y) {
 eventPrototype.handleGameTouch = function (x, y) {
     // 检查返回按钮点击
     if (this.checkBackButtonClick(x, y)) {
-        console.log('返回按钮被点击');
         // 通知游戏状态改变
         if (typeof window.onGameStateChange === 'function') {
             window.onGameStateChange('home');
@@ -101,7 +93,6 @@ eventPrototype.handleGameTouch = function (x, y) {
     if (window.mapSystem && window.mapSystem.checkBuildingClick) {
         var building = window.mapSystem.checkBuildingClick(x, y);
         if (building) {
-            console.log('建筑物被点击:', building.type.name);
             this.showBuildingInfo(building);
             return true;
         }
@@ -111,7 +102,6 @@ eventPrototype.handleGameTouch = function (x, y) {
     this.isDragging = true;
     this.lastTouchX = x;
     this.lastTouchY = y;
-    console.log('开始拖动地图');
 
     return true;
 };
@@ -130,7 +120,6 @@ eventPrototype.checkBackButtonClick = function (x, y) {
 eventPrototype.showBuildingInfo = function (building) {
     if (window.mapSystem && window.mapSystem.getBuildingInfo) {
         var info = window.mapSystem.getBuildingInfo(building);
-        console.log('建筑物信息:', info);
 
         // 这里可以显示建筑物信息的UI
         // 比如弹出一个信息框显示建筑物的详细信息
@@ -157,7 +146,7 @@ eventPrototype.bindTouchEvents = function () {
         self.handleTouchEnd(e);
     });
 
-    console.log('触摸事件绑定完成');
+    // 触摸事件绑定完成
 };
 
 // ES6模块导出
