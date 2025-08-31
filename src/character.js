@@ -128,7 +128,7 @@ Character.prototype.setupRoleProperties = function () {
 
     switch (this.role) {
         case ROLE.MAIN: // 主人物
-            this.hp = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取血量
+            this.hp = combatConfig ? combatConfig.DEFAULT_HP : 100; // 从config.js获取血量
             this.maxHp = this.hp;
             this.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取攻击力
             this.weapon = WEAPON.NONE;
@@ -137,7 +137,7 @@ Character.prototype.setupRoleProperties = function () {
             break;
 
         case ROLE.POLICE: // 警察
-            this.hp = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取血量
+            this.hp = combatConfig ? combatConfig.DEFAULT_HP : 100; // 从config.js获取血量
             this.maxHp = this.hp;
             this.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取攻击力
             this.weapon = WEAPON.NONE;
@@ -146,7 +146,7 @@ Character.prototype.setupRoleProperties = function () {
             break;
 
         case ROLE.CIVILIAN: // 平民
-            this.hp = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取血量
+            this.hp = combatConfig ? combatConfig.DEFAULT_HP : 100; // 从config.js获取血量
             this.maxHp = this.hp;
             this.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取攻击力
             this.weapon = WEAPON.NONE;
@@ -155,7 +155,7 @@ Character.prototype.setupRoleProperties = function () {
             break;
 
         case ROLE.DOCTOR: // 医生
-            this.hp = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取血量
+            this.hp = combatConfig ? combatConfig.DEFAULT_HP : 100; // 从config.js获取血量
             this.maxHp = this.hp;
             this.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取攻击力
             this.weapon = WEAPON.NONE;
@@ -164,7 +164,7 @@ Character.prototype.setupRoleProperties = function () {
             break;
 
         case ROLE.NURSE: // 护士
-            this.hp = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取血量
+            this.hp = combatConfig ? combatConfig.DEFAULT_HP : 100; // 从config.js获取血量
             this.maxHp = this.hp;
             this.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取攻击力
             this.weapon = WEAPON.NONE;
@@ -173,7 +173,7 @@ Character.prototype.setupRoleProperties = function () {
             break;
 
         case ROLE.CHEF: // 厨师
-            this.hp = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取血量
+            this.hp = combatConfig ? combatConfig.DEFAULT_HP : 100; // 从config.js获取血量
             this.maxHp = this.hp;
             this.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取攻击力
             this.weapon = WEAPON.NONE;
@@ -182,7 +182,7 @@ Character.prototype.setupRoleProperties = function () {
             break;
 
         default:
-            this.hp = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取血量
+            this.hp = combatConfig ? combatConfig.DEFAULT_HP : 100; // 从config.js获取血量
             this.maxHp = this.hp;
             this.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取攻击力
             this.weapon = WEAPON.NONE;
@@ -832,6 +832,16 @@ Character.prototype.playAttackAnimation = function () {
     this.animationSpeed = animationConfig ? (animationConfig.ATTACK_ANIMATION_SPEED || 0.3) : 0.3; // 从配置读取攻击动画速度
 
     console.log('主人物播放攻击动画');
+};
+
+// 🔴 修复：添加缺失的移动攻击动画方法
+Character.prototype.playAttackAnimationWhileMoving = function () {
+    // 移动时播放攻击动画
+    this.animationFrame = 0;
+    var animationConfig = window.ConfigManager ? window.ConfigManager.get('ANIMATION') : null;
+    this.animationSpeed = animationConfig ? (animationConfig.ATTACK_ANIMATION_SPEED || 0.3) : 0.3;
+
+    console.log('主人物播放移动攻击动画');
 };
 
 // 播放死亡动画

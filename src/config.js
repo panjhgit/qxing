@@ -124,8 +124,9 @@ const GAME_CONFIG = {
         MAX_ATTACK_RANGE: 100,           // 最大攻击距离10px
         DAMAGE_REDUCTION_FACTOR: 0.8,   // 伤害衰减因子
         
-        // 角色攻击配置
-        DEFAULT_ATTACK: 20,             // 默认攻击力10
+        // 角色基础属性配置
+        DEFAULT_HP: 100,                // 默认血量100
+        DEFAULT_ATTACK: 20,             // 默认攻击力20
         DEFAULT_ATTACK_INTERVAL: 0.5,   // 默认攻击间隔0.5秒 (1秒攻击2下)
         MOVING_ATTACK_INTERVAL: 0.5,    // 移动攻击间隔0.5秒 (1秒攻击2下)
         

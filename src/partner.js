@@ -124,7 +124,7 @@ Partner.prototype.setupRoleProperties = function () {
 
     switch (this.role) {
         case PARTNER_ROLE.POLICE:
-            this.hp = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取血量
+            this.hp = combatConfig ? combatConfig.DEFAULT_HP : 100; // 从config.js获取血量
             this.maxHp = this.hp;
             this.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取攻击力
             this.attackRange = combatConfig ? combatConfig.POLICE_ATTACK_RANGE : 100; // 从config.js获取攻击范围
@@ -135,7 +135,7 @@ Partner.prototype.setupRoleProperties = function () {
             break;
 
         case PARTNER_ROLE.CIVILIAN:
-            this.hp = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取血量
+            this.hp = combatConfig ? combatConfig.DEFAULT_HP : 100; // 从config.js获取血量
             this.maxHp = this.hp;
             this.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取攻击力
             this.attackRange = combatConfig ? combatConfig.POLICE_ATTACK_RANGE : 100; // 从config.js获取攻击范围
@@ -146,7 +146,7 @@ Partner.prototype.setupRoleProperties = function () {
             break;
 
         case PARTNER_ROLE.DOCTOR:
-            this.hp = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取血量
+            this.hp = combatConfig ? combatConfig.DEFAULT_HP : 100; // 从config.js获取血量
             this.maxHp = this.hp;
             this.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取攻击力
             this.attackRange = combatConfig ? combatConfig.DOCTOR_ATTACK_RANGE : 100; // 从config.js获取攻击范围
@@ -157,7 +157,7 @@ Partner.prototype.setupRoleProperties = function () {
             break;
 
         case PARTNER_ROLE.NURSE:
-            this.hp = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取血量
+            this.hp = combatConfig ? combatConfig.DEFAULT_HP : 100; // 从config.js获取血量
             this.maxHp = this.hp;
             this.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取攻击力
             this.attackRange = combatConfig ? combatConfig.NURSE_ATTACK_RANGE : 100; // 从config.js获取攻击范围
@@ -168,7 +168,7 @@ Partner.prototype.setupRoleProperties = function () {
             break;
 
         case PARTNER_ROLE.CHEF:
-            this.hp = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取血量
+            this.hp = combatConfig ? combatConfig.DEFAULT_HP : 100; // 从config.js获取血量
             this.maxHp = this.hp;
             this.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取攻击力
             this.attackRange = combatConfig ? combatConfig.CHEF_ATTACK_RANGE : 100; // 从config.js获取攻击范围
@@ -179,7 +179,7 @@ Partner.prototype.setupRoleProperties = function () {
             break;
 
         default:
-            this.hp = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取血量
+            this.hp = combatConfig ? combatConfig.DEFAULT_HP : 100; // 从config.js获取血量
             this.maxHp = this.hp;
             this.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取攻击力
             this.attackRange = combatConfig ? combatConfig.POLICE_ATTACK_RANGE : 100; // 从config.js获取攻击范围
@@ -777,6 +777,15 @@ Partner.prototype.playAttackAnimation = function () {
     var animationConfig = window.ConfigManager ? window.ConfigManager.get('ANIMATION') : null;
     this.animationSpeed = animationConfig ? (animationConfig.ATTACK_ANIMATION_SPEED || 0.3) : 0.3;
     console.log('伙伴播放攻击动画');
+};
+
+// 🔴 修复：添加缺失的移动攻击动画方法（抖音小游戏环境兼容）
+Partner.prototype.playAttackAnimationWhileMoving = function () {
+    // 移动时播放攻击动画
+    this.animationFrame = 0;
+    var animationConfig = window.ConfigManager ? window.ConfigManager.get('ANIMATION') : null;
+    this.animationSpeed = animationConfig ? (animationConfig.ATTACK_ANIMATION_SPEED || 0.3) : 0.3;
+    console.log('伙伴播放移动攻击动画');
 };
 
 // 播放死亡动画
