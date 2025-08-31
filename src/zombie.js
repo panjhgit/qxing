@@ -111,6 +111,21 @@ Zombie.prototype.setupProperties = function() {
     var detectionConfig = ConfigManager.get('DETECTION');
     this.detectionRange = detectionConfig.ZOMBIE_DETECTION_RANGE;
     this.mainCharacterDetectionRange = detectionConfig.MAIN_CHARACTER_DETECTION;
+    
+    // 🔴 修复：重置状态相关属性，避免对象池复用时的状态残留
+    this.state = ZOMBIE_STATE.IDLE;
+    this.targetCharacter = null;
+    this.targetX = this.x;
+    this.targetY = this.y;
+    this.isActive = false;
+    this.isMoving = false;
+    this.lastAttackTime = 0;
+    this.animationFrame = 0;
+    this.direction = 0;
+    this._updateFrame = 0;
+    this._destroyed = false;
+    
+    console.log('🔧 僵尸属性设置完成:', this.zombieType, '状态重置完成');
 };
 
 // 统一的僵尸更新方法
@@ -132,25 +147,23 @@ Zombie.prototype.update = function(deltaTime, characters, currentFrame = 0) {
         }
     }
     
-    // 🔴 修复：简化更新逻辑，确保僵尸不会卡住
+    // 🔴 修复：使用僵尸ID进行稳定的批次分配，而不是数组索引
     if (!this._updateFrame) this._updateFrame = 0;
     this._updateFrame++;
     
     // 总是更新动画
     this.updateAnimation(deltaTime);
     
-    // 🔴 修复：简化更新间隔检查，确保僵尸能正常更新
+    // 🔴 紧急修复：简化更新逻辑，确保僵尸能移动
     var performanceConfig = ConfigManager.get('PERFORMANCE.OPTIMIZATION');
     var fixedUpdateInterval = performanceConfig ? performanceConfig.ZOMBIE_UPDATE_INTERVAL : 2;
-    var shouldUpdateAI = this._updateFrame % fixedUpdateInterval === 0;
     
-    // 即使不在更新间隔，也要执行基本的状态检查
+    // 🔴 紧急修复：临时改为每帧都更新，确保僵尸能动
+    var shouldUpdateAI = true;
+    
+    // 如果不在更新间隔，只更新动画和基础逻辑
     if (!shouldUpdateAI) {
-        // 🔴 新增：确保僵尸不会卡在某个状态
-        if (this.state === ZOMBIE_STATE.IDLE) {
-            this.idleBehavior(deltaTime);
-        }
-        // 🔴 新增：检查目标有效性
+        // 🔴 新增：即使不在更新间隔，也要检查目标有效性
         if (this.targetCharacter && !this.isTargetValid()) {
             this.findNearestEnemy();
         }
@@ -179,6 +192,7 @@ Zombie.prototype.update = function(deltaTime, characters, currentFrame = 0) {
             break;
     }
     
+    this.updateAnimation(deltaTime);
     return true;
 };
 
@@ -264,10 +278,7 @@ Zombie.prototype.chaseTarget = function(deltaTime) {
         return;
     }
     
-    var zombieBehaviorConfig = ConfigManager.get('ZOMBIE.BEHAVIOR');
-    var activationDistance = zombieBehaviorConfig.ACTIVATION_DISTANCE;
-    
-    if (distance > activationDistance) {
+    if (distance > this.detectionRange) {
         this.state = ZOMBIE_STATE.IDLE;
         return;
     }
@@ -318,6 +329,9 @@ Zombie.prototype.moveTowards = function(targetX, targetY, deltaTime) {
     var newX = this.x + Math.cos(this.direction) * this.moveSpeed;
     var newY = this.y + Math.sin(this.direction) * this.moveSpeed;
     
+    // 🔴 临时调试：输出移动信息
+    console.log('🔍 僵尸移动:', this.id, '从:', this.x, this.y, '到:', newX, newY, '速度:', this.moveSpeed);
+    
     // 检查碰撞
     var finalPosition = this.checkCollision(this.x, this.y, newX, newY);
     if (finalPosition) {
@@ -362,23 +376,21 @@ Zombie.prototype.checkCollision = function(fromX, fromY, toX, toY) {
 
 // 待机行为
 Zombie.prototype.idleBehavior = function(deltaTime) {
-    var zombieBehaviorConfig = ConfigManager.get('ZOMBIE.BEHAVIOR');
-    var activationDistance = zombieBehaviorConfig.ACTIVATION_DISTANCE; // 使用激活距离
+    var detectionConfig = ConfigManager.get('DETECTION');
+    var mainCharacterPriorityRange = detectionConfig.SPECIAL_DETECTION.MAIN_CHARACTER_PRIORITY_RANGE;
     
-    // 🔴 修复：检查主人物，确保700px范围内的僵尸都能追击
+    // 检查主人物
     if (window.characterManager && window.characterManager.getAllCharacters) {
         var allCharacters = window.characterManager.getAllCharacters();
         var mainCharacter = allCharacters.find(c => c.role === 1 && c.hp > 0);
         
         if (mainCharacter) {
             var distance = this.getDistanceTo(mainCharacter.x, mainCharacter.y);
-            // 🔴 修复：使用激活距离而不是主人物优先检测范围
-            if (distance <= activationDistance) {
+            if (distance <= mainCharacterPriorityRange) {
                 this.targetCharacter = mainCharacter;
                 this.targetX = mainCharacter.x;
                 this.targetY = mainCharacter.y;
                 this.state = ZOMBIE_STATE.CHASING;
-                console.log('🧟‍♂️ 僵尸从待机状态开始追击:', this.id, '距离:', distance);
                 return;
             }
         }
@@ -488,11 +500,8 @@ Zombie.prototype.isTargetValid = function() {
     }
     
     var distance = this.getDistanceTo(this.targetCharacter.x, this.targetCharacter.y);
-    var zombieBehaviorConfig = ConfigManager.get('ZOMBIE.BEHAVIOR');
-    var activationDistance = zombieBehaviorConfig.ACTIVATION_DISTANCE;
     
-    // 🔴 修复：使用激活距离而不是检测范围，避免僵尸轻易丢失目标
-    if (distance > activationDistance * 1.5) { // 扩展50%的缓冲范围
+    if (distance > this.detectionRange) {
         this.targetCharacter = null;
         this.targetX = this.x;
         this.targetY = this.y;
@@ -511,15 +520,14 @@ Zombie.prototype.updateActivationStatus = function(playerX, playerY) {
     this.isActive = distance <= zombieBehaviorConfig.ACTIVATION_DISTANCE;
     
     if (this.isActive) {
-        // 🔴 修复：确保700px范围内的僵尸都能追击人物
-        if (this.state === ZOMBIE_STATE.IDLE) {
+        this.updateInterval = zombieBehaviorConfig.ACTIVE_UPDATE_INTERVAL;
+        if (this.state === ZOMBIE_STATE.IDLE && this.targetCharacter) {
             this.state = ZOMBIE_STATE.CHASING;
-            console.log('🧟‍♂️ 僵尸激活，开始追击:', this.id, '距离:', distance);
         }
         return true;
     } else {
-        // 🔴 修复：即使未激活也继续更新，不要强制停止
-        return true;
+        this.updateInterval = zombieBehaviorConfig.IDLE_UPDATE_INTERVAL;
+        return false;
     }
 };
 
@@ -601,6 +609,11 @@ var ZombieManager = {
         // 重置性能相关
         zombie._updateFrame = 0;
         zombie._destroyed = false;
+        
+        // 🔴 新增：确保僵尸ID存在且唯一
+        if (!zombie.id) {
+            zombie.id = Date.now() + Math.random();
+        }
         
         console.log('✅ 僵尸状态重置完成:', zombie.id, '类型:', zombie.zombieType, '移动速度:', zombie.moveSpeed);
     },
@@ -855,9 +868,8 @@ var ZombieManager = {
         );
         
         var currentBatch = currentFrame % 2; // 简化为2个批次
-        var zombiesToUpdate = activeZombies.filter((zombie, index) => 
-            index % 2 === currentBatch
-        );
+        // 🔴 紧急修复：所有僵尸都更新，不再分批
+        var zombiesToUpdate = activeZombies;
         
         var updatedCount = 0;
         zombiesToUpdate.forEach(zombie => {

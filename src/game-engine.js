@@ -1256,6 +1256,11 @@ GameEngine.prototype.update = function() {
     if (this.frameCount % 300 === 0) {
         this.logSystemStatus();
         
+        // 🔴 新增：僵尸行为调试
+        if (this.zombieManager && this.zombieManager.debugZombieBehavior) {
+            this.zombieManager.debugZombieBehavior();
+        }
+        
         // 🔴 简化：简化版碰撞系统不需要空间索引状态
         if (this.collisionSystem) {
             console.log('简化版碰撞系统，不需要空间索引状态');

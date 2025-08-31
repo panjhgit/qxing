@@ -170,6 +170,13 @@ class ObjectManager {
         const objects = [];
         for (const [id, info] of this.objects) {
             if (info.type === type && info.state === OBJECT_STATE.ACTIVE) {
+                // 🔴 修复：同步僵尸的isActive状态与对象管理器状态
+                if (type === 'zombie' && info.object) {
+                    // 确保僵尸的isActive状态与对象管理器状态一致
+                    if (info.object.isActive !== true) {
+                        info.object.isActive = true;
+                    }
+                }
                 objects.push(info.object);
             }
         }

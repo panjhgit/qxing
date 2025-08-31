@@ -127,7 +127,10 @@ export class RenderManager {
 
     // 渲染实体（统一入口）
     renderEntity(entity, entityType) {
-        if (!entity || entity.hp <= 0) return false;
+        if (!entity) return false;
+
+        // 🔴 修复：建筑物没有hp属性，不应该检查hp
+        if (entityType !== ENTITY_TYPE.BUILDING && entity.hp <= 0) return false;
 
         // 检查是否在视野内
         if (RENDER_CONFIG.PERFORMANCE.FRUSTUM_CULLING) {
@@ -139,6 +142,18 @@ export class RenderManager {
         // 检查渲染距离
         if (this.getDistanceToCamera(entity) > RENDER_CONFIG.PERFORMANCE.MAX_RENDER_DISTANCE) {
             return false;
+        }
+
+        // 🔴 新增：建筑物渲染调试信息
+        if (entityType === ENTITY_TYPE.BUILDING) {
+            console.log('🔍 渲染管理器处理建筑物:', {
+                type: entity.type,
+                color: entity.color,
+                x: entity.x,
+                y: entity.y,
+                inView: this.isEntityInView(entity),
+                distance: this.getDistanceToCamera(entity)
+            });
         }
 
         // 使用实体渲染器
@@ -159,6 +174,7 @@ export class RenderManager {
                     break;
                 case ENTITY_TYPE.BUILDING:
                     this.renderStats.buildingsRendered++;
+                    console.log('📊 建筑物渲染统计更新:', this.renderStats.buildingsRendered);
                     break;
                 case ENTITY_TYPE.ITEM:
                     this.renderStats.itemsRendered++;

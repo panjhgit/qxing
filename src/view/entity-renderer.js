@@ -183,7 +183,19 @@ export class EntityRenderer {
      * @returns {boolean} 是否渲染成功
      */
     renderBuilding(building) {
-        if (!building) return false;
+        if (!building) {
+            console.warn('❌ 建筑物对象为空');
+            return false;
+        }
+
+        console.log('🏠 渲染建筑物:', {
+            type: building.type,
+            color: building.color,
+            x: building.x,
+            y: building.y,
+            width: building.width,
+            height: building.height
+        });
 
         // 使用中心点坐标系统
         const x = building.x - building.width / 2;
@@ -191,6 +203,7 @@ export class EntityRenderer {
 
         // 绘制建筑物主体
         this.ctx.fillStyle = building.color || '#CD853F';
+        console.log('🎨 建筑物填充颜色:', this.ctx.fillStyle);
         this.ctx.fillRect(x, y, building.width, building.height);
 
         // 绘制建筑物边框
@@ -211,6 +224,7 @@ export class EntityRenderer {
         this.ctx.textAlign = 'center';
         this.ctx.fillText(building.type || '建筑', building.x, y + 20);
 
+        console.log('✅ 建筑物渲染完成');
         return true;
     }
 
