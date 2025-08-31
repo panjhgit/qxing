@@ -80,7 +80,7 @@ const GAME_CONFIG = {
         // 贴着建筑物移动配置
         WALL_FOLLOWING: {
             ENABLED: true,               // 启用贴着建筑物移动
-            DIAGONAL_FACTOR: 0.7,        // 对角线移动速度因子（0.7倍）
+            DIAGONAL_FACTOR: 1.0,        // 对角线移动速度因子（1.0倍）- 保持匀速
             SEARCH_STEPS: 8,             // 搜索步数
             MIN_STEP_SIZE: 4,            // ✅ 恢复：最小步长（像素）- 从2恢复到4
             NEARBY_SEARCH_RADIUS: 0.5    // 附近搜索半径（相对于对象半径）

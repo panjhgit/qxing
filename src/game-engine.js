@@ -834,7 +834,7 @@ GameEngine.prototype.updateJoystickMovement = function() {
     
     console.log('触摸摇杆移动:', '方向:', direction, '当前位置:', mainChar.x, mainChar.y);
     
-    // 简化移动：直接根据摇杆方向移动角色
+    // 🔴 修复：摇杆移动由character.js统一处理，这里只设置状态，不直接移动位置
     if (Math.abs(direction.x) > 0.1 || Math.abs(direction.y) > 0.1) {
         // 触摸摇杆有输入，强制进入移动状态
         mainChar.isMoving = true;
@@ -845,52 +845,8 @@ GameEngine.prototype.updateJoystickMovement = function() {
             mainChar.stateMachine.forceState('MOVE');
         }
         
-        // 🔴 优化：使用配置的移动速度，确保匀速移动
-        var configManager = window.ConfigManager;
-        var movementConfig = configManager ? configManager.get('MOVEMENT') : null;
-        var moveSpeed = movementConfig ? movementConfig.CHARACTER_MOVE_SPEED : 6;
-        
-        // 🔴 核心：使用贴着建筑物移动算法
-        if (window.collisionSystem && window.collisionSystem.getWallFollowingPosition) {
-            // 计算目标位置（基于当前方向和速度）
-            var targetX = mainChar.x + direction.x * moveSpeed;
-            var targetY = mainChar.y + direction.y * moveSpeed;
-            
-            // 使用贴着建筑物移动算法
-            var newPosition = window.collisionSystem.getWallFollowingPosition(
-                mainChar.x, mainChar.y, targetX, targetY, mainChar.radius || 16, moveSpeed
-            );
-            
-            if (newPosition) {
-                var oldX = mainChar.x, oldY = mainChar.y;
-                mainChar.x = newPosition.x;
-                mainChar.y = newPosition.y;
-                
-                // 更新四叉树位置
-                if (window.collisionSystem.updateCharacterPosition) {
-                    window.collisionSystem.updateCharacterPosition(mainChar, oldX, oldY, mainChar.x, mainChar.y);
-                } else if (window.collisionSystem.updateDynamicObjectPosition) {
-                    window.collisionSystem.updateDynamicObjectPosition(mainChar, oldX, oldY, mainChar.x, mainChar.y);
-                }
-            }
-        } else {
-            // 🔴 备用方案：直接移动，但使用配置文件的速度
-            var newX = mainChar.x + direction.x * moveSpeed;
-            var newY = mainChar.y + direction.y * moveSpeed;
-            
-            // 检查碰撞并移动
-            if (window.collisionSystem && window.collisionSystem.isPositionWalkable) {
-                if (window.collisionSystem.isPositionWalkable(newX, newY)) {
-                    mainChar.x = newX;
-                    mainChar.y = newY;
-                }
-                // 如果目标位置不可行走，角色不移动
-            } else {
-                // 没有碰撞系统，直接移动
-                mainChar.x = newX;
-                mainChar.y = newY;
-            }
-        }
+        // 🔴 核心：不直接移动位置，让character.js的checkJoystickInput处理移动
+        // 这里只设置状态，实际的移动由character.js的setMoveTarget和updateMovement处理
         
         // 记录触摸摇杆方向（用于调试）
         this.lastJoystickDirection = { x: direction.x, y: direction.y };
@@ -1194,8 +1150,16 @@ GameEngine.prototype.update = function() {
         this.performanceMonitor.updateFPS(deltaTime);
     }
     
-    // 更新触摸摇杆控制的角色移动
-    this.updateJoystickMovement();
+    // 🔴 修复：摇杆移动由character.js统一处理，但需要更新跟随目标
+    // this.updateJoystickMovement();
+    
+    // 🔴 核心：确保视觉系统跟随主人物
+    if (this.characterManager && this.viewSystem) {
+        var mainChar = this.characterManager.getMainCharacter();
+        if (mainChar) {
+            this.viewSystem.setFollowTarget(mainChar.x, mainChar.y);
+        }
+    }
     
     // 更新角色移动
     if (this.characterManager) {

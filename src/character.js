@@ -879,10 +879,8 @@ Character.prototype.stopMovement = function () {
     console.log('角色停止移动，当前位置:', this.x, this.y);
 };
 
-// 更新移动 - 只处理动画更新，移动由触摸摇杆控制
+// 更新移动 - 只处理动画更新，实际移动由checkJoystickInput处理
 Character.prototype.updateMovement = function (deltaTime = 1 / 60) {
-    // 注意：移动由触摸摇杆直接控制，这里只处理动画和状态更新
-
     if (!this.isMoving) {
         return;
     }
@@ -894,8 +892,6 @@ Character.prototype.updateMovement = function (deltaTime = 1 / 60) {
         return;
     }
 
-    var animationUtils = UtilsManager.getAnimationUtils();
-
     // 更新最后位置，用于卡住检测
     if (!this.lastPosition) {
         this.lastPosition = {x: this.x, y: this.y};
@@ -903,7 +899,8 @@ Character.prototype.updateMovement = function (deltaTime = 1 / 60) {
     this.lastPosition.x = this.x;
     this.lastPosition.y = this.y;
 
-    // 使用动画工具更新动画帧 - 优化动画更新频率
+    // 更新动画
+    var animationUtils = UtilsManager.getAnimationUtils();
     if (this.animationFrame !== undefined) {
         var animationConfig = window.ConfigManager ? window.ConfigManager.get('ANIMATION') : null;
         this.animationFrame = animationUtils.updateFrame(this.animationFrame, this.animationSpeed * deltaTime, animationConfig ? animationConfig.MAX_ANIMATION_FRAMES : 8);
@@ -1228,7 +1225,7 @@ Character.prototype.updateMainCharacter = function (deltaTime) {
     }
 };
 
-// 检查摇杆输入并设置移动目标
+// 检查摇杆输入并直接移动
 Character.prototype.checkJoystickInput = function () {
     if (!this.hasJoystickInput()) {
         return;
@@ -1241,12 +1238,35 @@ Character.prototype.checkJoystickInput = function () {
     if (Math.abs(direction.x) > deadZone || Math.abs(direction.y) > deadZone) {
         // 从config.js获取移动速度
         var movementConfig = window.ConfigManager ? window.ConfigManager.get('MOVEMENT') : null;
-        var moveDistance = movementConfig ? movementConfig.CHARACTER_MOVE_SPEED : 4; // 默认4px/帧
-        var targetX = this.x + direction.x * moveDistance;
-        var targetY = this.y + direction.y * moveDistance;
+        var moveSpeed = movementConfig ? movementConfig.CHARACTER_MOVE_SPEED : 4; // 默认4px/帧
+        
+        // 🔴 核心：直接移动，不使用目标移动
+        var newX = this.x + direction.x * moveSpeed;
+        var newY = this.y + direction.y * moveSpeed;
 
-        // 设置移动目标并激活移动状态
-        this.setMoveTarget(targetX, targetY);
+        // 检查碰撞并移动
+        if (window.collisionSystem && window.collisionSystem.isPositionWalkable) {
+            if (window.collisionSystem.isPositionWalkable(newX, newY)) {
+                this.x = newX;
+                this.y = newY;
+            } else {
+                // 如果目标位置不可行走，尝试贴着建筑物移动
+                if (window.collisionSystem.getWallFollowingPosition) {
+                    var safePosition = window.collisionSystem.getWallFollowingPosition(
+                        this.x, this.y, newX, newY, this.radius || 16, moveSpeed
+                    );
+                    if (safePosition) {
+                        this.x = safePosition.x;
+                        this.y = safePosition.y;
+                    }
+                }
+            }
+        } else {
+            // 没有碰撞系统，直接移动
+            this.x = newX;
+            this.y = newY;
+        }
+
         this.isMoving = true;
         this.status = STATUS.MOVING;
 

@@ -184,9 +184,9 @@ var CollisionSystem = {
             }
         }
 
-        // 3. 尝试对角线移动（贴着墙角）
-        var diagonalX = fromX + dirX * moveSpeed * diagonalFactor;
-        var diagonalY = fromY + dirY * moveSpeed * diagonalFactor;
+        // 3. 尝试对角线移动（贴着墙角）- 保持匀速
+        var diagonalX = fromX + dirX * moveSpeed; // 移除diagonalFactor，保持匀速
+        var diagonalY = fromY + dirY * moveSpeed; // 移除diagonalFactor，保持匀速
 
         if (this.isPositionWalkable(diagonalX, diagonalY)) {
             var diagonalDistance = Math.sqrt(Math.pow(diagonalX - toX, 2) + Math.pow(diagonalY - toY, 2));
