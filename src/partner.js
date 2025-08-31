@@ -200,9 +200,12 @@ Partner.prototype.initializeStateMachine = function () {
 Partner.prototype.setupPartnerStateMachine = function () {
     const sm = this.stateMachine;
 
-    // INIT -> FOLLOW: 主人物靠近20px
+    // INIT -> FOLLOW: 主人物靠近配置距离
     sm.addTransition(PARTNER_STATE.INIT, PARTNER_STATE.FOLLOW, () => {
-        return this.isMainCharacterNearby(20);
+        // 从配置获取伙伴激活距离
+        var detectionConfig = window.ConfigManager ? window.ConfigManager.get('DETECTION') : null;
+        var activationDistance = detectionConfig ? detectionConfig.SAFE_SPAWN_DISTANCE : 100;
+        return this.isMainCharacterNearby(activationDistance);
     });
 
     // INIT -> DIE: 血量归零
@@ -515,7 +518,8 @@ Partner.prototype.moveToAttackRange = function () {
 
     var distance = this.getDistanceTo(this.attackTarget.x, this.attackTarget.y);
     var attackJudgmentConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT.ATTACK_JUDGMENT') : { RANGE_BUFFER: 5 };
-    var targetDistance = this.attackRange - attackJudgmentConfig.RANGE_BUFFER; // 动态攻击距离（攻击范围减去缓冲）
+    var effectiveAttackRange = this.attackRange + attackJudgmentConfig.RANGE_BUFFER; // 有效攻击范围（攻击范围加上缓冲）
+    var targetDistance = this.attackRange; // 目标距离等于基础攻击范围（不使用缓冲）
 
     if (distance > targetDistance) {
         var angle = Math.atan2(this.attackTarget.y - this.y, this.attackTarget.x - this.x);
@@ -942,7 +946,10 @@ Partner.prototype.debugFollowStatus = function () {
     }
     
     var distance = this.getDistanceTo(mainChar.x, mainChar.y);
-    var isNearby = this.isMainCharacterNearby(50);
+    // 从配置获取伙伴激活距离
+    var detectionConfig = window.ConfigManager ? window.ConfigManager.get('DETECTION') : null;
+    var activationDistance = detectionConfig ? detectionConfig.SAFE_SPAWN_DISTANCE : 100;
+    var isNearby = this.isMainCharacterNearby(activationDistance);
     var isMoving = this.isMainCharacterMoving();
     var followDistance = this.getDistanceTo(this.followPoint.x, this.followPoint.y);
     

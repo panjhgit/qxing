@@ -120,8 +120,8 @@ const GAME_CONFIG = {
     // 攻击系统配置
     COMBAT: {
         DEFAULT_ATTACK_COOLDOWN: 500,   // 攻击冷却时间500ms (1秒攻击2下)
-        MIN_ATTACK_RANGE: 100,           // 最小攻击距离10px
-        MAX_ATTACK_RANGE: 100,           // 最大攻击距离10px
+        MIN_ATTACK_RANGE: 80,           // 最小攻击距离100px
+        MAX_ATTACK_RANGE: 80,           // 最大攻击距离100px
         DAMAGE_REDUCTION_FACTOR: 0.8,   // 伤害衰减因子
         
         // 角色基础属性配置
@@ -131,10 +131,10 @@ const GAME_CONFIG = {
         MOVING_ATTACK_INTERVAL: 0.5,    // 移动攻击间隔0.5秒 (1秒攻击2下)
         
         // 角色攻击范围配置
-        POLICE_ATTACK_RANGE: 100,        // 警察攻击范围10px
-        DOCTOR_ATTACK_RANGE: 100,        // 医生攻击范围10px
-        NURSE_ATTACK_RANGE: 100,         // 护士攻击范围10px
-        CHEF_ATTACK_RANGE: 100,         // 厨师攻击范围10px
+        POLICE_ATTACK_RANGE: 80,        // 警察攻击范围100px
+        DOCTOR_ATTACK_RANGE: 80,        // 医生攻击范围100px
+        NURSE_ATTACK_RANGE: 80,         // 护士攻击范围100px
+        CHEF_ATTACK_RANGE: 80,         // 厨师攻击范围100px
         
         // 僵尸攻击配置
         ZOMBIE_ATTACK_RANGE: 80,        // 僵尸攻击范围（像素）
@@ -161,42 +161,42 @@ const GAME_CONFIG = {
             // 瘦僵尸：轻量级，基础检测能力
             SKINNY: {
                 DETECTION_RANGE: 1000,    // 检测范围：1000px
-                ATTACK_RANGE: 80,        // 攻击范围：10px
+                ATTACK_RANGE: 80,        // 攻击范围：80px
                 PRIORITY: 'normal'       // 优先级：普通
             },
 
             // 胖僵尸：中等重量，基础检测能力
             FAT: {
                 DETECTION_RANGE: 1000,    // 检测范围：1000px
-                ATTACK_RANGE: 80,        // 攻击范围：10px
+                ATTACK_RANGE: 80,        // 攻击范围：80px
                 PRIORITY: 'normal'       // 优先级：普通
             },
 
             // Boss僵尸：重量级，增强检测能力
             BOSS: {
                 DETECTION_RANGE: 1000,    // 检测范围：1000px
-                ATTACK_RANGE: 80,        // 攻击范围：10px
+                ATTACK_RANGE: 80,        // 攻击范围：80px
                 PRIORITY: 'normal'       // 优先级：普通
             },
 
             // 快速僵尸：轻量级，增强检测能力
             FAST: {
                 DETECTION_RANGE: 1000,    // 检测范围：1000px
-                ATTACK_RANGE: 80,        // 攻击范围：10px
+                ATTACK_RANGE: 80,        // 攻击范围：80px
                 PRIORITY: 'normal'       // 优先级：普通
             },
 
             // 坦克僵尸：重量级，减少检测能力
             TANK: {
                 DETECTION_RANGE: 1000,    // 检测范围：1000px
-                ATTACK_RANGE: 80,        // 攻击范围：10px
+                ATTACK_RANGE: 80,        // 攻击范围：80px
                 PRIORITY: 'normal'       // 优先级：普通
             },
 
             // 默认僵尸：标准配置
             DEFAULT: {
                 DETECTION_RANGE: 1000,    // 检测范围：1000px
-                ATTACK_RANGE: 80,        // 攻击范围：10px
+                ATTACK_RANGE: 80,        // 攻击范围：80px
                 PRIORITY: 'normal'       // 优先级：普通
             }
         },

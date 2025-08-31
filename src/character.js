@@ -243,7 +243,9 @@ Character.prototype.setupMainCharacterStateMachine = function () {
 
     sm.addTransition(MAIN_CHARACTER_STATES.ATTACK, MAIN_CHARACTER_STATES.IDLE, () => {
         // 无僵尸或僵尸超出范围，且无摇杆输入
-        return !this.hasJoystickInput() && !this.hasZombieInRange(50);
+        var attackJudgmentConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT.ATTACK_JUDGMENT') : { RANGE_BUFFER: 5 };
+        var effectiveAttackRange = this.attackRange + attackJudgmentConfig.RANGE_BUFFER;
+        return !this.hasJoystickInput() && !this.hasZombieInRange(effectiveAttackRange);
     });
 
     // 添加死亡状态转换（所有状态都可以进入死亡）
@@ -287,7 +289,10 @@ Character.prototype.setupPartnerStateMachine = function () {
 
     // 简化的伙伴状态机：只保留必要的状态
     sm.addTransition(PARTNER_STATES.INIT, PARTNER_STATES.FOLLOW, () => {
-        return this.isMainCharacterNearby(20);
+        // 从配置获取伙伴激活距离
+        var detectionConfig = window.ConfigManager ? window.ConfigManager.get('DETECTION') : null;
+        var activationDistance = detectionConfig ? detectionConfig.SAFE_SPAWN_DISTANCE : 100;
+        return this.isMainCharacterNearby(activationDistance);
     });
 
     sm.addTransition(PARTNER_STATES.FOLLOW, PARTNER_STATES.IDLE, () => {
@@ -657,7 +662,8 @@ Character.prototype.moveToAttackRange = function () {
     var mathUtils = UtilsManager.getMathUtils();
     var distance = mathUtils.distance(this.x, this.y, this.attackTarget.x, this.attackTarget.y);
     var attackJudgmentConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT.ATTACK_JUDGMENT') : { RANGE_BUFFER: 5 };
-    var targetDistance = this.attackRange - attackJudgmentConfig.RANGE_BUFFER; // 动态攻击距离（攻击范围减去缓冲）
+    var effectiveAttackRange = this.attackRange + attackJudgmentConfig.RANGE_BUFFER; // 有效攻击范围（攻击范围加上缓冲）
+    var targetDistance = this.attackRange; // 目标距离等于基础攻击范围（不使用缓冲）
 
     if (distance > targetDistance) {
         var angle = mathUtils.angle(this.x, this.y, this.attackTarget.x, this.attackTarget.y);
