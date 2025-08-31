@@ -306,8 +306,7 @@ const ConfigValidator = {
     // 验证动画配置
     validateAnimationConfig: function (config) {
         if (config.ANIMATION.DEFAULT_FRAME_RATE <= 0) {
-            console.warn('动画帧率必须大于0，使用默认值');
-            config.ANIMATION.DEFAULT_FRAME_RATE = 0.1;
+            throw new Error('动画帧率必须大于0');
         }
         return config;
     },
@@ -315,17 +314,13 @@ const ConfigValidator = {
     // 验证时间系统配置
     validateTimeSystemConfig: function (config) {
         if (config.TIME_SYSTEM.DAY_DURATION <= 0) {
-            console.warn('一天的长度必须大于0，使用默认值');
-            config.TIME_SYSTEM.DAY_DURATION = 10;
+            throw new Error('一天的长度必须大于0');
         }
         if (config.TIME_SYSTEM.ZOMBIES_PER_DAY <= 0) {
-            console.warn('每天僵尸数量必须大于0，使用默认值');
-            config.TIME_SYSTEM.ZOMBIES_PER_DAY = 10;
+            throw new Error('每天僵尸数量必须大于0');
         }
         if (config.TIME_SYSTEM.SPAWN_RANGE.MIN_DISTANCE >= config.TIME_SYSTEM.SPAWN_RANGE.MAX_DISTANCE) {
-            console.warn('僵尸生成范围无效，使用默认值');
-            config.TIME_SYSTEM.SPAWN_RANGE.MIN_DISTANCE = 500;
-            config.TIME_SYSTEM.SPAWN_RANGE.MAX_DISTANCE = 700;
+            throw new Error('僵尸生成范围无效');
         }
         return config;
     },
@@ -359,8 +354,7 @@ const ConfigManager = {
             this.currentDifficulty = difficulty;
             console.log('游戏难度已设置为:', difficulty);
         } else {
-            console.warn('无效的难度级别:', difficulty, '使用默认难度');
-            this.currentDifficulty = 'NORMAL';
+            throw new Error('无效的难度级别: ' + difficulty);
         }
     },
 
@@ -373,8 +367,7 @@ const ConfigManager = {
             if (value && value[keys[i]] !== undefined) {
                 value = value[keys[i]];
             } else {
-                console.warn('配置路径不存在:', path);
-                return null;
+                throw new Error('配置路径不存在: ' + path);
             }
         }
 

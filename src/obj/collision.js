@@ -25,7 +25,7 @@ var CollisionSystem = {
     // 🔴 核心：简化的可行走性检查 - 直接检查地图网格值
     isPositionWalkable: function (x, y) {
         if (!this.mapMatrix) {
-            console.warn('地图矩阵未初始化，默认允许移动');
+            throw new Error('地图矩阵未初始化');
             return true;
         }
 
@@ -295,33 +295,28 @@ var CollisionSystem = {
 
         // 获取地图配置
         if (this.mapManager && this.mapManager.getCurrentMap) {
-            try {
-                const mapConfig = this.mapManager.getCurrentMap();
-                if (mapConfig) {
-                    this.currentMap = {
-                        name: mapConfig.config.name,
-                        type: 'matrix',
-                        mapWidth: mapConfig.config.width,
-                        mapHeight: mapConfig.config.height,
-                        cellSize: mapConfig.config.cellSize,
-                        gridCols: mapConfig.config.gridCols,
-                        gridRows: mapConfig.config.gridRows
-                    };
+            const mapConfig = this.mapManager.getCurrentMap();
+            if (mapConfig) {
+                this.currentMap = {
+                    name: mapConfig.config.name,
+                    type: 'matrix',
+                    mapWidth: mapConfig.config.width,
+                    mapHeight: mapConfig.config.height,
+                    cellSize: mapConfig.config.cellSize,
+                    gridCols: mapConfig.config.gridCols,
+                    gridRows: mapConfig.config.gridRows
+                };
 
-                    // 🔴 核心：获取地图矩阵数据
-                    this.mapMatrix = mapConfig.matrix;
-                    this.cellSize = mapConfig.config.cellSize;
-                    this.gridCols = mapConfig.config.gridCols;
-                    this.gridRows = mapConfig.config.gridRows;
+                // 🔴 核心：获取地图矩阵数据
+                this.mapMatrix = mapConfig.matrix;
+                this.cellSize = mapConfig.config.cellSize;
+                this.gridCols = mapConfig.config.gridCols;
+                this.gridRows = mapConfig.config.gridRows;
 
-                    console.log('✅ 地图配置已加载:', this.currentMap);
-                    console.log('✅ 地图矩阵已加载，网格大小:', this.gridCols, 'x', this.gridRows);
-                } else {
-                    throw new Error('地图配置获取失败');
-                }
-            } catch (error) {
-                console.error('❌ 地图配置获取失败:', error);
-                throw error;
+                console.log('✅ 地图配置已加载:', this.currentMap);
+                console.log('✅ 地图矩阵已加载，网格大小:', this.gridCols, 'x', this.gridRows);
+            } else {
+                throw new Error('地图配置获取失败');
             }
         } else {
             throw new Error('地图管理器不可用');

@@ -70,7 +70,7 @@ class MemoryMonitor {
     // 开始监控
     start() {
         if (this.isMonitoring) {
-            console.warn('内存监控已在运行中');
+            throw new Error('内存监控已在运行中');
             return;
         }
         
@@ -95,28 +95,23 @@ class MemoryMonitor {
     
     // 检查内存使用情况
     checkMemoryUsage() {
-        try {
-            // 获取内存信息（如果可用）
-            if (performance && performance.memory) {
-                this.stats.totalMemory = performance.memory.totalJSHeapSize;
-                this.stats.usedMemory = performance.memory.usedJSHeapSize;
-                this.stats.freeMemory = performance.memory.totalJSHeapSize - performance.memory.usedJSHeapSize;
-            }
-            
-            // 检查对象池状态
-            this.checkObjectPoolStatus();
-            
-            // 检查内存泄漏
-            this.checkMemoryLeaks();
-            
-            // 生成优化建议
-            this.generateOptimizations();
-            
-            this.stats.lastCheck = Date.now();
-            
-        } catch (error) {
-            console.error('内存监控检查失败:', error);
+        // 获取内存信息（如果可用）
+        if (performance && performance.memory) {
+            this.stats.totalMemory = performance.memory.totalJSHeapSize;
+            this.stats.usedMemory = performance.memory.usedJSHeapSize;
+            this.stats.freeMemory = performance.memory.totalJSHeapSize - performance.memory.usedJSHeapSize;
         }
+        
+        // 检查对象池状态
+        this.checkObjectPoolStatus();
+        
+        // 检查内存泄漏
+        this.checkMemoryLeaks();
+        
+        // 生成优化建议
+        this.generateOptimizations();
+        
+        this.stats.lastCheck = Date.now();
     }
     
     // 检查对象池状态
@@ -191,7 +186,7 @@ class MemoryMonitor {
         if (level === 'CRITICAL') {
             console.error('🚨', message);
         } else {
-            console.warn('⚠️', message);
+            throw new Error(message);
         }
     }
     

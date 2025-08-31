@@ -35,27 +35,21 @@ let isInitializing = false; // 标记是否正在初始化
 function resetGame() {
     console.log('🔄 开始重置游戏...');
     
-    try {
-        // 第一步：停止游戏循环
-        if (gameEngine && gameEngine.gameState === 'playing') {
-            gameEngine.setGameState('home');
-        }
-        
-        // 第二步：清空角色和僵尸数据
-        clearGameData();
-        
-        // 第三步：重置游戏状态
-        resetGameState();
-        
-        // 第四步：显示主菜单
-        showHomePage();
-        
-        console.log('✅ 游戏重置完成');
-        
-    } catch (error) {
-        console.error('❌ 游戏重置失败:', error);
-        showErrorMessage('游戏重置失败: ' + error.message);
+    // 第一步：停止游戏循环
+    if (gameEngine && gameEngine.gameState === 'playing') {
+        gameEngine.setGameState('home');
     }
+    
+    // 第二步：清空角色和僵尸数据
+    clearGameData();
+    
+    // 第三步：重置游戏状态
+    resetGameState();
+    
+    // 第四步：显示主菜单
+    showHomePage();
+    
+    console.log('✅ 游戏重置完成');
 }
 
 // 清空游戏数据
@@ -698,7 +692,7 @@ function performInitialRendering() {
                 if (safePosition && safePosition.success) {
                     console.log('✅ 生成安全位置成功:', safePosition);
                 } else {
-                    console.warn('⚠️ 安全位置生成失败，使用备用位置');
+                    throw new Error('安全位置生成失败');
                     // 备用位置：南部公园区
                     safePosition = {x: 5000, y: 9600, success: true};
                 }
@@ -737,10 +731,10 @@ function performInitialRendering() {
                 gameEngine.viewSystem.camera.setPosition(mainChar.x, mainChar.y);
                 console.log('✅ 摄像机位置设置完成:', mainChar.x, mainChar.y);
             } else {
-                console.warn('⚠️ 无法设置摄像机位置或跟随');
+                throw new Error('无法设置摄像机位置或跟随');
             }
         } else {
-            console.warn('⚠️ 视觉系统或摄像机未初始化');
+            throw new Error('视觉系统或摄像机未初始化');
         }
         
         // 第四步：渲染角色
@@ -753,7 +747,7 @@ function performInitialRendering() {
                 console.error('❌ 主人物创建失败');
             }
         } else {
-            console.warn('⚠️ 角色管理器或视觉系统未初始化');
+            throw new Error('角色管理器或视觉系统未初始化');
         }
         
         // 第五步：渲染僵尸
@@ -772,7 +766,7 @@ function performInitialRendering() {
             var zombies = window.zombieManager.getAllZombies();
             console.log(`✅ 僵尸渲染设置完成，僵尸数量: ${zombies.length}`);
         } else {
-            console.warn('⚠️ 僵尸管理器或视觉系统未初始化');
+            throw new Error('僵尸管理器或视觉系统未初始化');
         }
         
         // 第五步半：生成伙伴
@@ -781,7 +775,7 @@ function performInitialRendering() {
             // 在地图上随机生成伙伴
             window.partnerManager.generatePartnersOnMap();
         } else {
-            console.warn('⚠️ 伙伴管理器或视觉系统未初始化');
+            throw new Error('伙伴管理器或视觉系统未初始化');
         }
         
         // 第六步：渲染UI元素
@@ -797,7 +791,7 @@ function performInitialRendering() {
             console.log('✅ 简化版碰撞系统已初始化');
             console.log('✅ 地图矩阵已加载，网格大小:', window.collisionSystem.gridCols, 'x', window.collisionSystem.gridRows);
         } else {
-            console.warn('⚠️ 碰撞系统未初始化');
+            throw new Error('碰撞系统未初始化');
         }
         
         // 第八步：最终验证主人物状态
@@ -826,10 +820,10 @@ function performInitialRendering() {
                 gameEngine.render();
                 console.log('✅ 初始游戏引擎渲染完成');
             } catch (error) {
-                console.warn('⚠️ 初始游戏引擎渲染失败:', error);
+                throw new Error('初始游戏引擎渲染失败: ' + error.message);
             }
         } else {
-            console.warn('⚠️ 游戏引擎或渲染方法不存在');
+            throw new Error('游戏引擎或渲染方法不存在');
         }
         
     } catch (error) {
@@ -846,7 +840,7 @@ function startGameLoop() {
         try {
             // 检查游戏引擎状态
             if (!gameEngine) {
-                console.warn('游戏引擎未初始化，停止游戏循环');
+                throw new Error('游戏引擎未初始化，停止游戏循环');
                 return;
             }
 

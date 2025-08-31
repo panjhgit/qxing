@@ -29,52 +29,46 @@ export class MapRenderer {
      * @param {string} mapId - 地图ID
      */
     init(mapId) {
-        try {
-            console.log('🗺️ 地图渲染器初始化中...');
-            
-            // 获取地图数据
-            if (window.MapManager && window.MapManager.getCurrentMap) {
-                this.currentMap = window.MapManager.getCurrentMap();
-            } else {
-                throw new Error('地图管理器未初始化');
-            }
-            
-            if (!this.currentMap) {
-                throw new Error('无法获取地图数据');
-            }
-            
-            // 解析地图数据
-            if (this.currentMap.matrix && this.currentMap.buildingTypes) {
-                console.log('✅ 地图数据完整，开始解析矩阵...');
-                console.log('矩阵数据:', {
-                    matrix: this.currentMap.matrix,
-                    matrixLength: this.currentMap.matrix.length,
-                    buildingTypes: this.currentMap.buildingTypes,
-                    buildingTypesCount: Object.keys(this.currentMap.buildingTypes).length
-                });
-                
-                this.parseMatrixMap();
-                
-                // 检查解析结果
-                console.log('解析完成后的状态:', {
-                    buildings: this.currentMap.buildings,
-                    buildingsLength: this.currentMap.buildings ? this.currentMap.buildings.length : 'undefined',
-                    walkableAreas: this.currentMap.walkableAreas,
-                    walkableAreasLength: this.currentMap.walkableAreas ? this.currentMap.walkableAreas.length : 'undefined'
-                });
-            } else {
-                console.error('❌ 地图数据不完整:');
-                console.error('- matrix:', this.currentMap.matrix);
-                console.error('- buildingTypes:', this.currentMap.buildingTypes);
-                throw new Error('地图数据不完整，缺少matrix或buildingTypes');
-            }
-            
-            console.log('✅ 地图渲染器初始化完成');
-            
-        } catch (error) {
-            console.error('❌ 地图渲染器初始化失败:', error);
-            throw error; // 抛出错误而不是使用兜底
+        console.log('🗺️ 地图渲染器初始化中...');
+        
+        // 获取地图数据
+        if (window.MapManager && window.MapManager.getCurrentMap) {
+            this.currentMap = window.MapManager.getCurrentMap();
+        } else {
+            throw new Error('地图管理器未初始化');
         }
+        
+        if (!this.currentMap) {
+            throw new Error('无法获取地图数据');
+        }
+        
+        // 解析地图数据
+        if (this.currentMap.matrix && this.currentMap.buildingTypes) {
+            console.log('✅ 地图数据完整，开始解析矩阵...');
+            console.log('矩阵数据:', {
+                matrix: this.currentMap.matrix,
+                matrixLength: this.currentMap.matrix.length,
+                buildingTypes: this.currentMap.buildingTypes,
+                buildingTypesCount: Object.keys(this.currentMap.buildingTypes).length
+            });
+            
+            this.parseMatrixMap();
+            
+            // 检查解析结果
+            console.log('解析完成后的状态:', {
+                buildings: this.currentMap.buildings,
+                buildingsLength: this.currentMap.buildings ? this.currentMap.buildings.length : 'undefined',
+                walkableAreas: this.currentMap.walkableAreas,
+                walkableAreasLength: this.currentMap.walkableAreas ? this.currentMap.walkableAreas.length : 'undefined'
+            });
+        } else {
+            console.error('❌ 地图数据不完整:');
+            console.error('- matrix:', this.currentMap.matrix);
+            console.error('- buildingTypes:', this.currentMap.buildingTypes);
+            throw new Error('地图数据不完整，缺少matrix或buildingTypes');
+        }
+        
+        console.log('✅ 地图渲染器初始化完成');
     }
 
     /**
@@ -85,7 +79,7 @@ export class MapRenderer {
         console.log('🚀 ===== 开始解析矩阵地图 =====');
         
         if (!this.currentMap.matrix || !this.currentMap.buildingTypes) {
-            console.warn('矩阵地图数据不完整');
+            throw new Error('矩阵地图数据不完整');
             return;
         }
 
@@ -153,7 +147,7 @@ export class MapRenderer {
                             }
                         }
                     } else {
-                        console.warn(`未找到建筑类型 ${cellType} 的定义`);
+                        throw new Error(`未找到建筑类型 ${cellType} 的定义`);
                     }
                 }
             }
@@ -204,7 +198,7 @@ export class MapRenderer {
         }
 
         if (!isValidBlock) {
-            console.warn(`建筑块验证失败: 位置(${startRow}, ${startCol}), 类型${cellType}, 尺寸${width}x${height}`);
+            throw new Error(`建筑块验证失败: 位置(${startRow}, ${startCol}), 类型${cellType}, 尺寸${width}x${height}`);
             return null;
         }
 
@@ -254,7 +248,7 @@ export class MapRenderer {
      */
     render(externalCtx = null) {
         if (!this.currentMap) {
-            console.warn('没有可渲染的地图');
+            throw new Error('没有可渲染的地图');
             return;
         }
 

@@ -107,16 +107,12 @@ class ObjectPool {
 
     // 创建新对象
     createNewItem() {
-        try {
-            const object = this.createFunction();
-            if (object) {
-                const poolItem = new PoolItem(object, this.type);
-                this.inactiveItems.push(poolItem);
-                this.totalCreated++;
-                return poolItem;
-            }
-        } catch (error) {
-            console.error(`❌ 创建对象失败: ${this.type}`, error);
+        const object = this.createFunction();
+        if (object) {
+            const poolItem = new PoolItem(object, this.type);
+            this.inactiveItems.push(poolItem);
+            this.totalCreated++;
+            return poolItem;
         }
         return null;
     }
@@ -221,7 +217,7 @@ class ObjectPool {
         // 清理活跃对象中的过期项
         for (const item of this.activeItems) {
             if (item.isExpired(maxAge)) {
-                console.warn(`⚠️ 检测到过期对象: ${this.type}, 使用时间: ${now - item.lastUsed}ms`);
+                throw new Error(`检测到过期对象: ${this.type}, 使用时间: ${now - item.lastUsed}ms`);
                 this.activeItems.delete(item);
                 this.totalCreated--;
             }
@@ -308,7 +304,7 @@ class ObjectPoolManager {
     // 创建对象池
     createPool(type, createFunction, resetFunction = null) {
         if (this.pools.has(type)) {
-            console.warn(`⚠️ 对象池已存在: ${type}`);
+            throw new Error(`对象池已存在: ${type}`);
             return this.pools.get(type);
         }
 
@@ -332,7 +328,7 @@ class ObjectPoolManager {
             return pool.get();
         }
 
-        console.warn(`⚠️ 对象池不存在: ${type}`);
+                    throw new Error(`对象池不存在: ${type}`);
         return null;
     }
 
@@ -414,7 +410,7 @@ class ObjectPoolManager {
                 };
 
                 this.leakDetection.warnings.push(warning);
-                console.warn(`🚨 内存泄漏警告: ${type}`, warning);
+                throw new Error(`内存泄漏警告: ${type} - ${warning}`);
             }
         }
 

@@ -318,7 +318,7 @@ Character.prototype.takeDamage = function (damage) {
     var validationUtils = UtilsManager.getValidationUtils();
 
     if (!validationUtils.validateRange(damage, 0, 1000, '伤害值')) {
-        console.warn('无效的伤害值:', damage);
+        throw new Error('无效的伤害值: ' + damage);
         return this.hp;
     }
 
@@ -816,7 +816,7 @@ Character.prototype.setMoveTarget = function (targetX, targetY) {
 
     // 使用验证工具检查目标位置
     if (!validationUtils.validatePosition(targetX, targetY)) {
-        console.warn('无效的目标位置:', targetX, targetY);
+        throw new Error('无效的目标位置: ' + targetX + ', ' + targetY);
         return false;
     }
 
@@ -960,7 +960,7 @@ var CharacterManager = {
     // 初始化对象池
     initObjectPool: function () {
         if (!window.objectPoolManager) {
-            console.warn('对象池管理器未初始化，使用传统创建方式');
+    
             return;
         }
 
@@ -1031,7 +1031,7 @@ var CharacterManager = {
 
                 console.log('✅ 从对象池获取主人物:', mainChar.id, '位置:', x, y);
             } else {
-                console.warn('⚠️ 对象池返回null');
+        
             }
         } else {
             console.log('🔍 对象池不可用，将使用传统创建方式');
@@ -1040,14 +1040,9 @@ var CharacterManager = {
         // 对象池不可用时，使用传统创建方式
         if (!mainChar) {
             console.log('🔍 使用传统方式创建主人物...');
-            try {
-                mainChar = new Character(ROLE.MAIN, x, y);
-                console.log('✅ 传统方式创建主人物成功:', mainChar);
-                console.log('✅ 传统方式创建主人物:', mainChar.role, 'ID:', mainChar.id, '位置:', mainChar.x, mainChar.y, 'hp:', mainChar.hp);
-            } catch (error) {
-                console.error('❌ 传统方式创建主人物失败:', error);
-                return null;
-            }
+            mainChar = new Character(ROLE.MAIN, x, y);
+            console.log('✅ 传统方式创建主人物成功:', mainChar);
+            console.log('✅ 传统方式创建主人物:', mainChar.role, 'ID:', mainChar.id, '位置:', mainChar.x, mainChar.y, 'hp:', mainChar.hp);
         }
 
         // 验证角色创建是否成功
@@ -1097,7 +1092,7 @@ var CharacterManager = {
             return this.mainCharacter;
         }
 
-        console.warn('CharacterManager.getMainCharacter: 内部存储中未找到有效的主人物');
+        throw new Error('CharacterManager.getMainCharacter: 内部存储中未找到有效的主人物');
         return null;
     },
 
@@ -1126,7 +1121,7 @@ var CharacterManager = {
         // 🔴 重构：直接从管理器获取角色
         var characters = this.getAllCharacters();
         if (characters.length === 0) {
-            console.warn('无法获取角色列表');
+            throw new Error('无法获取角色列表');
             return;
         }
 
@@ -1135,28 +1130,24 @@ var CharacterManager = {
         performanceUtils.startTimer('updateAllCharacters');
 
         characters.forEach(char => {
-            try {
-                if (char && char.hp > 0) {
-                    if (char.role === 1) {
-                        // 主人物：使用专用更新方法
-                        if (typeof char.updateMainCharacter === 'function') {
-                            char.updateMainCharacter(deltaTime);
-                        } else {
-                            console.warn('主人物缺少updateMainCharacter方法:', char);
-                        }
+            if (char && char.hp > 0) {
+                if (char.role === 1) {
+                    // 主人物：使用专用更新方法
+                    if (typeof char.updateMainCharacter === 'function') {
+                        char.updateMainCharacter(deltaTime);
                     } else {
-                        // 伙伴：使用通用更新方法
-                        if (typeof char.updateMovement === 'function') {
-                            char.updateMovement(deltaTime);
-                        } else {
-                            console.warn('伙伴缺少updateMovement方法:', char);
-                        }
+                        throw new Error('主人物缺少updateMainCharacter方法: ' + char.id);
                     }
                 } else {
-                    console.warn('角色无效或已死亡:', char);
+                    // 伙伴：使用通用更新方法
+                    if (typeof char.updateMovement === 'function') {
+                        char.updateMovement(deltaTime);
+                    } else {
+                        throw new Error('伙伴缺少updateMovement方法: ' + char.id);
+                    }
                 }
-            } catch (error) {
-                console.error('更新角色时发生错误:', error, char);
+            } else {
+                throw new Error('角色无效或已死亡: ' + char.id);
             }
         });
 
@@ -1208,7 +1199,7 @@ Character.prototype.updateMainCharacter = function (deltaTime) {
             break;
 
         default:
-            console.warn('主人物未知状态:', this.stateMachine.currentState);
+            throw new Error('主人物未知状态: ' + this.stateMachine.currentState);
             break;
     }
 };

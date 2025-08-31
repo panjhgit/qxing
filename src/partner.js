@@ -784,7 +784,7 @@ Partner.prototype.takeDamage = function (damage) {
     var validationUtils = UtilsManager.getValidationUtils();
 
     if (!validationUtils.validateRange(damage, 0, 1000, '伤害值')) {
-        console.warn('无效的伤害值:', damage);
+        throw new Error('无效的伤害值: ' + damage);
         return this.hp;
     }
 
@@ -826,7 +826,7 @@ var PartnerManager = {
     // 创建伙伴
     createPartner: function (role, x, y) {
         if (this.partners.length >= this.maxPartners) {
-            console.warn('伙伴数量已达上限');
+            throw new Error('伙伴数量已达上限');
             return null;
         }
 
@@ -847,12 +847,8 @@ var PartnerManager = {
         var partners = this.getAllPartners();
 
         partners.forEach(partner => {
-            try {
-                if (partner.stateMachine) {
-                    partner.stateMachine.update(deltaTime);
-                }
-            } catch (error) {
-                console.error('伙伴更新出错:', error);
+            if (partner.stateMachine) {
+                partner.stateMachine.update(deltaTime);
             }
         });
     },
@@ -870,11 +866,10 @@ var PartnerManager = {
     generatePartnersOnMap: function () {
         console.log('🗺️ 开始在地图上生成伙伴...');
         
-        try {
-            if (!this.partners) {
-                console.error('❌ 伙伴管理器未初始化');
-                return;
-            }
+        if (!this.partners) {
+            console.error('❌ 伙伴管理器未初始化');
+            return;
+        }
             
             // 伙伴职业类型
             var partnerRoles = [2, 3, 4, 5, 6]; // 警察、平民、医生、护士、厨师
@@ -925,7 +920,7 @@ var PartnerManager = {
                     if (safePosition && safePosition.success) {
                         console.log(`✅ 伙伴${i+1}安全位置生成成功:`, safePosition);
                     } else {
-                        console.warn(`⚠️ 伙伴${i+1}安全位置生成失败，使用备用位置`);
+                        throw new Error(`伙伴${i+1}安全位置生成失败`);
                         safePosition = {x: centerX, y: centerY, success: true};
                     }
                 } else {
@@ -947,9 +942,7 @@ var PartnerManager = {
             var partners = this.getAllPartners();
             console.log(`✅ 伙伴生成完成，伙伴数量: ${partners.length}`);
             
-        } catch (error) {
-            console.error('❌ 伙伴生成失败:', error);
-        }
+
     }
 };
 

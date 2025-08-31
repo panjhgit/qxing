@@ -92,14 +92,12 @@ const ValidationUtils = {
     // 验证位置参数
     validatePosition: function (x, y) {
         if (!MathUtils.isValidNumber(x) || !MathUtils.isValidNumber(y)) {
-            console.warn('无效的位置参数:', x, y);
-            return false;
+            throw new Error('无效的位置参数: ' + x + ', ' + y);
         }
 
         // 检查坐标范围是否合理
         if (Math.abs(x) > 100000 || Math.abs(y) > 100000) {
-            console.warn('位置参数超出合理范围:', x, y);
-            return false;
+            throw new Error('位置参数超出合理范围: ' + x + ', ' + y);
         }
 
         return true;
@@ -108,16 +106,14 @@ const ValidationUtils = {
     // 验证对象参数
     validateObject: function (obj, requiredProps) {
         if (!obj || typeof obj !== 'object') {
-            console.warn('无效的对象参数:', obj);
-            return false;
+            throw new Error('无效的对象参数: ' + obj);
         }
 
         if (requiredProps) {
             for (var i = 0; i < requiredProps.length; i++) {
                 var prop = requiredProps[i];
                 if (obj[prop] === undefined) {
-                    console.warn('对象缺少必需属性:', prop, obj);
-                    return false;
+                    throw new Error('对象缺少必需属性: ' + prop);
                 }
             }
         }
@@ -128,13 +124,11 @@ const ValidationUtils = {
     // 验证数值范围
     validateRange: function (value, min, max, name) {
         if (!MathUtils.isValidNumber(value)) {
-            console.warn('无效的数值:', name, value);
-            return false;
+            throw new Error('无效的数值: ' + name + ' = ' + value);
         }
 
         if (value < min || value > max) {
-            console.warn('数值超出范围:', name, value, '应该在', min, '到', max, '之间');
-            return false;
+            throw new Error('数值超出范围: ' + name + ' = ' + value + ' 应该在 ' + min + ' 到 ' + max + ' 之间');
         }
 
         return true;

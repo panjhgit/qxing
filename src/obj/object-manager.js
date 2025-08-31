@@ -39,7 +39,7 @@ class ObjectManager {
     destroyObject(objectId) {
         const objectInfo = this.objects.get(objectId);
         if (!objectInfo) {
-            console.warn('⚠️ 对象不存在:', objectId);
+            throw new Error('对象不存在: ' + objectId);
             return false;
         }
 
@@ -52,7 +52,7 @@ class ObjectManager {
             if (removeResult) {
                 console.log('✅ 对象已从空间索引移除:', objectId);
             } else {
-                console.warn('⚠️ 对象从空间索引移除失败:', objectId);
+                throw new Error('对象从空间索引移除失败: ' + objectId);
             }
         }
 

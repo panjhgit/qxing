@@ -505,7 +505,7 @@ var ZombieManager = {
     // 初始化对象池
     initObjectPool: function() {
         if (!window.objectPoolManager) {
-            console.warn('对象池管理器未初始化，使用传统创建方式');
+    
             return;
         }
         
@@ -553,7 +553,7 @@ var ZombieManager = {
         // 🔴 核心：使用僵尸管理器自己的计数方法（遵循职责分离）
         var currentZombieCount = this.zombies.filter(z => z && z.hp > 0).length;
         if (currentZombieCount >= this.maxZombies) {
-            console.warn('僵尸数量已达上限:', currentZombieCount, '/', this.maxZombies);
+    
             return null;
         }
         
@@ -612,11 +612,7 @@ var ZombieManager = {
                 console.log('✅ 僵尸已添加到空间索引:', zombie.id);
                 // 给僵尸添加空间索引ID标识
                 zombie._spatialIndexId = Date.now() + Math.random();
-            } else {
-                console.warn('⚠️ 僵尸添加到空间索引失败:', zombie.id);
             }
-        } else {
-            console.warn('⚠️ 碰撞系统或addToSpatialIndex方法不可用，僵尸无法添加到空间索引:', zombie.id);
         }
         
         this.initializeZombieTarget(zombie);
@@ -786,34 +782,25 @@ var ZombieManager = {
         
         var updatedCount = 0;
         zombiesToUpdate.forEach(zombie => {
-            try {
-                if (zombie.update(deltaTime, characters, currentFrame)) {
-                    updatedCount++;
-                }
-            } catch (error) {
-                console.error('僵尸更新出错:', zombie.type, zombie.id, '错误:', error);
-                zombie.state = ZOMBIE_STATE.IDLE;
+            if (zombie.update(deltaTime, characters, currentFrame)) {
+                updatedCount++;
             }
         });
         
         // 清理死亡僵尸
         var deadZombies = zombies.filter(zombie => zombie.hp <= 0 || zombie.state === ZOMBIE_STATE.DEAD);
         deadZombies.forEach(zombie => {
-            try {
-                // 🔴 协调对象池：优先使用对象池归还
-                if (this.objectPool) {
-                    if (this.objectPool.return(zombie)) {
-                        console.log('✅ 死亡僵尸已归还到对象池:', zombie.id);
-                        return; // 使用return而不是continue
-                    }
+            // 🔴 协调对象池：优先使用对象池归还
+            if (this.objectPool) {
+                if (this.objectPool.return(zombie)) {
+                    console.log('✅ 死亡僵尸已归还到对象池:', zombie.id);
+                    return; // 使用return而不是continue
                 }
-                
-                // 对象池不可用时，使用传统销毁方式
-                if (window.collisionSystem && window.collisionSystem.destroyZombieObject) {
-                    window.collisionSystem.destroyZombieObject(zombie);
-                }
-            } catch (error) {
-                console.error('销毁僵尸失败:', zombie.type, zombie.id, '错误:', error);
+            }
+            
+            // 对象池不可用时，使用传统销毁方式
+            if (window.collisionSystem && window.collisionSystem.destroyZombieObject) {
+                window.collisionSystem.destroyZombieObject(zombie);
             }
         });
     },
@@ -864,8 +851,6 @@ var ZombieManager = {
             var removeResult = window.collisionSystem.removeFromSpatialIndex(zombie);
             if (removeResult) {
                 console.log('✅ 僵尸已从空间索引移除:', zombie.id);
-            } else {
-                console.warn('⚠️ 僵尸从空间索引移除失败:', zombie.id);
             }
         }
         

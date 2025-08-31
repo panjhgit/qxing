@@ -446,19 +446,14 @@ GameEngine.prototype.init = function() {
 GameEngine.prototype.initTimeSystemConfig = function() {
     // 从配置文件读取时间设置
     if (window.ConfigManager) {
-        try {
-            var timeConfig = window.ConfigManager.get('TIME_SYSTEM');
-            if (timeConfig) {
-                this.timeSystem.dayDuration = timeConfig.DAY_DURATION;
-                console.log('✅ 时间系统配置已加载:', {
-                    dayDuration: this.timeSystem.dayDuration,
-                    dayPhaseDuration: timeConfig.DAY_PHASE_DURATION,
-                    zombiesPerDay: timeConfig.ZOMBIES_PER_DAY
-                });
-            }
-        } catch (error) {
-            console.warn('⚠️ 无法加载时间系统配置，使用默认值:', error);
-            this.timeSystem.dayDuration = 10; // 默认10秒
+        var timeConfig = window.ConfigManager.get('TIME_SYSTEM');
+        if (timeConfig) {
+            this.timeSystem.dayDuration = timeConfig.DAY_DURATION;
+            console.log('✅ 时间系统配置已加载:', {
+                dayDuration: this.timeSystem.dayDuration,
+                dayPhaseDuration: timeConfig.DAY_PHASE_DURATION,
+                zombiesPerDay: timeConfig.ZOMBIES_PER_DAY
+            });
         }
     } else {
         console.log('ℹ️ ConfigManager不可用，使用默认时间设置');
@@ -555,9 +550,7 @@ GameEngine.prototype.setSystems = function(mapSystem, characterManager, menuSyst
             mapHeight = mapSystem.config.height;
             console.log('从地图系统配置获取尺寸:', mapWidth, 'x', mapHeight);
         } else {
-            console.warn('无法获取地图尺寸，使用默认值');
-            mapWidth = 10000;
-            mapHeight = 10000;
+            throw new Error('无法获取地图尺寸');
         }
         
         this.viewSystem.init(mapWidth, mapHeight);
@@ -571,7 +564,7 @@ GameEngine.prototype.setSystems = function(mapSystem, characterManager, menuSyst
         }
         console.log('视觉系统初始化完成');
     } else {
-        console.warn('视觉系统或地图系统未准备好，无法初始化视觉系统');
+        throw new Error('视觉系统或地图系统未准备好，无法初始化视觉系统');
     }
 };
 
@@ -580,7 +573,7 @@ GameEngine.prototype.setSystems = function(mapSystem, characterManager, menuSyst
  */
 GameEngine.prototype.initNavigationSystem = function() {
     if (!this.mapSystem) {
-        console.warn('[GameEngine] 地图系统未初始化，无法构建NavMesh');
+        throw new Error('[GameEngine] 地图系统未初始化，无法构建NavMesh');
         return false;
     }
     
@@ -614,7 +607,7 @@ GameEngine.prototype.initNavigationSystem = function() {
         console.log('[GameEngine] NavMesh导航系统初始化完成');
         return true;
     } else {
-        console.warn('[GameEngine] NavigationSystem未定义，跳过NavMesh初始化');
+        throw new Error('[GameEngine] NavigationSystem未定义，跳过NavMesh初始化');
         return false;
     }
 };
@@ -626,24 +619,19 @@ GameEngine.prototype.initObjectPools = function() {
     if (typeof window !== 'undefined' && window.objectPoolManager) {
         console.log('[GameEngine] 开始初始化对象池系统...');
         
-        try {
-            // 🔴 修复：对象池已经在角色和僵尸管理器初始化时创建，这里只需要验证状态
-            console.log('[GameEngine] 验证对象池系统状态...');
-            
-            var characterPoolStatus = this.characterManager && this.characterManager.objectPool ? '已初始化' : '未初始化';
-            var zombiePoolStatus = this.zombieManager && this.zombieManager.objectPool ? '已初始化' : '未初始化';
-            
-            console.log('[GameEngine] 角色对象池状态:', characterPoolStatus);
-            console.log('[GameEngine] 僵尸对象池状态:', zombiePoolStatus);
-            
-            console.log('[GameEngine] 对象池系统验证完成');
-            return true;
-        } catch (error) {
-            console.error('[GameEngine] 对象池系统初始化失败:', error);
-            return false;
-        }
+        // 🔴 修复：对象池已经在角色和僵尸管理器初始化时创建，这里只需要验证状态
+        console.log('[GameEngine] 验证对象池系统状态...');
+        
+        var characterPoolStatus = this.characterManager && this.characterManager.objectPool ? '已初始化' : '未初始化';
+        var zombiePoolStatus = this.zombieManager && this.zombieManager.objectPool ? '已初始化' : '未初始化';
+        
+        console.log('[GameEngine] 角色对象池状态:', characterPoolStatus);
+        console.log('[GameEngine] 僵尸对象池状态:', zombiePoolStatus);
+        
+        console.log('[GameEngine] 对象池系统验证完成');
+        return true;
     } else {
-        console.warn('[GameEngine] 对象池管理器不可用，跳过对象池初始化');
+        throw new Error('[GameEngine] 对象池管理器不可用，跳过对象池初始化');
         return false;
     }
 };
@@ -685,7 +673,7 @@ GameEngine.prototype.retryInitAdvancedSystems = function() {
  */
 GameEngine.prototype.initDynamicObstacleManager = function() {
     if (!this.mapSystem) {
-        console.warn('[GameEngine] 地图系统未初始化，无法初始化动态障碍物管理器');
+        throw new Error('[GameEngine] 地图系统未初始化，无法初始化动态障碍物管理器');
         return false;
     }
     
@@ -710,7 +698,7 @@ GameEngine.prototype.initDynamicObstacleManager = function() {
         console.log('[GameEngine] 动态障碍物管理器初始化完成');
         return true;
     } else {
-        console.warn('[GameEngine] DynamicObstacleManager未定义，跳过动态障碍物管理器初始化');
+        throw new Error('[GameEngine] DynamicObstacleManager未定义，跳过动态障碍物管理器初始化');
         return false;
     }
 };
@@ -772,23 +760,23 @@ GameEngine.prototype.updateJoystickMovement = function() {
             console.error('❌ updateJoystickMovement: 未找到主人物');
         }
     } else {
-        console.warn('updateJoystickMovement: 角色管理器不可用');
+        throw new Error('updateJoystickMovement: 角色管理器不可用');
         return;
     }
 
     if (!mainCharacter) {
-        console.warn('updateJoystickMovement: 无法获取主人物，跳过摇杆更新');
+        throw new Error('updateJoystickMovement: 无法获取主人物，跳过摇杆更新');
         return;
     }
     
     if (!this.characterManager) {
-        console.warn('角色管理器未初始化');
+        throw new Error('角色管理器未初始化');
         return;
     }
     
     var mainChar = this.characterManager.getMainCharacter();
     if (!mainChar) {
-        console.warn('主人物未找到');
+        throw new Error('主人物未找到');
         return;
     }
     
@@ -1040,7 +1028,7 @@ GameEngine.prototype.createZombieBatchAroundPlayer = function(batchSize, mainCha
         }
         
         if (!zombieCreated) {
-            console.warn('GameEngine: 僵尸', i + 1, '无法找到有效位置，跳过创建');
+            throw new Error('GameEngine: 僵尸' + (i + 1) + '无法找到有效位置，跳过创建');
         }
     }
     
@@ -1318,7 +1306,7 @@ GameEngine.prototype.render = function() {
                 
                 this.viewSystem.renderZombies(this.zombieManager);
             } else {
-                console.warn('GameEngine.render: zombieManager未初始化');
+                throw new Error('GameEngine.render: zombieManager未初始化');
             }
             
             // 渲染伙伴
@@ -1328,7 +1316,7 @@ GameEngine.prototype.render = function() {
                 console.log('GameEngine.render: 获取到伙伴数量:', partners.length);
                 this.viewSystem.renderPartners(window.partnerManager);
             } else {
-                console.warn('GameEngine.render: partnerManager未初始化');
+                throw new Error('GameEngine.render: partnerManager未初始化');
             }
             
             // 渲染触摸摇杆

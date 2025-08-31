@@ -360,31 +360,8 @@ ViewSystem.prototype.renderCharacter = function (character, worldX, worldY) {
 
 // 🔴 渲染僵尸（带摄像机变换）- 使用高性能活跃僵尸列表
 ViewSystem.prototype.renderZombies = function (zombieManager) {
-    if (!zombieManager) {
-        console.warn('renderZombies: zombieManager 为空');
-        return;
-    }
-
     // 🔴 获取主人物位置，用于计算活跃僵尸
-    var mainCharacter = null;
-
-    // 检查系统状态
-    if (!window.characterManager) {
-        console.warn('renderZombies: characterManager 未初始化，等待系统准备就绪');
-        return;
-    }
-
-    if (!window.collisionSystem) {
-        console.warn('renderZombies: collisionSystem 未初始化，等待系统准备就绪');
-        return;
-    }
-
-    // 🔴 获取主人物位置
-    mainCharacter = window.characterManager.getMainCharacter();
-    if (!mainCharacter) {
-        console.warn('renderZombies: 无法获取主人物，等待角色系统准备就绪');
-        return;
-    }
+    var mainCharacter = window.characterManager.getMainCharacter();
 
     // 🔴 获取活跃僵尸列表（在主人物周围1000px范围内）
     var activeZombies = zombieManager.getActiveZombies(mainCharacter.x, mainCharacter.y, 1000);
@@ -441,10 +418,7 @@ ViewSystem.prototype.renderZombie = function (zombie, screenX, screenY) {
         return;
     }
 
-    if (!zombie.size || zombie.size <= 0) {
-        console.warn('renderZombie: 僵尸尺寸无效:', zombie.size);
-        zombie.size = 32; // 使用默认尺寸
-    }
+
 
     // 绘制阴影 - 改为椭圆形阴影
     this.ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
@@ -456,7 +430,7 @@ ViewSystem.prototype.renderZombie = function (zombie, screenX, screenY) {
     var bodyY = screenY - zombie.size / 2;
 
     // 身体 - 改为圆形
-    this.ctx.fillStyle = zombie.color || '#8B4513';
+    this.ctx.fillStyle = zombie.color;
     this.ctx.beginPath();
     this.ctx.arc(screenX, bodyY + zombie.size / 2, zombie.size / 2, 0, Math.PI * 2);
     this.ctx.fill();
@@ -471,7 +445,7 @@ ViewSystem.prototype.renderZombie = function (zombie, screenX, screenY) {
     this.ctx.font = Math.floor(zombie.size / 2) + 'px Arial';
     this.ctx.textAlign = 'center';
     this.ctx.fillStyle = '#000';
-    this.ctx.fillText(zombie.icon || '🧟‍♂️', screenX, bodyY + zombie.size / 2);
+    this.ctx.fillText(zombie.icon, screenX, bodyY + zombie.size / 2);
 
     // 绘制血条
     this.drawZombieHealthBar(zombie, screenX, bodyY - 10);
@@ -509,10 +483,6 @@ ViewSystem.prototype.drawZombieHealthBar = function (zombie, x, y) {
 
 // 🔴 新增：绘制角色血条方法
 ViewSystem.prototype.renderCharacterHealthBar = function (character, worldX, worldY) {
-    // 检查角色是否有血量属性
-    if (!character.hp || !character.maxHp) {
-        return;
-    }
 
     // 血条位置（显示在角色上方）
     var barWidth = character.width; // 血条宽度等于角色宽度
@@ -558,10 +528,6 @@ ViewSystem.prototype.renderCharacterHealthBar = function (character, worldX, wor
 
 // 渲染伙伴（带摄像机变换）
 ViewSystem.prototype.renderPartners = function (partnerManager) {
-    if (!partnerManager) {
-        console.warn('renderPartners: partnerManager 为空');
-        return;
-    }
 
     // 保存当前上下文状态
     this.ctx.save();
