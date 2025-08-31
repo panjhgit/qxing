@@ -412,6 +412,60 @@ function initCollisionSystem() {
     }
 }
 
+// 创建主人物
+function createMainCharacter() {
+    console.log('👤 开始创建主人物...');
+    
+    try {
+        var mainChar = null;
+        if (window.characterManager) {
+            // 使用碰撞系统生成安全的随机位置
+            var safePosition = null;
+            if (window.collisionSystem && window.collisionSystem.generateGameSafePosition) {
+                // 尝试在南部公园区生成安全位置
+                safePosition = window.collisionSystem.generateGameSafePosition(
+                    5000, 9600,  // 南部公园区中心
+                    100, 500,    // 最小距离100，最大距离500
+                    32, 48,      // 主人物尺寸
+                    16           // 安全半径
+                );
+                
+                if (safePosition && safePosition.success) {
+                    console.log('✅ 生成安全位置成功:', safePosition);
+                } else {
+                    throw new Error('安全位置生成失败');
+                }
+            } else {
+                // 备用位置：南部公园区
+                safePosition = {x: 5000, y: 9600, success: true};
+            }
+            
+            mainChar = window.characterManager.createMainCharacter(safePosition.x, safePosition.y);
+            if (mainChar) {
+                console.log('✅ 主人物创建成功:', mainChar.id, '位置:', safePosition.x, safePosition.y);
+                
+                // 🔴 验证：确认主人物已正确存储到角色管理器
+                var storedMainChar = window.characterManager.getMainCharacter();
+                if (storedMainChar) {
+                    console.log('✅ 主人物存储验证成功:', storedMainChar.id);
+                } else {
+                    throw new Error('主人物存储验证失败');
+                }
+            } else {
+                throw new Error('主人物创建失败');
+            }
+        } else {
+            throw new Error('角色管理器未初始化');
+        }
+        
+        console.log('✅ 主人物创建完成');
+        
+    } catch (error) {
+        console.error('❌ 主人物创建失败:', error);
+        throw error;
+    }
+}
+
 // 设置游戏引擎系统
 function setupGameEngineSystems() {
     try {
@@ -617,22 +671,27 @@ function continueGameSystemsInit() {
         console.log('🔍 步骤2: 初始化碰撞系统');
         initCollisionSystem();
         
-        // 第三步：等待地图系统完全准备好后设置游戏引擎系统
+        // 第三步：等待地图系统完全准备好后创建主人物
         console.log('⚙️ 步骤3: 等待地图系统完全准备好...');
         setTimeout(() => {
-            console.log('⚙️ 设置游戏引擎系统');
+            // 第四步：创建主人物
+            console.log('👤 步骤4: 创建主人物');
+            createMainCharacter();
+            
+            // 第五步：设置游戏引擎系统
+            console.log('⚙️ 步骤5: 设置游戏引擎系统');
             setupGameEngineSystems();
             
-            // 第四步：执行初始渲染
-            console.log('🎨 步骤4: 执行初始渲染');
+            // 第六步：执行初始渲染
+            console.log('🎨 步骤6: 执行初始渲染');
             performInitialRendering();
             
-            // 第五步：切换到游戏状态
-            console.log('🚀 步骤5: 切换到游戏状态');
+            // 第七步：切换到游戏状态
+            console.log('🚀 步骤7: 切换到游戏状态');
             gameEngine.setGameState('playing');
             
-            // 第六步：启动游戏循环
-            console.log('🔄 步骤6: 启动游戏循环');
+            // 第八步：启动游戏循环
+            console.log('🔄 步骤8: 启动游戏循环');
             startGameLoop();
             
             // 标记游戏初始化完成
@@ -674,55 +733,13 @@ function performInitialRendering() {
 
         }
         
-        // 第二步：创建主人物（移到外层作用域）
-        console.log('👤 创建主人物...');
-        var mainChar = null;
-        if (window.characterManager) {
-            // 使用碰撞系统生成安全的随机位置
-            var safePosition = null;
-            if (window.collisionSystem && window.collisionSystem.generateGameSafePosition) {
-                // 尝试在南部公园区生成安全位置
-                safePosition = window.collisionSystem.generateGameSafePosition(
-                    5000, 9600,  // 南部公园区中心
-                    100, 500,    // 最小距离100，最大距离500
-                    32, 48,      // 主人物尺寸
-                    16           // 安全半径
-                );
-                
-                if (safePosition && safePosition.success) {
-                    console.log('✅ 生成安全位置成功:', safePosition);
-                } else {
-                    throw new Error('安全位置生成失败');
-                    // 备用位置：南部公园区
-                    safePosition = {x: 5000, y: 9600, success: true};
-                }
-            } else {
-                // 备用位置：南部公园区（第46-49行，完全空旷）
-                safePosition = {x: 5000, y: 9600, success: true};
-            }
-            
-            mainChar = window.characterManager.createMainCharacter(safePosition.x, safePosition.y);
-            if (mainChar) {
-                console.log('✅ 主人物创建成功:', mainChar.id, '位置:', safePosition.x, safePosition.y);
-                
-                // 🔴 验证：确认主人物已正确存储到角色管理器
-                var storedMainChar = window.characterManager.getMainCharacter();
-                if (storedMainChar) {
-                    console.log('✅ 主人物已正确存储到角色管理器:', storedMainChar.id);
-                } else {
-                    console.error('❌ 主人物未正确存储到角色管理器！');
-                }
-            } else {
-                console.error('❌ 主人物创建失败');
-            }
-        } else {
-            console.error('❌ 角色管理器不可用，无法创建主人物');
-        }
+
         
-        // 第三步：设置摄像机位置
+        // 第二步：设置摄像机位置
         console.log('📷 设置摄像机位置...');
         if (gameEngine.viewSystem && gameEngine.viewSystem.camera) {
             // 获取主人物当前位置，设置摄像机跟随
+            var mainChar = window.characterManager.getMainCharacter();
             if (mainChar && gameEngine.viewSystem.setFollowTarget) {
                 gameEngine.viewSystem.setFollowTarget(mainChar.x, mainChar.y);
                 console.log('✅ 摄像机跟随主人物位置:', mainChar.x, mainChar.y);
@@ -737,20 +754,21 @@ function performInitialRendering() {
             throw new Error('视觉系统或摄像机未初始化');
         }
         
-        // 第四步：渲染角色
+        // 第三步：渲染角色
         console.log('👤 渲染角色...');
         if (gameEngine.viewSystem && window.characterManager) {
             // 主人物已经在上面创建了，这里只需要确认状态
+            var mainChar = window.characterManager.getMainCharacter();
             if (mainChar) {
                 console.log('✅ 角色渲染设置完成');
             } else {
-                console.error('❌ 主人物创建失败');
+                throw new Error('主人物创建失败');
             }
         } else {
             throw new Error('角色管理器或视觉系统未初始化');
         }
         
-        // 第五步：渲染僵尸
+        // 第四步：渲染僵尸
         console.log('🧟‍♂️ 渲染僵尸...');
         if (gameEngine.viewSystem && window.zombieManager) {
             // 创建初始僵尸（在南部公园区，远离建筑物）
@@ -769,7 +787,7 @@ function performInitialRendering() {
             throw new Error('僵尸管理器或视觉系统未初始化');
         }
         
-        // 第五步半：生成伙伴
+        // 第五步：生成伙伴
         console.log('👥 生成伙伴...');
         if (gameEngine.viewSystem && window.partnerManager) {
             // 在地图上随机生成伙伴

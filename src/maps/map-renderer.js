@@ -421,9 +421,9 @@ export class MapRenderer {
         y += 15;
         ctx.fillText(`单元格: ${this.currentMap.config.cellSize}px`, 15, y);
         y += 15;
-        ctx.fillText(`建筑物: ${this.currentMap.buildings?.length || 0}`, 15, y);
+        ctx.fillText(`建筑物: ${this.currentMap.buildings ? this.currentMap.buildings.length : 0}`, 15, y);
         y += 15;
-        ctx.fillText(`可通行区域: ${this.currentMap.walkableAreas?.length || 0}`, 15, y);
+        ctx.fillText(`可通行区域: ${this.currentMap.walkableAreas ? this.currentMap.walkableAreas.length : 0}`, 15, y);
     }
 }
 
