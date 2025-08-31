@@ -1183,9 +1183,7 @@ var CharacterManager = {
         var characters = this.getAllCharacters();
         if (characters.length === 0) {
             throw new Error('无法获取角色列表');
-            return;
         }
-
 
         // 使用性能工具测量更新时间
         performanceUtils.startTimer('updateAllCharacters');
@@ -1213,7 +1211,6 @@ var CharacterManager = {
         });
 
         var updateTime = performanceUtils.endTimer('updateAllCharacters');
-
     }
 };
 
