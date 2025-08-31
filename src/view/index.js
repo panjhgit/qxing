@@ -12,7 +12,6 @@ export { Camera } from './camera.js';
 export { RenderManager, RENDER_CONFIG, ENTITY_TYPE, RENDER_STATE } from './render-manager.js';
 export { ViewSystem } from './view-system.js';
 export { MapRenderer } from './map-renderer.js';
-export { MenuRenderer } from './menu-renderer.js';
 export { EntityRenderer } from './entity-renderer.js';
 export { UIRenderer } from './ui-renderer.js';
 
@@ -21,7 +20,6 @@ export { default as Camera } from './camera.js';
 export { default as RenderManager } from './render-manager.js';
 export { default as ViewSystem } from './view-system.js';
 export { default as MapRenderer } from './map-renderer.js';
-export { default as MenuRenderer } from './menu-renderer.js';
 export { default as EntityRenderer } from './entity-renderer.js';
 export { default as UIRenderer } from './ui-renderer.js';
 

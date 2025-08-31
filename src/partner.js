@@ -89,7 +89,8 @@ var Partner = function (role, x, y) {
     this.isMoving = false;
     this.targetX = x;
     this.targetY = y;
-    this.moveSpeed = movementConfig ? movementConfig.CHARACTER_MOVE_SPEED : 5;
+    // 伙伴移动速度比主人物慢0.5px/帧，符合文档要求
+    this.moveSpeed = movementConfig ? (movementConfig.CHARACTER_MOVE_SPEED - 0.5) : 4.5;
 
     // 跟随属性
     this.followDistance = 80;           // 跟随距离
@@ -792,6 +793,15 @@ Partner.prototype.takeDamage = function (damage) {
 
     this.hp -= damage;
     if (this.hp < 0) this.hp = 0;
+    
+    // 🔴 修复：受到伤害后立即检查血量，如果血量归零则触发死亡
+    if (this.hp <= 0) {
+        console.log('💀 伙伴受到致命伤害，血量归零');
+        if (this.stateMachine && this.stateMachine.currentState !== PARTNER_STATE.DIE) {
+            this.stateMachine.forceState(PARTNER_STATE.DIE);
+        }
+    }
+    
     return this.hp;
 };
 
@@ -1053,6 +1063,12 @@ var PartnerManager = {
         var partners = this.getAllPartners();
 
         partners.forEach(partner => {
+            // 🔴 修复：首先检查血量，如果血量小于等于0，立即切换到死亡状态
+            if (partner.hp <= 0 && partner.stateMachine.currentState !== PARTNER_STATE.DIE) {
+                console.log('💀 伙伴血量归零，强制切换到死亡状态');
+                partner.stateMachine.forceState(PARTNER_STATE.DIE);
+            }
+            
             if (partner.stateMachine) {
                 partner.stateMachine.update(deltaTime);
             }

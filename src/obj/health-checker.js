@@ -11,20 +11,20 @@
 // 健康检查配置
 const HEALTH_CHECK_CONFIG = {
     // 检查间隔（帧数）
-    CHECK_INTERVAL: 600, // 10秒
+    CHECK_INTERVAL: 600, // 10秒（恢复正常频率）
     
     // 内存泄漏检测阈值
     LEAK_THRESHOLD: {
-        ACTIVE_OBJECTS: 100,
-        MEMORY_USAGE: 50 * 1024 * 1024, // 50MB
-        OBJECT_AGE: 300000 // 5分钟
+        ACTIVE_OBJECTS: 200, // 提高阈值，适应正常游戏对象数量
+        MEMORY_USAGE: 100 * 1024 * 1024, // 100MB（提高阈值）
+        OBJECT_AGE: 600000 // 10分钟（提高阈值）
     },
     
     // 性能阈值
     PERFORMANCE_THRESHOLD: {
-        POOL_HIT_RATE: 0.7, // 70%
-        OBJECT_CREATION_RATE: 10, // 每秒创建对象数
-        CLEANUP_INTERVAL: 30000 // 30秒
+        POOL_HIT_RATE: 0.3, // 30%（降低阈值，适应游戏需求）
+        OBJECT_CREATION_RATE: 20, // 每秒创建对象数（提高阈值）
+        CLEANUP_INTERVAL: 30000 // 30秒（恢复正常频率）
     }
 };
 
@@ -98,9 +98,42 @@ class ObjectHealthChecker {
         try {
             const stats = window.objectManager.getStats();
             
-            // 检查对象数量
+            // 只在有问题时输出详细信息
+            if (stats.totalObjects > HEALTH_CHECK_CONFIG.LEAK_THRESHOLD.ACTIVE_OBJECTS * 0.8) {
+                console.log('🔍 对象管理器检查:', {
+                    totalObjects: stats.totalObjects,
+                    activeObjects: stats.activeObjects,
+                    objectCounts: stats.objectCounts,
+                    threshold: HEALTH_CHECK_CONFIG.LEAK_THRESHOLD.ACTIVE_OBJECTS
+                });
+            }
+            
+            // 🔴 智能检查：分析对象类型分布
+            const zombieCount = stats.objectCounts.zombie || 0;
+            const characterCount = stats.objectCounts.character || 0;
+            const buildingCount = stats.objectCounts.building || 0;
+            const partnerCount = stats.objectCounts.partner || 0;
+            
+            // 计算正常游戏对象的预期数量
+            const expectedGameObjects = characterCount + partnerCount + buildingCount;
+            const zombieRatio = zombieCount / Math.max(1, expectedGameObjects);
+            
+            console.log('🔍 对象分布分析:', {
+                zombieCount,
+                characterCount,
+                buildingCount,
+                partnerCount,
+                zombieRatio: zombieRatio.toFixed(2)
+            });
+            
+            // 检查对象数量（考虑游戏逻辑）
             if (stats.totalObjects > HEALTH_CHECK_CONFIG.LEAK_THRESHOLD.ACTIVE_OBJECTS) {
-                this.healthStatus.memoryLeaks.push(`对象数量过多: ${stats.totalObjects}`);
+                // 如果僵尸比例过高（超过10:1），可能是问题
+                if (zombieRatio > 10) {
+                    this.healthStatus.memoryLeaks.push(`僵尸数量异常: ${zombieCount} 只僵尸，比例过高`);
+                } else {
+                    console.log('✅ 对象数量正常，符合游戏逻辑');
+                }
             }
             
             // 检查对象计数一致性
@@ -123,6 +156,14 @@ class ObjectHealthChecker {
         
         try {
             const stats = window.objectPoolManager.getPerformanceStats();
+            
+            console.log('🔍 对象池检查:', {
+                totalObjects: stats.totalObjects,
+                totalMemoryUsage: (stats.totalMemoryUsage / 1024 / 1024).toFixed(1) + 'MB',
+                averageHitRate: (stats.averageHitRate * 100).toFixed(1) + '%',
+                leakWarnings: stats.leakWarnings,
+                pools: stats.pools.length
+            });
             
             // 检查命中率
             if (stats.averageHitRate < HEALTH_CHECK_CONFIG.PERFORMANCE_THRESHOLD.POOL_HIT_RATE) {

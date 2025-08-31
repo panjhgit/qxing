@@ -1259,8 +1259,11 @@ GameEngine.prototype.update = function() {
     // 更新对象管理器
     if (window.objectManager) {
         // 定期清理死亡对象
-        if (this.frameCount % 60 === 0) { // 每秒清理一次
-            window.objectManager.cleanupDeadObjects();
+        if (this.frameCount % 60 === 0) { // 每秒清理一次（恢复正常频率）
+            const cleanedCount = window.objectManager.cleanupDeadObjects();
+            if (cleanedCount > 0) {
+                console.log('🧹 清理了', cleanedCount, '个死亡对象');
+            }
         }
     }
     
@@ -1381,8 +1384,45 @@ GameEngine.prototype.logSystemStatus = function() {
     console.log('==================');
 },
 
+// 停止游戏引擎更新
+GameEngine.prototype.stopUpdate = function() {
+    console.log('⏹️ 游戏引擎停止更新');
+    this.isUpdating = false;
+    this.gameState = 'home';
+    
+    // 停止触摸摇杆
+    if (this.joystick) {
+        this.joystick.isActive = false;
+        this.joystick.isVisible = false;
+    }
+    
+    // 停止所有管理器更新
+    if (this.characterManager && this.characterManager.stopUpdate) {
+        this.characterManager.stopUpdate();
+    }
+    
+    if (this.zombieManager && this.zombieManager.stopUpdate) {
+        this.zombieManager.stopUpdate();
+    }
+    
+    if (window.partnerManager && window.partnerManager.stopUpdate) {
+        window.partnerManager.stopUpdate();
+    }
+    
+    console.log('✅ 游戏引擎更新已停止');
+};
+
 // 游戏循环渲染
 GameEngine.prototype.render = function() {
+    // 如果引擎已停止，不进行渲染
+    if (this.gameState === 'home' && !this.isUpdating) {
+        // 只渲染菜单
+        if (this.menuSystem && this.menuSystem.render) {
+            this.menuSystem.render();
+        }
+        return;
+    }
+    
     if (this.gameState === 'home') {
         // 渲染首页
         if (this.menuSystem && this.menuSystem.renderHomePage) {

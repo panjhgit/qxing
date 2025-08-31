@@ -39,8 +39,9 @@
  *
  * 🚀 移动系统配置 (MOVEMENT)
  * ========================================
- * - CHARACTER_MOVE_SPEED: 6px/帧 - 人物移动速度
- * - ZOMBIE_MOVE_SPEED: 5px/帧 - 僵尸移动速度
+ * - CHARACTER_MOVE_SPEED: 5px/帧 - 主人物移动速度 (300px/秒，符合移动端操作直觉)
+ * - ZOMBIE_MOVE_SPEED: 5px/帧 - 僵尸移动速度 (300px/秒，与主人物相同)
+ * - PARTNER_MOVE_SPEED: 4.5px/帧 - 伙伴移动速度 (比主人物慢0.5px/帧)
  *
  * ⚔️ 攻击系统配置 (COMBAT)
  * ========================================
@@ -73,15 +74,15 @@
 const GAME_CONFIG = {
     // 移动系统配置
     MOVEMENT: {
-        CHARACTER_MOVE_SPEED: 3,        // 🔴 降低：人物移动速度 (像素/帧) - 从6降到3，避免漂移
-        ZOMBIE_MOVE_SPEED: 2,           // 🔴 降低：僵尸移动速度 (像素/帧) - 从4降到2，避免漂移
+        CHARACTER_MOVE_SPEED: 3,        // ✅ 恢复：人物移动速度 (像素/帧)
+        ZOMBIE_MOVE_SPEED: 3,           // ✅ 恢复：僵尸移动速度 (像素/帧)
         
-        // 🔴 新增：贴着建筑物移动配置
+        // 贴着建筑物移动配置
         WALL_FOLLOWING: {
             ENABLED: true,               // 启用贴着建筑物移动
             DIAGONAL_FACTOR: 0.7,        // 对角线移动速度因子（0.7倍）
             SEARCH_STEPS: 8,             // 搜索步数
-            MIN_STEP_SIZE: 2,            // 🔴 降低：最小步长（像素）- 从4降到2
+            MIN_STEP_SIZE: 4,            // ✅ 恢复：最小步长（像素）- 从2恢复到4
             NEARBY_SEARCH_RADIUS: 0.5    // 附近搜索半径（相对于对象半径）
         }
     },
@@ -120,7 +121,7 @@ const GAME_CONFIG = {
     COMBAT: {
         DEFAULT_ATTACK_COOLDOWN: 500,   // 🔴 修复：减少攻击冷却时间从1000ms到500ms，让僵尸攻击更连贯
         MIN_ATTACK_RANGE: 30,           // 最小攻击距离
-        MAX_ATTACK_RANGE: 150,          // 最大攻击距离
+        MAX_ATTACK_RANGE: 50,          // 最大攻击距离
         DAMAGE_REDUCTION_FACTOR: 0.8,   // 伤害衰减因子
         
         // 角色攻击配置
@@ -129,10 +130,10 @@ const GAME_CONFIG = {
         MOVING_ATTACK_INTERVAL: 0.8,    // 移动攻击间隔（秒）
         
         // 角色攻击范围配置
-        POLICE_ATTACK_RANGE: 100,       // 警察攻击范围
-        DOCTOR_ATTACK_RANGE: 80,        // 医生攻击范围
-        NURSE_ATTACK_RANGE: 60,         // 护士攻击范围
-        CHEF_ATTACK_RANGE: 70           // 厨师攻击范围
+        POLICE_ATTACK_RANGE: 30,       // 警察攻击范围
+        DOCTOR_ATTACK_RANGE: 30,        // 医生攻击范围
+        NURSE_ATTACK_RANGE: 30,         // 护士攻击范围
+        CHEF_ATTACK_RANGE: 30           // 厨师攻击范围
     },
 
     // 检测范围配置
@@ -148,21 +149,21 @@ const GAME_CONFIG = {
             // 瘦僵尸：轻量级，基础检测能力
             SKINNY: {
                 DETECTION_RANGE: 700,    // 检测范围：200px（改回合理值）
-                ATTACK_RANGE: 40,        // 攻击范围：40px
+                ATTACK_RANGE: 30,        // 攻击范围：30px
                 PRIORITY: 'normal'       // 优先级：普通
             },
 
             // 胖僵尸：中等重量，基础检测能力
             FAT: {
                 DETECTION_RANGE: 700,    // 检测范围：200px（改回合理值）
-                ATTACK_RANGE: 50,        // 攻击范围：50px
+                ATTACK_RANGE: 30,        // 攻击范围：30px
                 PRIORITY: 'normal'       // 优先级：普通
             },
 
             // Boss僵尸：重量级，增强检测能力
             BOSS: {
                 DETECTION_RANGE: 700,    // 检测范围：300px（改回合理值）
-                ATTACK_RANGE: 80,        // 攻击范围：80px
+                ATTACK_RANGE: 30,        // 攻击范围：30px
                 PRIORITY: 'high'         // 优先级：高
             },
 
@@ -176,14 +177,14 @@ const GAME_CONFIG = {
             // 坦克僵尸：重量级，减少检测能力
             TANK: {
                 DETECTION_RANGE: 700,    // 检测范围：150px（改回合理值）
-                ATTACK_RANGE: 60,        // 攻击范围：60px
+                ATTACK_RANGE: 30,        // 攻击范围：30px
                 PRIORITY: 'low'          // 优先级：低
             },
 
             // 默认僵尸：标准配置
             DEFAULT: {
                 DETECTION_RANGE: 700,    // 检测范围：200px（改回合理值）
-                ATTACK_RANGE: 45,        // 攻击范围：45px
+                ATTACK_RANGE: 30,        // 攻击范围：30px
                 PRIORITY: 'normal'       // 优先级：普通
             }
         },
@@ -192,10 +193,6 @@ const GAME_CONFIG = {
         SPECIAL_DETECTION: {
             // 主人物优先检测范围（最高优先级）
             MAIN_CHARACTER_PRIORITY_RANGE: 700,  // 700px范围内优先检测主人物
-
-            // 伙伴检测范围
-            PARTNER_DETECTION_RANGE: 200,        // 200px范围内检测伙伴
-
 
         },
 

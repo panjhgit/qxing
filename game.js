@@ -1,7 +1,7 @@
 // 导入模块
 import eventPrototype from './src/event.js';
 import MapManager from './src/maps/map-manager.js';
-import menuPrototype from './src/menu.js';
+import createMenuSystem from './src/menu.js';
 import {CharacterManager} from './src/character.js';
 import {ZombieManager} from './src/zombie.js';
 import {PartnerManager} from './src/partner.js';
@@ -53,120 +53,256 @@ let isInitializing = false; // 标记是否正在初始化
 
 // 游戏重置功能
 function resetGame() {
-    console.log('🔄 开始重置游戏...');
+    console.log('🔄 开始环境重置...');
     
-    // 第一步：停止游戏循环
-    if (gameEngine && gameEngine.gameState === 'playing') {
-        gameEngine.setGameState('home');
-    }
+    // 第一步：环境重置（销毁所有对象和系统）
+    resetGameEnvironment();
     
-    // 第二步：清空角色和僵尸数据
-    clearGameData();
-    
-    // 第三步：重置游戏状态
+    // 第二步：重置游戏状态
     resetGameState();
+    
+    // 第三步：重新初始化菜单系统
+    reinitializeMenuSystem();
     
     // 第四步：显示主菜单
     showHomePage();
     
-    console.log('✅ 游戏重置完成');
+    console.log('✅ 环境重置完成，状态如首次加载');
 }
 
-// 清空游戏数据
-function clearGameData() {
-    console.log('🗑️ 清空游戏数据...');
+// 主人物死亡处理函数
+function handleMainCharacterDeath() {
+    console.log('💀 主人物死亡，开始死亡处理流程...');
     
-    // 清空角色管理器
+    // 显示死亡提示
+    showDeathMessage();
+    
+    // 不再自动重置，等待玩家选择
+    console.log('💀 等待玩家选择重新开始或返回主菜单...');
+}
+
+// 设置全局函数
+window.handleMainCharacterDeath = handleMainCharacterDeath;
+
+// 显示死亡消息
+function showDeathMessage() {
+    console.log('💀 显示死亡消息...');
+    
+    if (menuSystem && menuSystem.showDeathMessage) {
+        menuSystem.showDeathMessage();
+    } else {
+        // 回退到简单的死亡提示
+        if (canvas && ctx) {
+            ctx.save();
+            
+            // 绘制死亡背景
+            ctx.fillStyle = 'rgba(255, 0, 0, 0.8)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 绘制死亡文字
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = 'bold 32px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('💀 主人物已死亡', canvas.width / 2, canvas.height / 2 - 40);
+            
+            ctx.fillStyle = '#FFEB3B';
+            ctx.font = '20px Arial';
+            ctx.fillText('正在重置游戏环境...', canvas.width / 2, canvas.height / 2);
+            
+            ctx.restore();
+        }
+    }
+}
+
+
+
+// 环境重置辅助函数：暂停系统更新
+function pauseSystemUpdates() {
+    console.log('⏸️ 暂停系统更新...');
+    
+    // 暂停游戏引擎更新
+    if (window.gameEngine) {
+        if (window.gameEngine.setGameState) {
+            window.gameEngine.setGameState('home');
+        }
+        console.log('✅ 游戏引擎已暂停');
+    }
+    
+    // 暂停内存监控
+    if (window.memoryMonitor && window.memoryMonitor.pause) {
+        window.memoryMonitor.pause();
+        console.log('✅ 内存监控已暂停');
+    }
+    
+    // 暂停对象健康检查器
+    if (window.objectHealthChecker && window.objectHealthChecker.pause) {
+        window.objectHealthChecker.pause();
+        console.log('✅ 对象健康检查器已暂停');
+    }
+    
+    // 暂停对象池管理器
+    if (window.objectPoolManager && window.objectPoolManager.pause) {
+        window.objectPoolManager.pause();
+        console.log('✅ 对象池管理器已暂停');
+    }
+    
+    console.log('✅ 系统更新已暂停');
+}
+
+// 环境重置（销毁所有对象和系统，但保持游戏循环运行）
+function resetGameEnvironment() {
+    console.log('🔄 开始环境重置...');
+    
+    // 第一步：暂停系统更新
+    pauseSystemUpdates();
+    
+    // 第二步：销毁所有角色对象
     if (window.characterManager) {
-        // 🔴 修复：使用正确的管理器方法获取角色
+        console.log('🗑️ 销毁所有角色对象...');
         if (window.characterManager.getAllCharacters) {
             var characters = window.characterManager.getAllCharacters();
             characters.forEach(char => {
-                if (char && char.id !== 1001) { // 保留主人物ID
-                    // 从空间索引中移除
-                    if (window.collisionSystem && window.collisionSystem.removeFromSpatialIndex) {
-                        window.collisionSystem.removeFromSpatialIndex(char);
-                    }
+                if (char && char.destroy) {
+                    char.destroy();
                 }
             });
         }
-        
-        // 重置角色管理器
         window.characterManager = null;
         characterManager = null;
+        console.log('✅ 角色管理器已清理');
     }
     
-    // 清空僵尸管理器
+    // 第二步：销毁所有僵尸对象
     if (window.zombieManager) {
-        // 🔴 修复：使用正确的管理器方法获取僵尸
+        console.log('🗑️ 销毁所有僵尸对象...');
         if (window.zombieManager.getAllZombies) {
             var zombies = window.zombieManager.getAllZombies();
             zombies.forEach(zombie => {
-                if (zombie) {
-                    // 从空间索引中移除
-                    if (window.collisionSystem && window.collisionSystem.removeFromSpatialIndex) {
-                        window.collisionSystem.removeFromSpatialIndex(zombie);
-                    }
+                if (zombie && zombie.destroy) {
+                    zombie.destroy();
                 }
             });
         }
-        
-        // 重置僵尸管理器
         window.zombieManager = null;
+        console.log('✅ 僵尸管理器已清理');
     }
     
-    // 清空伙伴管理器
+    // 第三步：销毁所有伙伴对象
     if (window.partnerManager) {
-        // 🔴 修复：不再清空内部存储，对象管理器会处理
-        console.log('伙伴管理器清理完成，对象管理器会处理对象销毁');
-        
-        // 重置伙伴管理器
+        console.log('🗑️ 销毁所有伙伴对象...');
+        if (window.partnerManager.getAllPartners) {
+            var partners = window.partnerManager.getAllPartners();
+            partners.forEach(partner => {
+                if (partner && partner.destroy) {
+                    partner.destroy();
+                }
+            });
+        }
         window.partnerManager = null;
+        console.log('✅ 伙伴管理器已清理');
     }
     
-    // 清理对象池
-    if (window.objectPoolManager) {
-        window.objectPoolManager.resetAllPools();
-    }
-    
-    // 重置对象管理器
+    // 第四步：完全重置对象管理器
     if (window.objectManager) {
-        window.objectManager.reset();
+        console.log('🗑️ 完全重置对象管理器...');
+        if (window.objectManager.destroy) {
+            window.objectManager.destroy();
+        }
+        window.objectManager = null;
+        console.log('✅ 对象管理器已销毁');
     }
     
-    // 停止内存监控
+    // 第五步：完全重置对象池管理器
+    if (window.objectPoolManager) {
+        console.log('🗑️ 完全重置对象池管理器...');
+        if (window.objectPoolManager.destroy) {
+            window.objectPoolManager.destroy();
+        }
+        window.objectPoolManager = null;
+        console.log('✅ 对象池管理器已销毁');
+    }
+    
+    // 第六步：完全重置内存监控
     if (window.memoryMonitor) {
-        window.memoryMonitor.stop();
+        console.log('🗑️ 完全重置内存监控...');
+        if (window.memoryMonitor.destroy) {
+            window.memoryMonitor.destroy();
+        }
+        window.memoryMonitor = null;
+        console.log('✅ 内存监控已销毁');
     }
     
-    // 重置健康检查器
+    // 第七步：完全重置健康检查器
     if (window.objectHealthChecker) {
-        window.objectHealthChecker.reset();
+        console.log('🗑️ 完全重置健康检查器...');
+        if (window.objectHealthChecker.destroy) {
+            window.objectHealthChecker.destroy();
+        }
+        window.objectHealthChecker = null;
+        console.log('✅ 健康检查器已销毁');
     }
     
-    // 清空碰撞系统
+    // 第八步：完全重置碰撞系统
     if (window.collisionSystem) {
-        // 简化版碰撞系统不需要清理四叉树
-        console.log('简化版碰撞系统，不需要清理四叉树');
-        
-        // 重置碰撞系统
+        console.log('🗑️ 完全重置碰撞系统...');
+        if (window.collisionSystem.destroy) {
+            window.collisionSystem.destroy();
+        }
         window.collisionSystem = null;
         collisionSystem = null;
+        console.log('✅ 碰撞系统已销毁');
     }
     
-    // 清空地图系统
+    // 第九步：完全重置地图系统
     if (window.mapSystem) {
+        console.log('🗑️ 完全重置地图系统...');
+        if (window.mapSystem.destroy) {
+            window.mapSystem.destroy();
+        }
         window.mapSystem = null;
         mapSystem = null;
+        console.log('✅ 地图系统已销毁');
     }
     
-    // 清空游戏引擎
+    // 第十步：完全重置游戏引擎
     if (window.gameEngine) {
+        console.log('🗑️ 完全重置游戏引擎...');
+        if (window.gameEngine.destroy) {
+            window.gameEngine.destroy();
+        }
         window.gameEngine = null;
         gameEngine = null;
+        console.log('✅ 游戏引擎已销毁');
     }
     
-    console.log('✅ 游戏数据清空完成');
+    // 第十一步：完全重置视图系统
+    if (window.viewSystem) {
+        console.log('🗑️ 完全重置视图系统...');
+        if (window.viewSystem.destroy) {
+            window.viewSystem.destroy();
+        }
+        window.viewSystem = null;
+        console.log('✅ 视图系统已销毁');
+    }
+    
+    // 第十二步：清理所有全局变量（保留画布和上下文）
+    console.log('🗑️ 清理所有全局变量...');
+    const globalVarsToClean = [
+        'characterManager', 'zombieManager', 'partnerManager',
+        'objectManager', 'objectPoolManager', 'memoryMonitor',
+        'objectHealthChecker', 'collisionSystem', 'mapSystem',
+        'gameEngine', 'viewSystem', 'renderManager',
+        'MapManager', 'ViewSystem'
+    ];
+    
+    globalVarsToClean.forEach(varName => {
+        if (window[varName] !== undefined) {
+            delete window[varName];
+        }
+    });
+    
+    console.log('✅ 环境重置完成，游戏循环继续运行');
 }
 
 // 重置游戏状态
@@ -177,29 +313,58 @@ function resetGameState() {
     isGameInitialized = false;
     isInitializing = false;
     
-    // 清空全局变量
+    // 重置游戏循环标志
+    window.shouldStopGameLoop = false;
+    
+    // 清空所有全局变量（除了画布和上下文）
     if (typeof window !== 'undefined') {
-        // 保留必要的系统变量
-        // window.menuSystem = menuSystem; // 保留菜单系统
-        // window.canvas = canvas; // 保留画布
-        // window.ctx = ctx; // 保留上下文
+        // 保留画布和上下文
+        // window.canvas = canvas;
+        // window.ctx = ctx;
         
-        // 清空游戏相关全局变量
-        delete window.characterManager;
-        delete window.zombieManager;
-        delete window.partnerManager;
-        delete window.collisionSystem;
-        delete window.mapSystem;
-        delete window.gameEngine;
-        delete window.MapManager;
-        delete window.ViewSystem;
-            delete window.objectPoolManager;
-    delete window.objectManager;
-    delete window.memoryMonitor;
-    delete window.objectHealthChecker;
+        // 清空所有游戏相关全局变量
+        const varsToDelete = [
+            'characterManager', 'zombieManager', 'partnerManager',
+            'collisionSystem', 'mapSystem', 'gameEngine',
+            'MapManager', 'ViewSystem', 'objectPoolManager',
+            'objectManager', 'memoryMonitor', 'objectHealthChecker',
+            'viewSystem', 'renderManager'
+        ];
+        
+        varsToDelete.forEach(varName => {
+            if (window[varName] !== undefined) {
+                delete window[varName];
+            }
+        });
     }
     
     console.log('✅ 游戏状态重置完成');
+}
+
+// 重新初始化菜单系统
+function reinitializeMenuSystem() {
+    console.log('🔄 重新初始化菜单系统...');
+    
+    try {
+        // 销毁旧的菜单系统
+        if (window.menuSystem && window.menuSystem.destroy) {
+            window.menuSystem.destroy();
+        }
+        
+        // 创建新的菜单系统
+        menuSystem = createMenuSystem(canvas, ctx);
+        
+        // 设置全局变量
+        window.menuSystem = menuSystem;
+        window.canvas = canvas;
+        window.ctx = ctx;
+        
+        console.log('✅ 菜单系统重新初始化完成');
+        
+    } catch (error) {
+        console.error('❌ 菜单系统重新初始化失败:', error);
+        throw error;
+    }
 }
 
 // 页面加载完成后立即执行
@@ -224,19 +389,18 @@ try {
 // 初始化菜单系统
 function initMenuSystem() {
     try {
-        // 初始化菜单系统
-        menuSystem = Object.create(menuPrototype);
-        menuSystem.init(canvas, ctx);
+        // 使用新的独立菜单系统
+        menuSystem = createMenuSystem(canvas, ctx);
         
         // 设置全局变量
         window.menuSystem = menuSystem;
         window.canvas = canvas;
         window.ctx = ctx;
         
-        console.log('✅ 菜单系统初始化完成');
+        console.log('✅ 独立菜单系统初始化完成');
         
     } catch (error) {
-        console.error('❌ 菜单系统初始化失败:', error);
+        console.error('❌ 独立菜单系统初始化失败:', error);
         throw error;
     }
 }
@@ -244,12 +408,17 @@ function initMenuSystem() {
 // 显示首页
 function showHomePage() {
     try {
-        if (menuSystem && menuSystem.renderHomePage) {
-            menuSystem.renderHomePage();
+        if (menuSystem && menuSystem.render) {
+            // 确保菜单系统处于主页面状态
+            if (menuSystem.getCurrentState() !== 'home') {
+                menuSystem.setState('home');
+            } else {
+                menuSystem.render();
+            }
             console.log('✅ 首页显示完成');
         } else {
-            console.error('❌ 菜单系统不可用');
-            throw new Error('菜单系统不可用');
+            console.error('❌ 独立菜单系统不可用');
+            throw new Error('独立菜单系统不可用');
         }
     } catch (error) {
         console.error('❌ 首页显示失败:', error);
@@ -546,11 +715,9 @@ function restartGame() {
         // 第一步：重置游戏
         resetGame();
         
-        // 第二步：等待一小段时间后重新开始
-        setTimeout(() => {
-            console.log('🎮 重新开始游戏...');
-            startGame();
-        }, 500);
+        // 第二步：立即重新开始
+        console.log('🎮 重新开始游戏...');
+        startGame();
         
     } catch (error) {
         console.error('❌ 重新开始游戏失败:', error);
@@ -913,40 +1080,58 @@ function performInitialRendering() {
 function startGameLoop() {
     console.log('🔄 启动游戏循环...');
     
+    // 重置停止标志
+    window.shouldStopGameLoop = false;
+    
     function gameLoop() {
         try {
-            // 检查游戏引擎状态
-            if (!gameEngine) {
-                throw new Error('游戏引擎未初始化，停止游戏循环');
+            // 检查是否应该停止游戏循环
+            if (window.shouldStopGameLoop) {
+                console.log('⏹️ 游戏循环收到停止信号，停止执行');
                 return;
             }
-
-            // 执行游戏逻辑
-            if (gameEngine.gameState === 'home') {
-                // 渲染首页
-                if (menuSystem && menuSystem.renderHomePage) {
-                    menuSystem.renderHomePage();
+            
+            // 检查游戏引擎状态
+            if (!gameEngine) {
+                // 如果没有游戏引擎，只渲染菜单
+                if (menuSystem && menuSystem.render) {
+                    menuSystem.render();
                 }
-            } else if (gameEngine.gameState === 'playing') {
-                // 使用游戏引擎的更新和渲染方法
-                if (gameEngine.update && gameEngine.render) {
-                    gameEngine.update();
-                    gameEngine.render();
-                } else {
-                    console.error('游戏引擎的update或render方法不存在');
+            } else {
+                // 执行游戏逻辑
+                if (gameEngine.gameState === 'home') {
+                    // 渲染首页
+                    if (menuSystem && menuSystem.render) {
+                        menuSystem.render();
+                    }
+                } else if (gameEngine.gameState === 'playing') {
+                    // 使用游戏引擎的更新和渲染方法
+                    if (gameEngine.update && gameEngine.render) {
+                        gameEngine.update();
+                        gameEngine.render();
+                    } else {
+                        console.error('游戏引擎的update或render方法不存在');
+                    }
+                } else if (gameEngine.gameState === 'menu') {
+                    // 渲染菜单
+                    if (menuSystem && menuSystem.render) {
+                        // 确保菜单系统处于游戏内菜单状态
+                        if (menuSystem.getCurrentState() !== 'game_menu') {
+                            menuSystem.setState('game_menu');
+                        } else {
+                            menuSystem.render();
+                        }
+                    }
                 }
-            } else if (gameEngine.gameState === 'menu') {
-                // 渲染菜单
-                        if (menuSystem && menuSystem.renderGameMenu) {
-            menuSystem.renderGameMenu();
-        }
             }
         } catch (error) {
             console.error('游戏循环执行错误:', error);
         }
 
-        // 继续下一帧
-        requestAnimationFrame(gameLoop);
+        // 继续下一帧（除非收到停止信号）
+        if (!window.shouldStopGameLoop) {
+            window.gameLoopId = requestAnimationFrame(gameLoop);
+        }
     }
 
     // 启动游戏循环

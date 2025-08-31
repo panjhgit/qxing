@@ -324,6 +324,15 @@ Character.prototype.takeDamage = function (damage) {
 
     this.hp -= damage;
     if (this.hp < 0) this.hp = 0;
+    
+    // 🔴 修复：受到伤害后立即检查血量，如果血量归零则触发死亡
+    if (this.hp <= 0 && this.role === 1) { // 主人物
+        console.log('💀 主人物受到致命伤害，血量归零');
+        if (this.stateMachine && this.stateMachine.currentState !== MAIN_CHARACTER_STATES.DIE) {
+            this.stateMachine.forceState(MAIN_CHARACTER_STATES.DIE);
+        }
+    }
+    
     return this.hp;
 };
 
@@ -489,6 +498,12 @@ Character.prototype.onUpdateDie = function (deltaTime, stateData) {
     // 死亡动画持续3秒
     if (this.deathAnimationTime >= 3.0) {
         console.log('主人物死亡动画结束');
+        
+        // 动画结束后立即触发环境重置
+        if (typeof window.resetGame === 'function') {
+            console.log('🔄 死亡动画结束，触发环境重置...');
+            window.resetGame();
+        }
     }
 };
 
@@ -650,13 +665,25 @@ Character.prototype.performAttack = function () {
 Character.prototype.handleGameOver = function () {
     console.log('主人物死亡，游戏结束');
 
-    // 通知游戏引擎游戏结束
-    if (window.gameEngine && window.gameEngine.setGameState) {
-        window.gameEngine.setGameState('gameOver');
+    // 调用专门的死亡处理函数
+    if (typeof window.handleMainCharacterDeath === 'function') {
+        window.handleMainCharacterDeath();
+    } else {
+        console.error('❌ handleMainCharacterDeath函数未找到，使用默认处理');
+        // 延迟执行，让死亡动画播放完成
+        setTimeout(() => {
+            console.log('🔄 主人物死亡，开始环境重置...');
+            
+            // 调用环境重置函数
+            if (typeof window.resetGame === 'function') {
+                window.resetGame();
+            } else {
+                console.error('❌ resetGame函数未找到，无法重置游戏环境');
+                // 回退到原来的游戏结束处理
+                this.showGameOverScreen();
+            }
+        }, 3000); // 等待3秒，让死亡动画播放完成
     }
-
-    // 显示游戏结束界面
-    this.showGameOverScreen();
 };
 
 // 显示游戏结束界面
@@ -1146,14 +1173,20 @@ export default Character;
 
 // 主人物专用更新方法
 Character.prototype.updateMainCharacter = function (deltaTime) {
-    // 首先检查摇杆输入并设置移动目标（优先级最高）
+    // 🔴 修复：首先检查血量，如果血量小于等于0，立即切换到死亡状态
+    if (this.hp <= 0 && this.stateMachine.currentState !== MAIN_CHARACTER_STATES.DIE) {
+        console.log('💀 主人物血量归零，强制切换到死亡状态');
+        this.stateMachine.forceState(MAIN_CHARACTER_STATES.DIE);
+        return; // 进入死亡状态后不再执行其他逻辑
+    }
+    
+    // 然后检查摇杆输入并设置移动目标
     this.checkJoystickInput();
 
-    // 然后更新状态机
+    // 更新状态机
     if (this.stateMachine) {
         this.stateMachine.update(deltaTime);
     }
-
 
     // 根据当前状态执行相应行为
     switch (this.stateMachine.currentState) {
