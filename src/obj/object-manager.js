@@ -10,9 +10,20 @@
 
 import {objectPoolManager} from './object-pool.js';
 
+// 角色枚举（如果无法导入，则本地定义）
+const ROLE = {
+    MAIN: 1      // 主人物
+};
+
 // 对象类型枚举
 const OBJECT_TYPE = {
-    CHARACTER: 'character', ZOMBIE: 'zombie', PARTNER: 'partner', BUILDING: 'building', ITEM: 'item'
+    CHARACTER: 'character', 
+    ZOMBIE: 'zombie', 
+    PARTNER: 'partner', 
+    BUILDING: 'building', 
+    ITEM: 'item',
+    MAP: 'map',                    // 新增地图类型
+    MAP_OBJECT: 'map_object'       // 新增地图对象类型
 };
 
 // 对象状态枚举
@@ -163,6 +174,37 @@ class ObjectManager {
             }
         }
         return objects;
+    }
+
+    // 🔴 新增：便捷查询方法
+    getAllCharacters() {
+        return this.getObjectsByType('character');
+    }
+
+    getMainCharacter() {
+        const characters = this.getObjectsByType('character');
+        return characters.find(char => char.role === ROLE.MAIN);
+    }
+
+    getAllZombies() {
+        return this.getObjectsByType('zombie');
+    }
+
+    getAllPartners() {
+        return this.getObjectsByType('partner');
+    }
+
+    getAllBuildings() {
+        return this.getObjectsByType('building');
+    }
+
+    getAllItems() {
+        return this.getObjectsByType('item');
+    }
+
+    getCurrentMap() {
+        const maps = this.getObjectsByType('map');
+        return maps.length > 0 ? maps[0] : null; // 假设只有一个当前地图
     }
 
     // 获取对象数量

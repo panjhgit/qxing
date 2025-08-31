@@ -99,10 +99,8 @@ function clearGameData() {
     
     // 清空伙伴管理器
     if (window.partnerManager) {
-        // 清空伙伴列表
-        if (window.partnerManager.partners) {
-            window.partnerManager.partners = [];
-        }
+        // 🔴 修复：不再清空内部存储，对象管理器会处理
+        console.log('伙伴管理器清理完成，对象管理器会处理对象销毁');
         
         // 重置伙伴管理器
         window.partnerManager = null;
@@ -582,10 +580,15 @@ function initMapSystem() {
         console.log('📋 步骤1: 初始化地图管理器');
         MapManager.init('city');
         
-        // 将MapManager设置为全局变量，供其他模块使用
-        if (typeof window !== 'undefined') {
-            window.MapManager = MapManager;
-        }
+            // 将MapManager设置为全局变量，供其他模块使用
+    if (typeof window !== 'undefined') {
+        window.MapManager = MapManager;
+    }
+    
+    // 🔴 新增：注册地图到对象管理器
+    if (window.objectManager && MapManager.currentMap) {
+        MapManager.registerMapToObjectManager();
+    }
         
         // 第二步：直接继续后续步骤（地图数据已同步加载）
         console.log('✅ 地图数据已加载，继续后续步骤');

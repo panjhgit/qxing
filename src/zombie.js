@@ -499,8 +499,8 @@ var ZombieManager = {
     // 对象池引用
     objectPool: null,
     
-    // 🔴 核心：内部存储的僵尸列表 - 僵尸业务逻辑的唯一数据源
-    zombies: [],
+    // 🔴 重构：移除内部存储，使用对象管理器作为唯一数据源
+    // zombies: [], // 已移除，现在使用对象管理器
     
     // 初始化对象池
     initObjectPool: function() {
@@ -543,17 +543,21 @@ var ZombieManager = {
         console.log('✅ 僵尸状态重置完成:', zombie.id);
     },
     
-    // 🔴 核心：创建僵尸 - 添加到内部存储
-    createZombie: function(type, x, y) {
+            // 🔴 重构：创建僵尸 - 注册到对象管理器
+        createZombie: function(type, x, y) {
         if (!window.collisionSystem) {
             console.error('碰撞系统未初始化');
             return null;
         }
         
-        // 🔴 核心：使用僵尸管理器自己的计数方法（遵循职责分离）
-        var currentZombieCount = this.zombies.filter(z => z && z.hp > 0).length;
+        // 🔴 重构：使用对象管理器的计数方法
+        if (!window.objectManager) {
+            throw new Error('对象管理器未初始化');
+        }
+        
+        var currentZombieCount = window.objectManager.getObjectCount('zombie');
         if (currentZombieCount >= this.maxZombies) {
-    
+            console.log('达到最大僵尸数量限制:', currentZombieCount, '/', this.maxZombies);
             return null;
         }
         
@@ -597,10 +601,14 @@ var ZombieManager = {
             console.log('✅ 传统方式创建僵尸:', zombie.zombieType, '位置:', x, y);
         }
         
+        // 🔴 重构：不再添加到内部存储，只注册到对象管理器
+        
         // 🔴 协调对象管理器：注册新创建的僵尸
         if (zombie && window.objectManager) {
             window.objectManager.registerObject(zombie, 'zombie', zombie.id);
             console.log('✅ 僵尸已注册到对象管理器:', zombie.id);
+        } else {
+            throw new Error('对象管理器未初始化或僵尸创建失败');
         }
         
         // 🔴 协调四叉树：四叉树只负责空间索引，不管理对象生命周期
@@ -623,8 +631,8 @@ var ZombieManager = {
         
         this.initializeZombieTarget(zombie);
         
-        // 🔴 核心：添加到内部存储 - 僵尸业务逻辑的唯一数据源
-        this.zombies.push(zombie);
+        // 🔴 重构：不再添加到内部存储，对象管理器作为唯一数据源
+        console.log('✅ 僵尸创建完成，已注册到对象管理器:', zombie.id);
         
         return zombie;
     },
@@ -811,12 +819,16 @@ var ZombieManager = {
         });
     },
     
-    // 🔴 核心：获取所有僵尸 - 从内部存储获取（遵循职责分离）
+    // 🔴 重构：从对象管理器获取所有僵尸 - 对象管理器作为唯一数据源
     getAllZombies: function() {
-        return this.zombies.filter(zombie => zombie && zombie.hp > 0);
+        if (!window.objectManager) {
+            throw new Error('对象管理器未初始化');
+        }
+        
+        return window.objectManager.getAllZombies();
     },
     
-    // 🔴 核心：获取活跃僵尸 - 从内部存储获取
+    // 🔴 重构：从对象管理器获取活跃僵尸
     getActiveZombies: function(mainCharacter, maxDistance = 1000) {
         if (!mainCharacter) return [];
         
@@ -832,7 +844,7 @@ var ZombieManager = {
         });
     },
     
-    // 🔴 核心：获取批次信息 - 从内部存储获取
+    // 🔴 重构：从对象管理器获取批次信息
     getBatchInfo: function(currentFrame) {
         var allZombies = this.getAllZombies();
         var activeZombies = allZombies.filter(zombie => 
@@ -889,12 +901,8 @@ var ZombieManager = {
             console.log('✅ 僵尸已标记为非活跃:', zombie.id);
         }
         
-        // 🔴 核心：从僵尸列表中移除 - 僵尸业务逻辑的唯一数据源
-        var index = this.zombies.indexOf(zombie);
-        if (index > -1) {
-            this.zombies.splice(index, 1);
-            console.log('✅ 僵尸已从列表移除:', zombie.id);
-        }
+        // 🔴 重构：对象已通过对象管理器销毁，无需从内部列表移除
+        console.log('✅ 僵尸已通过对象管理器销毁:', zombie.id);
     }
 };
 

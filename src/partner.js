@@ -872,8 +872,13 @@ var PartnerManager = {
 
     // 创建伙伴
     createPartner: function (role, x, y) {
-        if (this.partners.length >= this.maxPartners) {
-            throw new Error('伙伴数量已达上限');
+        if (!window.objectManager) {
+            throw new Error('对象管理器未初始化');
+        }
+        
+        var currentPartnerCount = window.objectManager.getObjectCount('partner');
+        if (currentPartnerCount >= this.maxPartners) {
+            console.log('达到最大伙伴数量限制:', currentPartnerCount, '/', this.maxPartners);
             return null;
         }
 
@@ -904,16 +909,22 @@ var PartnerManager = {
         if (partner && window.objectManager) {
             window.objectManager.registerObject(partner, 'partner', partner.id);
             console.log('✅ 伙伴已注册到对象管理器:', partner.id);
+        } else {
+            throw new Error('对象管理器未初始化或伙伴创建失败');
         }
         
-        this.partners.push(partner);
-        console.log('创建伙伴:', partner.role, '位置:', x, y);
+        // 🔴 重构：不再添加到内部存储，对象管理器作为唯一数据源
+        console.log('✅ 伙伴创建完成，已注册到对象管理器:', partner.role, '位置:', x, y);
         return partner;
     },
 
-    // 获取所有伙伴
+    // 🔴 重构：从对象管理器获取所有伙伴 - 对象管理器作为唯一数据源
     getAllPartners: function () {
-        return this.partners.filter(partner => partner && partner.hp > 0);
+        if (!window.objectManager) {
+            throw new Error('对象管理器未初始化');
+        }
+        
+        return window.objectManager.getAllPartners();
     },
 
     // 更新所有伙伴
@@ -959,20 +970,16 @@ var PartnerManager = {
             console.log('✅ 伙伴已标记为非活跃:', partner.id);
         }
         
-        // 从伙伴列表中移除
-        var index = this.partners.indexOf(partner);
-        if (index > -1) {
-            this.partners.splice(index, 1);
-            console.log('✅ 伙伴已从列表移除:', partner.id);
-        }
+        // 🔴 重构：对象已通过对象管理器销毁，无需从内部列表移除
+        console.log('✅ 伙伴已通过对象管理器销毁:', partner.id);
     },
 
     // 在地图上生成伙伴
     generatePartnersOnMap: function () {
         console.log('🗺️ 开始在地图上生成伙伴...');
         
-        if (!this.partners) {
-            console.error('❌ 伙伴管理器未初始化');
+        if (!window.objectManager) {
+            console.error('❌ 对象管理器未初始化');
             return;
         }
             

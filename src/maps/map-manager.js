@@ -90,6 +90,14 @@ export const MapManager = {
         return this.currentMap;
     },
 
+    // 🔴 新增：注册地图到对象管理器
+    registerMapToObjectManager: function() {
+        if (this.currentMap && window.objectManager) {
+            window.objectManager.registerObject(this.currentMap, 'map', 'current_map');
+            console.log('✅ 地图已注册到对象管理器');
+        }
+    },
+
     /**
      * 获取地图配置
      * @param {string} mapId - 地图ID

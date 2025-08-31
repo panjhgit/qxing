@@ -1157,8 +1157,8 @@ GameEngine.prototype.update = function() {
     
             // 🔴 更新僵尸 - 使用高性能分帧更新策略
         if (this.zombieManager) {
-            // 🔴 修复：直接从角色管理器内部存储获取
-            var characters = this.characterManager && this.characterManager.mainCharacter ? [this.characterManager.mainCharacter] : [];
+            // 🔴 修复：使用对象管理器获取角色
+            var characters = this.characterManager ? this.characterManager.getAllCharacters() : [];
             // 计算真实的deltaTime，确保移动平滑
             var currentTime = performance.now();
             var deltaTime = (currentTime - this.lastUpdateTime) / 1000; // 转换为秒
@@ -1253,8 +1253,8 @@ GameEngine.prototype.logSystemStatus = function() {
     }
     
     if (this.characterManager) {
-        // 🔴 修复：直接从角色管理器内部存储获取
-        var characters = this.characterManager.mainCharacter ? [this.characterManager.mainCharacter] : [];
+        // 🔴 修复：使用对象管理器获取角色
+        var characters = this.characterManager.getAllCharacters();
         console.log('角色数量:', characters.length);
     }
     
@@ -1358,7 +1358,7 @@ GameEngine.prototype.render = function() {
                     });
                 }
                 
-                this.viewSystem.renderZombies(this.zombieManager);
+                this.viewSystem.renderZombies(this.zombieManager, this.characterManager);
             } else {
                 throw new Error('GameEngine.render: zombieManager未初始化');
             }

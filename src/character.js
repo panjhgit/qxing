@@ -1036,6 +1036,8 @@ var CharacterManager = {
         if (mainChar && window.objectManager) {
             window.objectManager.registerObject(mainChar, 'character', mainChar.id);
             console.log('✅ 角色已注册到对象管理器:', mainChar.id);
+        } else {
+            throw new Error('对象管理器未初始化或主人物创建失败');
         }
 
         // 验证角色创建是否成功
@@ -1048,62 +1050,56 @@ var CharacterManager = {
 
         console.log('✅ 角色创建验证通过');
 
-        // 🔴 重构：直接存储到内部存储，不再依赖四叉树
-        this.mainCharacter = mainChar;
-
-        console.log('✅ 主人物创建完成并存储到内部:', mainChar.id, '位置:', x, y);
+        // 🔴 重构：不再存储到内部存储，对象管理器作为唯一数据源
+        console.log('✅ 主人物创建完成并注册到对象管理器:', mainChar.id, '位置:', x, y);
         console.log('🔍 角色管理器状态检查:', {
-            hasMainCharacter: !!this.mainCharacter,
-            mainCharacterId: this.mainCharacter ? this.mainCharacter.id : 'N/A',
-            mainCharacterRole: this.mainCharacter ? this.mainCharacter.role : 'N/A',
-            mainCharacterType: this.mainCharacter ? this.mainCharacter.type : 'N/A',
-            mainCharacterHp: this.mainCharacter ? this.mainCharacter.hp : 'N/A'
+            hasObjectManager: !!window.objectManager,
+            mainCharacterId: mainChar.id,
+            mainCharacterRole: mainChar.role,
+            mainCharacterType: mainChar.type,
+            mainCharacterHp: mainChar.hp
         });
 
-        // 🔴 验证：立即验证存储是否成功
+        // 🔴 验证：立即验证对象管理器注册是否成功
         var immediateCheck = this.getMainCharacter();
         if (immediateCheck) {
-            console.log('✅ 立即验证成功：主人物已正确存储');
+            console.log('✅ 立即验证成功：主人物已正确注册到对象管理器');
         } else {
-            console.error('❌ 立即验证失败：主人物未正确存储！');
+            console.error('❌ 立即验证失败：主人物未正确注册到对象管理器！');
         }
 
         return mainChar;
     },
 
-    // 🔴 重构：从内部存储获取主人物 - 角色业务逻辑的唯一数据源
+    // 🔴 重构：从对象管理器获取主人物 - 对象管理器作为唯一数据源
     getMainCharacter: function () {
-        // 直接从内部存储获取主人物
-        if (this.mainCharacter && this.mainCharacter.hp > 0) {
-            console.log('CharacterManager.getMainCharacter: 从内部存储获取到主人物:', {
-                id: this.mainCharacter.id,
-                role: this.mainCharacter.role,
-                x: this.mainCharacter.x,
-                y: this.mainCharacter.y,
-                hp: this.mainCharacter.hp
+        if (!window.objectManager) {
+            throw new Error('对象管理器未初始化');
+        }
+        
+        const mainChar = window.objectManager.getMainCharacter();
+        if (mainChar && mainChar.hp > 0) {
+            console.log('CharacterManager.getMainCharacter: 从对象管理器获取到主人物:', {
+                id: mainChar.id,
+                role: mainChar.role,
+                x: mainChar.x,
+                y: mainChar.y,
+                hp: mainChar.hp
             });
-            return this.mainCharacter;
+            return mainChar;
         }
 
-        throw new Error('CharacterManager.getMainCharacter: 内部存储中未找到有效的主人物');
-        return null;
+        throw new Error('CharacterManager.getMainCharacter: 对象管理器中未找到有效的主人物');
     },
 
-    // 🔴 重构：从内部存储获取所有角色 - 角色业务逻辑的唯一数据源
+    // 🔴 重构：从对象管理器获取所有角色 - 对象管理器作为唯一数据源
     getAllCharacters: function () {
-        var characters = [];
-
-        // 添加主人物
-        if (this.mainCharacter && this.mainCharacter.hp > 0) {
-            characters.push(this.mainCharacter);
+        if (!window.objectManager) {
+            throw new Error('对象管理器未初始化');
         }
-
-        // 添加伙伴（如果有的话）
-        if (this.partners && Array.isArray(this.partners)) {
-            characters.push(...this.partners.filter(partner => partner && partner.hp > 0));
-        }
-
-        console.log('CharacterManager.getAllCharacters: 从内部存储获取到角色数量:', characters.length);
+        
+        const characters = window.objectManager.getAllCharacters();
+        console.log('CharacterManager.getAllCharacters: 从对象管理器获取到角色数量:', characters.length);
         return characters;
     },
 

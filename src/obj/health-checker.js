@@ -180,28 +180,45 @@ class ObjectHealthChecker {
             }
         }
         
-        // 检查管理器引用
-        const managers = ['zombieManager', 'characterManager', 'partnerManager'];
-        
-        for (const manager of managers) {
-            if (window[manager]) {
-                // 检查管理器是否正常
-                try {
-                    if (typeof window[manager].getAllZombies === 'function') {
-                        const objects = window[manager].getAllZombies();
-                        if (objects && objects.length > 0) {
-                            // 检查对象引用
-                            for (const obj of objects) {
-                                if (!obj || !obj.id) {
-                                    this.healthStatus.referenceIssues.push(`${manager} 中存在无效对象引用`);
-                                    break;
-                                }
+        // 🔴 新增：验证统一管理架构
+        if (window.objectManager) {
+            try {
+                // 检查对象管理器是否包含所有类型的对象
+                const objectTypes = ['character', 'zombie', 'partner', 'building', 'item', 'map'];
+                for (const type of objectTypes) {
+                    const objects = window.objectManager.getObjectsByType(type);
+                    if (objects && objects.length > 0) {
+                        // 验证对象引用
+                        for (const obj of objects) {
+                            if (!obj || !obj.id) {
+                                this.healthStatus.referenceIssues.push(`对象管理器中存在无效的${type}对象引用`);
+                                break;
                             }
                         }
                     }
-                } catch (error) {
-                    this.healthStatus.referenceIssues.push(`${manager} 检查失败: ${error.message}`);
                 }
+                
+                // 检查各管理器是否使用对象管理器作为数据源
+                const managers = ['zombieManager', 'characterManager', 'partnerManager'];
+                for (const manager of managers) {
+                    if (window[manager]) {
+                        try {
+                            // 验证管理器方法是否返回对象管理器中的数据
+                            if (typeof window[manager].getAllZombies === 'function') {
+                                const managerObjects = window[manager].getAllZombies();
+                                const objectManagerObjects = window.objectManager.getAllZombies();
+                                
+                                if (managerObjects.length !== objectManagerObjects.length) {
+                                    this.healthStatus.referenceIssues.push(`${manager} 与对象管理器数据不一致`);
+                                }
+                            }
+                        } catch (error) {
+                            this.healthStatus.referenceIssues.push(`${manager} 检查失败: ${error.message}`);
+                        }
+                    }
+                }
+            } catch (error) {
+                this.healthStatus.referenceIssues.push(`统一管理架构验证失败: ${error.message}`);
             }
         }
     }

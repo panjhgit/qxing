@@ -926,8 +926,9 @@ ViewSystem.prototype.renderCharacters = function (characterManager) {
     // 应用摄像机变换
     this.renderManager.applyCameraTransform();
 
-    // 获取主人物
-    var characters = characterManager.mainCharacter ? [characterManager.mainCharacter] : [];
+    // 🔴 修复：使用对象管理器获取主人物
+    var mainCharacter = characterManager.getMainCharacter();
+    var characters = mainCharacter ? [mainCharacter] : [];
     
     // 使用统一渲染管理器渲染角色
     this.renderManager.renderEntityList(characters, 'character');
@@ -937,11 +938,11 @@ ViewSystem.prototype.renderCharacters = function (characterManager) {
 };
 
 // 渲染僵尸（使用统一渲染管理器）
-ViewSystem.prototype.renderZombies = function (zombieManager) {
+ViewSystem.prototype.renderZombies = function (zombieManager, characterManager) {
     if (!zombieManager) return;
 
-    // 获取主人物位置，用于计算活跃僵尸
-    var mainCharacter = window.characterManager ? window.characterManager.getMainCharacter() : null;
+    // 🔴 修复：使用传入的characterManager获取主人物
+    var mainCharacter = characterManager ? characterManager.getMainCharacter() : null;
     if (!mainCharacter) return;
 
     // 获取活跃僵尸列表（在主人物周围1000px范围内）
