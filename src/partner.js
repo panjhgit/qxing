@@ -394,26 +394,108 @@ Partner.prototype.calculateFollowPoint = function () {
     // 计算主人物移动方向
     var mainCharDirection = this.getMainCharacterDirection();
 
-    // 🔴 修复：如果主人物没有移动，使用伙伴到主角的方向作为跟随方向
-    if (mainCharDirection === 0) {
-        // 计算伙伴到主角的方向
-        var angleToMainChar = Math.atan2(mainChar.y - this.y, mainChar.x - this.x);
-        // 跟随点在主角后方，所以角度要加π
-        this.followAngle = angleToMainChar + Math.PI;
-    } else {
-        // 主人物在移动，跟随点在移动方向的后方
-        this.followAngle = mainCharDirection + Math.PI;
-    }
+    // 🔴 新增：计算伙伴在队伍中的位置和对应的跟随角度
+    var partnerIndex = this.getPartnerIndexInTeam();
+    var baseFollowAngle = this.calculateBaseFollowAngle(mainCharDirection);
+    var spreadAngle = this.calculateSpreadAngle(partnerIndex);
 
-    // 跟随点在主人物后方，距离followDistance
-    this.followPoint.x = mainChar.x + Math.cos(this.followAngle) * this.followDistance;
-    this.followPoint.y = mainChar.y + Math.sin(this.followAngle) * this.followDistance;
+    // 跟随角度 = 基础跟随角度 + 分散角度
+    this.followAngle = baseFollowAngle + spreadAngle;
+
+    // 🔴 新增：计算动态跟随距离，避免完全重叠
+    var dynamicFollowDistance = this.calculateDynamicFollowDistance(partnerIndex);
+
+    // 跟随点在主人物后方，距离dynamicFollowDistance
+    this.followPoint.x = mainChar.x + Math.cos(this.followAngle) * dynamicFollowDistance;
+    this.followPoint.y = mainChar.y + Math.sin(this.followAngle) * dynamicFollowDistance;
 
     // 记录主人物位置
     this.lastMainCharPosition.x = mainChar.x;
     this.lastMainCharPosition.y = mainChar.y;
+};
 
+// 🔴 新增：获取伙伴在队伍中的索引
+Partner.prototype.getPartnerIndexInTeam = function () {
+    if (!window.objectManager) return 0;
+    
+    var allPartners = window.objectManager.getAllPartners();
+    if (!allPartners || allPartners.length === 0) return 0;
+    
+    // 按ID排序，确保稳定的索引
+    allPartners.sort((a, b) => a.id.localeCompare(b.id));
+    
+    // 找到当前伙伴的索引
+    for (var i = 0; i < allPartners.length; i++) {
+        if (allPartners[i].id === this.id) {
+            return i;
+        }
+    }
+    
+    return 0;
+};
 
+// 🔴 新增：计算基础跟随角度
+Partner.prototype.calculateBaseFollowAngle = function (mainCharDirection) {
+    // 如果主人物没有移动，使用伙伴到主角的方向作为跟随方向
+    if (mainCharDirection === 0) {
+        var mainChar = this.getMainCharacter();
+        if (!mainChar) return Math.PI;
+        
+        // 计算伙伴到主角的方向
+        var angleToMainChar = Math.atan2(mainChar.y - this.y, mainChar.x - this.x);
+        // 跟随点在主角后方，所以角度要加π
+        return angleToMainChar + Math.PI;
+    } else {
+        // 主人物在移动，跟随点在移动方向的后方
+        return mainCharDirection + Math.PI;
+    }
+};
+
+// 🔴 新增：计算分散角度
+Partner.prototype.calculateSpreadAngle = function (partnerIndex) {
+    // 从配置获取伙伴跟随配置
+    var partnerConfig = window.ConfigManager ? window.ConfigManager.get('PARTNER') : null;
+    var spreadConfig = partnerConfig ? partnerConfig.FOLLOW.SPREAD : {
+        ANGLE_RANGE: Math.PI / 3,  // 60度范围
+        MAX_PARTNERS: 5            // 最大伙伴数
+    };
+    
+    var angleRange = spreadConfig.ANGLE_RANGE || Math.PI / 3;
+    var maxPartners = spreadConfig.MAX_PARTNERS || 5;
+    
+    // 计算每个伙伴的角度间隔
+    var angleStep = angleRange / Math.max(1, maxPartners - 1);
+    
+    // 计算当前伙伴的分散角度（相对于中心位置）
+    var spreadAngle = (partnerIndex - (maxPartners - 1) / 2) * angleStep;
+    
+    // 限制角度范围
+    spreadAngle = Math.max(-angleRange / 2, Math.min(angleRange / 2, spreadAngle));
+    
+    return spreadAngle;
+};
+
+// 🔴 新增：计算动态跟随距离
+Partner.prototype.calculateDynamicFollowDistance = function (partnerIndex) {
+    // 从配置获取伙伴跟随配置
+    var partnerConfig = window.ConfigManager ? window.ConfigManager.get('PARTNER') : null;
+    var spreadConfig = partnerConfig ? partnerConfig.FOLLOW.SPREAD : {
+        DISTANCE_VARIATION: 20  // 距离变化范围
+    };
+    
+    var distanceVariation = spreadConfig.DISTANCE_VARIATION || 20;
+    
+    // 基于伙伴索引计算距离变化
+    var distanceOffset = (partnerIndex % 3) * (distanceVariation / 2);
+    
+    // 基础跟随距离 + 距离变化
+    var dynamicDistance = this.followDistance + distanceOffset;
+    
+    // 确保距离在合理范围内
+    var minDistance = this.followDistance - distanceVariation / 2;
+    var maxDistance = this.followDistance + distanceVariation / 2;
+    
+    return Math.max(minDistance, Math.min(maxDistance, dynamicDistance));
 };
 
 // 更新攻击

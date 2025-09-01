@@ -184,7 +184,7 @@ class ObjectPool {
         const expandCount = Math.min(newSize - currentSize, POOL_CONFIG.MAX_POOL_SIZE - currentSize);
 
         if (expandCount > 0) {
-    
+
 
             for (let i = 0; i < expandCount; i++) {
                 this.createNewItem();
@@ -201,33 +201,12 @@ class ObjectPool {
         const shrinkCount = currentSize - newSize;
 
         if (shrinkCount > 0 && currentSize > POOL_CONFIG.INITIAL_POOL_SIZE) {
-    
+
 
             // 移除最旧的对象
             this.inactiveItems.splice(0, shrinkCount);
             this.updateStats();
         }
-    }
-
-    // 清理过期对象
-    cleanup() {
-        const now = Date.now();
-        const maxAge = 300000; // 5分钟
-
-        // 清理活跃对象中的过期项
-        for (const item of this.activeItems) {
-            if (item.isExpired(maxAge)) {
-                console.warn(`检测到过期对象: ${this.type}, 使用时间: ${now - item.lastUsed}ms`);
-                this.activeItems.delete(item);
-                this.totalCreated--;
-            }
-        }
-
-        // 清理非活跃对象中的过期项
-        this.inactiveItems = this.inactiveItems.filter(item => !item.isExpired(maxAge));
-
-        this.updateStats();
-        this.stats.lastCleanup = now;
     }
 
     // 更新统计信息
@@ -361,13 +340,12 @@ class ObjectPoolManager {
         let cleanedCount = 0;
         for (const [type, pool] of this.pools) {
             const beforeSize = pool.stats.poolSize;
-            pool.cleanup();
             const afterSize = pool.stats.poolSize;
             cleanedCount += beforeSize - afterSize;
         }
 
         if (cleanedCount > 0) {
-    
+
         }
 
         this.updatePerformanceStats();

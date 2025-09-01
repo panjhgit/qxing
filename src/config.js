@@ -352,7 +352,14 @@ const GAME_CONFIG = {
             SAFE_RADIUS: 16,             // 安全半径
             FOLLOW_DISTANCE: 80,         // 跟随距离
             FOLLOW_ANGLE: Math.PI,       // 跟随角度（后方）
-            MOVE_THRESHOLD: 5            // 移动阈值
+            MOVE_THRESHOLD: 5,           // 移动阈值
+            
+            // 🔴 新增：伙伴跟随分散配置
+            SPREAD: {
+                ANGLE_RANGE: Math.PI / 3,  // 分散角度范围（60度）
+                MAX_PARTNERS: 5,           // 最大伙伴数量
+                DISTANCE_VARIATION: 20     // 距离变化范围（像素）
+            }
         },
         
         // 伙伴碰撞配置
