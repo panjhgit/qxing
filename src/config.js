@@ -140,10 +140,10 @@ const GAME_CONFIG = {
         MOVING_ATTACK_INTERVAL: 0.5,    // 移动攻击间隔0.5秒 (1秒攻击2下)
         
         // 角色攻击范围配置
-        POLICE_ATTACK_RANGE: 100,        // 警察攻击范围10px
-        DOCTOR_ATTACK_RANGE: 100,        // 医生攻击范围10px
-        NURSE_ATTACK_RANGE: 100,         // 护士攻击范围10px
-        CHEF_ATTACK_RANGE: 100,         // 厨师攻击范围10px
+        POLICE_ATTACK_RANGE: 150,        // 🔴 修复：警察攻击范围增加到150px
+        DOCTOR_ATTACK_RANGE: 140,        // 🔴 修复：医生攻击范围增加到140px
+        NURSE_ATTACK_RANGE: 140,         // 🔴 修复：护士攻击范围增加到140px
+        CHEF_ATTACK_RANGE: 130,         // 🔴 修复：厨师攻击范围增加到130px
         
         // 僵尸攻击配置
         ZOMBIE_ATTACK_RANGE: 80,        // 僵尸攻击范围（像素）
@@ -371,6 +371,16 @@ const GAME_CONFIG = {
             DETECTION_DISTANCE: 50,      // 碰撞检测距离
             MIN_OVERLAP_DISTANCE: 30,    // 最小重叠距离
             TARGET_DISTANCE: 40          // 目标距离
+        },
+        
+        // 🔴 新增：伙伴检测范围配置
+        DETECTION: {
+            POLICE_RANGE: 300,           // 警察检测范围
+            CIVILIAN_RANGE: 250,         // 平民检测范围
+            DOCTOR_RANGE: 280,           // 医生检测范围
+            NURSE_RANGE: 280,            // 护士检测范围
+            CHEF_RANGE: 260,             // 厨师检测范围
+            DEFAULT_RANGE: 250           // 默认检测范围
         }
     },
 

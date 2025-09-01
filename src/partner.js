@@ -512,15 +512,21 @@ Partner.prototype.updateAttack = function (deltaTime) {
     var effectiveAttackRange = this.attackRange + attackJudgmentConfig.RANGE_BUFFER;
     if (distance <= effectiveAttackRange) { // 使用配置的攻击范围
         // 在攻击范围内，执行攻击
-        this.attackCooldown += deltaTime;
+        // 🔴 修复：使用帧数计算冷却时间，而不是deltaTime
+        if (!this._attackFrameCount) this._attackFrameCount = 0;
+        this._attackFrameCount++;
 
         // 🔴 修复：从配置获取攻击间隔
         var combatConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT') : null;
         var attackInterval = combatConfig ? combatConfig.DEFAULT_ATTACK_INTERVAL : 0.5; // 从配置获取攻击间隔
+        
+        // 🔴 修复：将攻击间隔转换为帧数（假设60FPS）
+        var attackIntervalFrames = Math.round(attackInterval * 60);
 
-        if (this.attackCooldown >= attackInterval) {
+        // 🔴 修复：如果冷却帧数到了，立即攻击
+        if (this._attackFrameCount >= attackIntervalFrames) {
             this.performAttack();
-            this.attackCooldown = 0;
+            this._attackFrameCount = 0;
         }
     } else {
         // 不在攻击范围内，移动到攻击距离
