@@ -77,10 +77,6 @@ export class UIRenderer {
      */
     renderJoystickUI(joystick) {
         if (!joystick || !joystick.isVisible) {
-            console.warn('🔴 摇杆渲染失败: 摇杆不可见或不存在', {
-                joystick: !!joystick,
-                isVisible: joystick ? joystick.isVisible : false
-            });
             return false;
         }
 
@@ -95,11 +91,10 @@ export class UIRenderer {
         this.ctx.lineWidth = 2;
         this.ctx.stroke();
 
-        // 🔴 修复：计算内圈位置（与原始摇杆渲染保持一致）
+        // 绘制内圈
         const innerX = joystick.centerX + joystick.joystickX;
         const innerY = joystick.centerY + joystick.joystickY;
 
-        // 绘制内圈
         this.ctx.fillStyle = joystick.isActive ? 'rgba(255, 255, 255, 0.9)' : 'rgba(255, 255, 255, 0.6)';
         this.ctx.beginPath();
         this.ctx.arc(innerX, innerY, joystick.innerRadius, 0, Math.PI * 2);
@@ -116,18 +111,6 @@ export class UIRenderer {
         this.ctx.arc(joystick.centerX, joystick.centerY, 3, 0, Math.PI * 2);
         this.ctx.fill();
 
-        // 🔴 新增：绘制方向指示器
-        if (joystick.isActive && (joystick.joystickX !== 0 || joystick.joystickY !== 0)) {
-            this.ctx.strokeStyle = 'rgba(255, 255, 0, 0.8)';
-            this.ctx.lineWidth = 3;
-            this.ctx.beginPath();
-            this.ctx.moveTo(joystick.centerX, joystick.centerY);
-            this.ctx.lineTo(innerX, innerY);
-            this.ctx.stroke();
-            
-        }
-
-        return true;
         return true;
     }
 

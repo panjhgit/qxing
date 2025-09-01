@@ -753,15 +753,19 @@ Partner.prototype.playDeathAnimation = function () {
 
 // 受到伤害
 Partner.prototype.takeDamage = function (damage) {
+    console.log('伙伴受到攻击:', this.id, '伤害:', damage, '当前血量:', this.hp);
+    
     var validationUtils = UtilsManager.getValidationUtils();
 
     if (!validationUtils.validateRange(damage, 0, 1000, '伤害值')) {
-        throw new Error('无效的伤害值: ' + damage);
+        console.log('伙伴伤害值无效:', damage);
         return this.hp;
     }
 
     this.hp -= damage;
     if (this.hp < 0) this.hp = 0;
+
+    console.log('伙伴攻击后血量:', this.hp);
 
     // 🔴 修复：受到伤害后立即检查血量，如果血量归零则触发死亡
     if (this.hp <= 0) {

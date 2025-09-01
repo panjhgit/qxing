@@ -9,11 +9,27 @@ var TouchJoystick = function (canvas, ctx) {
     this.isActive = false;
     this.isVisible = false;
 
+    // 从配置获取摇杆设置
+    var joystickConfig = window.ConfigManager ? window.ConfigManager.get('GAMEPLAY.JOYSTICK') : {
+        DYNAMIC_POSITION: true,
+        AUTO_HIDE: false,
+        OUTER_RADIUS: 60,
+        INNER_RADIUS: 25,
+        TOUCH_THRESHOLD: 20
+    };
+
     // 摇杆位置和大小
-    this.centerX = canvas.width / 2;
-    this.centerY = canvas.height - 120;
-    this.outerRadius = 60;
-    this.innerRadius = 25;
+    this.defaultCenterX = canvas.width / 2;
+    this.defaultCenterY = canvas.height - 120;
+    this.centerX = this.defaultCenterX;
+    this.centerY = this.defaultCenterY;
+    this.outerRadius = joystickConfig.OUTER_RADIUS || 60;
+    this.innerRadius = joystickConfig.INNER_RADIUS || 25;
+    this.touchThreshold = joystickConfig.TOUCH_THRESHOLD || 20;
+
+    // 摇杆行为设置
+    this.isDynamicPosition = joystickConfig.DYNAMIC_POSITION !== false;
+    this.autoHide = joystickConfig.AUTO_HIDE !== false;
 
     // 触摸状态
     this.touchId = null;
@@ -23,7 +39,6 @@ var TouchJoystick = function (canvas, ctx) {
 
     // 移动控制
     this.moveDirection = {x: 0, y: 0};
-    this.moveSpeed = 0.1;
 
     // 绑定触摸事件
     this.bindEvents();
@@ -35,17 +50,26 @@ TouchJoystick.prototype.bindEvents = function () {
 
     // 触摸开始
     var touchStartHandler = function (e) {
-        if (!self.isVisible) {
-            return;
-        }
-
         var touch = e.touches[0];
         var x = touch.x || touch.clientX || touch.pageX || 0;
         var y = touch.y || touch.clientY || touch.pageY || 0;
 
+        // 计算触摸点与摇杆中心的距离
         var distance = Math.sqrt(Math.pow(x - self.centerX, 2) + Math.pow(y - self.centerY, 2));
-        var touchThreshold = self.outerRadius + 20;
+        var touchThreshold = self.outerRadius + self.touchThreshold;
 
+        // 如果摇杆不可见，显示摇杆
+        if (!self.isVisible) {
+            if (self.isDynamicPosition) {
+                self.setCenterPosition(x, y);
+            }
+            self.show();
+        } else if (distance <= touchThreshold && self.isDynamicPosition) {
+            // 如果触摸了摇杆区域，移动到触摸点
+            self.setCenterPosition(x, y);
+        }
+
+        // 检查是否在摇杆范围内
         if (distance <= touchThreshold) {
             self.touchId = touch.identifier;
             self.isDragging = true;
@@ -99,6 +123,7 @@ TouchJoystick.prototype.bindEvents = function () {
 
         if (touchEnded) {
             self.resetJoystick();
+            self.returnToDefaultPosition();
         }
     };
 
@@ -106,6 +131,7 @@ TouchJoystick.prototype.bindEvents = function () {
     var touchCancelHandler = function (e) {
         if (!self.isVisible) return;
         self.resetJoystick();
+        self.returnToDefaultPosition();
     };
 
     // 绑定触摸事件
@@ -120,6 +146,13 @@ TouchJoystick.prototype.bindEvents = function () {
         self.canvas.addEventListener('touchend', touchEndHandler, {passive: true});
         self.canvas.addEventListener('touchcancel', touchCancelHandler, {passive: true});
     }
+};
+
+// 设置摇杆中心位置
+TouchJoystick.prototype.setCenterPosition = function (x, y) {
+    var margin = this.outerRadius + 20;
+    this.centerX = Math.max(margin, Math.min(this.canvas.width - margin, x));
+    this.centerY = Math.max(margin, Math.min(this.canvas.height - margin, y));
 };
 
 // 更新摇杆位置
@@ -195,9 +228,40 @@ TouchJoystick.prototype.render = function (ctx) {
     renderCtx.fill();
 };
 
+// 显示默认摇杆
+TouchJoystick.prototype.showDefault = function () {
+    this.isVisible = true;
+    this.isActive = false;
+    this.resetJoystick();
+    this.centerX = this.defaultCenterX;
+    this.centerY = this.defaultCenterY;
+};
+
+// 回到默认位置
+TouchJoystick.prototype.returnToDefaultPosition = function () {
+    if (this.autoHide) {
+        this.hide();
+    } else {
+        this.centerX = this.defaultCenterX;
+        this.centerY = this.defaultCenterY;
+        this.isVisible = true;
+    }
+};
+
 // 显示摇杆
 TouchJoystick.prototype.show = function () {
     this.isVisible = true;
+};
+
+// 更新默认位置
+TouchJoystick.prototype.updateDefaultPosition = function () {
+    this.defaultCenterX = this.canvas.width / 2;
+    this.defaultCenterY = this.canvas.height - 120;
+    
+    if (this.centerX === this.defaultCenterX && this.centerY === this.defaultCenterY) {
+        this.centerX = this.defaultCenterX;
+        this.centerY = this.defaultCenterY;
+    }
 };
 
 // 隐藏摇杆
@@ -364,9 +428,10 @@ GameEngine.prototype.initTimeSystemConfig = function () {
 GameEngine.prototype.setGameState = function (newState) {
     this.gameState = newState;
 
+    // 在游戏开始时显示默认摇杆
     if (this.joystick) {
         if (newState === 'playing') {
-            this.joystick.show();
+            this.joystick.showDefault();
         } else {
             this.joystick.hide();
         }
@@ -378,6 +443,11 @@ GameEngine.prototype.setGameState = function (newState) {
 
     this.frameCount = 0;
     this.lastUpdateTime = performance.now();
+};
+
+// 设置死亡状态
+GameEngine.prototype.setDeathState = function () {
+    this.setGameState('death');
 };
 
 // 设置系统引用
@@ -944,6 +1014,10 @@ GameEngine.prototype.render = function () {
     } else if (this.gameState === 'menu') {
         if (this.menuSystem && this.menuSystem.renderGameMenu) {
             this.menuSystem.renderGameMenu();
+        }
+    } else if (this.gameState === 'death') {
+        if (this.menuSystem && this.menuSystem.render) {
+            this.menuSystem.render();
         }
     }
 };

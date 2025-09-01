@@ -76,6 +76,11 @@ function resetGame() {
 function handleMainCharacterDeath() {
     console.log('💀 主人物死亡，开始死亡处理流程...');
     
+    // 设置游戏引擎为死亡状态
+    if (window.gameEngine && window.gameEngine.setDeathState) {
+        window.gameEngine.setDeathState();
+    }
+    
     // 显示死亡提示
     showDeathMessage();
     
@@ -1126,6 +1131,16 @@ function startGameLoop() {
                         // 确保菜单系统处于游戏内菜单状态
                         if (menuSystem.getCurrentState() !== 'game_menu') {
                             menuSystem.setState('game_menu');
+                        } else {
+                            menuSystem.render();
+                        }
+                    }
+                } else if (gameEngine.gameState === 'death') {
+                    // 渲染死亡界面
+                    if (menuSystem && menuSystem.render) {
+                        // 确保菜单系统处于死亡状态
+                        if (menuSystem.getCurrentState() !== 'death') {
+                            menuSystem.setState('death');
                         } else {
                             menuSystem.render();
                         }

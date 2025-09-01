@@ -15,7 +15,8 @@ const MENU_STATE = {
     GAME_MENU: 'game_menu', // 游戏内菜单
     SETTINGS: 'settings',   // 设置菜单
     HELP: 'help',           // 帮助菜单
-    CREDITS: 'credits'      // 制作人员
+    CREDITS: 'credits',     // 制作人员
+    DEATH: 'death'          // 死亡界面
 };
 
 // 按钮类型枚举
@@ -267,6 +268,9 @@ class IndependentMenuSystem {
             case MENU_STATE.CREDITS:
                 this.renderCreditsPage();
                 break;
+            case MENU_STATE.DEATH:
+                this.renderDeathPage();
+                break;
             default:
                 this.renderHomePage();
         }
@@ -449,7 +453,7 @@ class IndependentMenuSystem {
     }
 
     /**
-     * 渲染沙盒背景
+     * 渲染背景
      */
     renderSandboxBackground() {
         this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
@@ -505,7 +509,7 @@ class IndependentMenuSystem {
         this.ctx.textBaseline = 'middle';
 
         const titleY = this.isMobile ? centerY - 80 : centerY - 120;
-        this.ctx.fillText('🧟 Q版僵尸沙盒', centerX, titleY);
+        this.ctx.fillText('🧟 末日生存', centerX, titleY);
 
         // 副标题
         this.ctx.fillStyle = '#ffeb3b';
@@ -721,7 +725,15 @@ class IndependentMenuSystem {
      * 显示死亡消息
      */
     showDeathMessage() {
-        this.ctx.save();
+        this.setState(MENU_STATE.DEATH);
+    }
+
+    /**
+     * 渲染死亡页面
+     */
+    renderDeathPage() {
+        // 清空画布
+        this.clearCanvas();
 
         // 绘制死亡背景
         this.ctx.fillStyle = 'rgba(255, 0, 0, 0.8)';
@@ -764,8 +776,6 @@ class IndependentMenuSystem {
             restart: {x: restartX, y: buttonY, width: buttonWidth, height: buttonHeight},
             menu: {x: menuX, y: buttonY, width: buttonWidth, height: buttonHeight}
         };
-
-        this.ctx.restore();
     }
 
     /**
