@@ -82,8 +82,8 @@ const GAME_CONFIG = {
         WALL_FOLLOWING: {
             ENABLED: true,               // 启用贴着建筑物移动
             DIAGONAL_FACTOR: 1.0,        // 对角线移动速度因子（1.0倍）- 保持匀速
-            SEARCH_STEPS: 8,             // 搜索步数
-            MIN_STEP_SIZE: 4,            // ✅ 恢复：最小步长（像素）- 从2恢复到4
+            SEARCH_STEPS: 4,             // 搜索步数
+            MIN_STEP_SIZE: 2,            // ✅ 恢复：最小步长（像素）- 从2恢复到4
             NEARBY_SEARCH_RADIUS: 0.5    // 附近搜索半径（相对于对象半径）
         }
     }, // 时间系统配置
@@ -269,7 +269,7 @@ const GAME_CONFIG = {
                 ATTACK_MULTIPLIER: 1.0,  // 攻击力倍数
                 SIZE: 32,                // 尺寸
                 COLOR: '#8B4513',        // 颜色
-                SPEED_MULTIPLIER: 1.2    // 速度倍数
+                SPEED_MULTIPLIER: 1    // 速度倍数
             }, FAT: {
                 HP_MULTIPLIER: 1.5,      // 血量倍数
                 ATTACK_MULTIPLIER: 1.2,  // 攻击力倍数
@@ -287,7 +287,7 @@ const GAME_CONFIG = {
                 ATTACK_MULTIPLIER: 0.8,  // 攻击力倍数
                 SIZE: 32,                // 尺寸
                 COLOR: '#228B22',        // 颜色
-                SPEED_MULTIPLIER: 1.5    // 速度倍数
+                SPEED_MULTIPLIER: 1    // 速度倍数
             }, TANK: {
                 HP_MULTIPLIER: 2.5,      // 血量倍数
                 ATTACK_MULTIPLIER: 1.5,  // 攻击力倍数
@@ -308,7 +308,7 @@ const GAME_CONFIG = {
 
         // 🔴 新增：目标锁定配置
         TARGET_LOCK_DURATION: 1000,     // 目标锁定持续时间（毫秒）- 1秒
-        TARGET_SWITCH_COOLDOWN: 500     // 目标切换冷却时间（毫秒）- 0.5秒
+        TARGET_SWITCH_COOLDOWN: 200     // 目标切换冷却时间（毫秒）- 0.5秒
     },
 
     // 对象尺寸配置
