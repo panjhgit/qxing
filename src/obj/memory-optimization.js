@@ -75,8 +75,22 @@ class MemoryMonitor {
         this.monitorInterval = setInterval(() => {
             this.checkMemoryUsage();
         }, MEMORY_CONFIG.MONITORING.INTERVAL);
-        
+    }
 
+    // 🔴 新增：停止监控
+    stop() {
+        if (!this.isMonitoring) {
+            return;
+        }
+        
+        this.isMonitoring = false;
+        
+        if (this.monitorInterval) {
+            clearInterval(this.monitorInterval);
+            this.monitorInterval = null;
+        }
+        
+        console.log('✅ 内存监控已停止');
     }
     
     // 检查内存使用情况
@@ -196,6 +210,27 @@ class MemoryMonitor {
             warnings: [],
             optimizations: []
         };
+    }
+
+    // 🔴 新增：销毁监控器
+    destroy() {
+        console.log('🗑️ 销毁内存监控器...');
+        
+        // 停止监控
+        if (this.isMonitoring) {
+            this.stop();
+        }
+        
+        // 重置状态
+        this.reset();
+        
+        // 清除定时器
+        if (this.monitorInterval) {
+            clearInterval(this.monitorInterval);
+            this.monitorInterval = null;
+        }
+        
+        console.log('✅ 内存监控器已销毁');
     }
 }
 

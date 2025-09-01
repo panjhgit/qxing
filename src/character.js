@@ -115,7 +115,8 @@ var Character = function (role, x, y) {
     // 从配置获取移动属性
     var movementConfig = window.ConfigManager ? window.ConfigManager.get('MOVEMENT') : null;
     this.isMoving = false;                  // 是否在移动
-    // 移动速度已固定为5px，不再需要动态配置
+    // 🔴 修复：设置移动速度，从配置获取
+    this.moveSpeed = movementConfig ? movementConfig.CHARACTER_MOVE_SPEED : 3;
     this.targetX = x;                       // 目标X坐标
     this.targetY = y;                       // 目标Y坐标
 
@@ -513,12 +514,14 @@ Character.prototype.onUpdateDie = function (deltaTime, stateData) {
     var gameplayConfig = window.ConfigManager ? window.ConfigManager.get('GAMEPLAY') : null;
     var deathDuration = gameplayConfig ? gameplayConfig.DEATH.MAIN_CHARACTER_DURATION : 3.0;
     
-    // 死亡动画持续配置的时间
+    // 🔴 修复：死亡动画播放完成后，不再自动重置游戏
+    // 让用户可以选择重新开始或看广告复活
     if (this.deathAnimationTime >= deathDuration) {
-        // 动画结束后立即触发环境重置
-        if (typeof window.resetGame === 'function') {
-            window.resetGame();
-        }
+        // 动画播放完成，但保持死亡状态，等待用户选择
+        console.log('💀 死亡动画播放完成，等待用户选择操作');
+        
+        // 不再自动调用resetGame，让用户手动选择
+        // 游戏状态已经设置为death，会显示死亡界面供用户选择
     }
 };
 
@@ -682,6 +685,13 @@ Character.prototype.performAttack = function () {
 
 // 游戏结束处理
 Character.prototype.handleGameOver = function () {
+    // 🔴 修复：立即暂停游戏循环，防止继续执行导致错误
+    if (window.gameEngine) {
+        // 立即设置游戏状态为死亡，暂停游戏逻辑更新
+        window.gameEngine.setDeathState();
+        console.log('💀 游戏引擎已设置为死亡状态，暂停游戏逻辑更新');
+    }
+    
     // 调用专门的死亡处理函数
     if (typeof window.handleMainCharacterDeath === 'function') {
         window.handleMainCharacterDeath();
@@ -878,7 +888,11 @@ Character.prototype.stopMovement = function () {
 };
 
 // 更新移动 - 只处理动画更新，实际移动由checkJoystickInput处理
-Character.prototype.updateMovement = function (deltaTime = 1 / 60) {
+Character.prototype.updateMovement = function (deltaTime) {
+    // 🔴 简化：使用固定帧时间
+    if (deltaTime === undefined) {
+        deltaTime = 1 / 60; // 固定60fps
+    }
     if (!this.isMoving) {
         return;
     }
@@ -981,12 +995,11 @@ var CharacterManager = {
     // 初始化对象池
     initObjectPool: function () {
         if (!window.objectPoolManager) {
-
             return;
         }
 
-        // 创建角色对象池 - 修复：使用ROLE.MAIN作为默认角色类型
-        this.objectPool = window.objectPoolManager.createPool('character', // 创建函数 - 修复：使用ROLE.MAIN而不是ROLE.CIVILIAN
+        // 🔴 修复：使用recreatePool确保每次都是全新的对象池
+        this.objectPool = window.objectPoolManager.recreatePool('character', // 创建函数
             () => new Character(ROLE.MAIN, 0, 0), // 重置函数
             (character) => this.resetCharacter(character));
 
@@ -1010,7 +1023,7 @@ var CharacterManager = {
 
         // 🔴 修复：重新设置移动速度，确保从对象池复用的角色有正确的速度
         var movementConfig = window.ConfigManager ? window.ConfigManager.get('MOVEMENT') : null;
-        var expectedSpeed = movementConfig ;
+        var expectedSpeed = movementConfig ? movementConfig.CHARACTER_MOVE_SPEED : 3;
 
         if (character.role === ROLE.MAIN) {
             // 主人物移动速度
@@ -1019,6 +1032,12 @@ var CharacterManager = {
             // 其他角色移动速度（如果有不同设置）
             character.moveSpeed = expectedSpeed;
         }
+
+        // 🔴 修复：重置动画速度，防止动画速度累积
+        var animationConfig = window.ConfigManager ? window.ConfigManager.get('ANIMATION') : null;
+        character.animationSpeed = animationConfig ? animationConfig.DEFAULT_FRAME_RATE : 0.2;
+        character.animationFrame = 0;
+        character.frameCount = 0;
 
         // 🔴 新增：验证移动速度
         if (character.moveSpeed !== expectedSpeed) {
@@ -1095,8 +1114,18 @@ var CharacterManager = {
         }
 
         const mainChar = window.objectManager.getMainCharacter();
-        if (mainChar && mainChar.hp > 0) {
-            return mainChar;
+        
+        // 🔴 修复：在死亡状态下，即使主人物血量<=0也要返回，避免报错
+        if (mainChar) {
+            // 检查游戏状态，如果是死亡状态，允许返回死亡的主人物
+            if (window.gameEngine && window.gameEngine.gameState === 'death') {
+                return mainChar; // 死亡状态下返回主人物，即使血量<=0
+            }
+            
+            // 正常状态下只返回血量>0的主人物
+            if (mainChar.hp > 0) {
+                return mainChar;
+            }
         }
 
         throw new Error('CharacterManager.getMainCharacter: 对象管理器中未找到有效的主人物');
@@ -1113,12 +1142,20 @@ var CharacterManager = {
     },
 
     // 更新所有角色 - 从四叉树获取角色列表
-    updateAllCharacters: function (deltaTime = 1 / 60) {
+    updateAllCharacters: function (deltaTime) {
+        // 🔴 简化：使用固定帧时间
+        if (deltaTime === undefined) {
+            deltaTime = 1 / 60; // 固定60fps
+        }
         var performanceUtils = UtilsManager.getPerformanceUtils();
 
         // 🔴 重构：直接从管理器获取角色
         var characters = this.getAllCharacters();
         if (characters.length === 0) {
+            // 🔴 修复：在死亡状态下不抛出错误，只是返回
+            if (window.gameEngine && window.gameEngine.gameState === 'death') {
+                return;
+            }
             throw new Error('无法获取角色列表');
         }
 
@@ -1143,6 +1180,10 @@ var CharacterManager = {
                     }
                 }
             } else {
+                // 🔴 修复：在死亡状态下不抛出错误，只是跳过死亡角色
+                if (window.gameEngine && window.gameEngine.gameState === 'death') {
+                    return; // 跳过死亡角色
+                }
                 throw new Error('角色无效或已死亡: ' + char.id);
             }
         });
@@ -1213,14 +1254,17 @@ Character.prototype.checkJoystickInput = function () {
     var direction = this.getJoystickDirection();
     var gameplayConfig = window.ConfigManager ? window.ConfigManager.get('GAMEPLAY') : null;
     var deadZone = gameplayConfig ? gameplayConfig.JOYSTICK.DEAD_ZONE : 0.1;
-    var moveSpeed = gameplayConfig ? gameplayConfig.JOYSTICK.MOVE_SPEED : 4;
+    // 🔴 修复：使用角色的移动速度，而不是摇杆配置的速度
+    var moveSpeed = this.moveSpeed || 180;
     
     // 检查是否超过死区
     if (Math.abs(direction.x) > deadZone || Math.abs(direction.y) > deadZone) {
 
         // 🔴 核心：直接移动，不使用目标移动
-        var newX = this.x + direction.x * moveSpeed;
-        var newY = this.y + direction.y * moveSpeed;
+        // 🔴 简化：直接使用每帧移动距离，无需deltaTime计算
+        var moveDistance = moveSpeed; // 直接使用像素/帧
+        var newX = this.x + direction.x * moveDistance;
+        var newY = this.y + direction.y * moveDistance;
 
         // 检查碰撞并移动
         if (window.collisionSystem && window.collisionSystem.isPositionWalkable) {

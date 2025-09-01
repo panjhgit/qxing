@@ -357,7 +357,8 @@ Partner.prototype.updateFollowMovement = function (deltaTime) {
 
     if (distance > moveThreshold) { // 从配置获取移动阈值
         var angle = Math.atan2(this.followPoint.y - this.y, this.followPoint.x - this.x);
-        var moveDistance = this.moveSpeed; // 🔴 修复：直接使用每帧的像素数，不使用deltaTime
+        // 🔴 修复：使用deltaTime确保移动速度与帧率无关
+        var moveDistance = this.moveSpeed * deltaTime;
 
         var newX = this.x + Math.cos(angle) * moveDistance;
         var newY = this.y + Math.sin(angle) * moveDistance;
@@ -571,7 +572,8 @@ Partner.prototype.moveToAttackRange = function () {
         var targetX = this.attackTarget.x + Math.cos(angle + Math.PI) * targetDistance;
         var targetY = this.attackTarget.y + Math.sin(angle + Math.PI) * targetDistance;
 
-        var moveDistance = this.moveSpeed * (1 / 60);
+        // 🔴 简化：直接使用每帧移动距离，无需deltaTime计算
+        var moveDistance = this.moveSpeed; // 直接使用像素/帧
         var newX = this.x + Math.cos(angle) * moveDistance;
         var newY = this.y + Math.sin(angle) * moveDistance;
 
@@ -604,7 +606,10 @@ Partner.prototype.checkCollision = function (fromX, fromY, toX, toY) {
 
     // 使用贴着建筑物移动算法
     if (window.collisionSystem.getWallFollowingPosition) {
-        var safePos = window.collisionSystem.getWallFollowingPosition(fromX, fromY, toX, toY, this.radius || 16, this.moveSpeed);
+        // 🔴 修复：使用移动距离而不是移动速度
+        // 🔴 简化：直接使用每帧移动距离
+        var moveDistance = this.moveSpeed; // 直接使用像素/帧
+        var safePos = window.collisionSystem.getWallFollowingPosition(fromX, fromY, toX, toY, this.radius || 16, moveDistance);
 
         if (safePos) {
             return safePos;
@@ -908,8 +913,8 @@ var PartnerManager = {
             return;
         }
 
-        // 创建伙伴对象池
-        this.objectPool = window.objectPoolManager.createPool('partner', // 创建函数
+        // 🔴 修复：使用recreatePool确保每次都是全新的对象池
+        this.objectPool = window.objectPoolManager.recreatePool('partner', // 创建函数
             () => new Partner(PARTNER_ROLE.CIVILIAN, 0, 0), // 重置函数
             (partner) => this.resetPartner(partner));
 
@@ -948,7 +953,9 @@ var PartnerManager = {
             partner.stateMachine.forceState(PARTNER_STATE.IDLE);
         }
 
-        // 重置动画
+        // 🔴 修复：重置动画速度，防止动画速度累积
+        var animationConfig = window.ConfigManager ? window.ConfigManager.get('ANIMATION') : null;
+        partner.animationSpeed = animationConfig ? animationConfig.DEFAULT_FRAME_RATE : 0.2;
         partner.animationFrame = 0;
         partner.frameCount = 0;
 

@@ -298,8 +298,10 @@ Zombie.prototype.moveTowards = function (targetX, targetY, deltaTime) {
 
     this.direction = Math.atan2(targetY - this.y, targetX - this.x);
 
-    var newX = this.x + Math.cos(this.direction) * this.moveSpeed;
-    var newY = this.y + Math.sin(this.direction) * this.moveSpeed;
+    // 🔴 简化：直接使用每帧移动距离，无需deltaTime计算
+    var moveDistance = this.moveSpeed; // 直接使用像素/帧
+    var newX = this.x + Math.cos(this.direction) * moveDistance;
+    var newY = this.y + Math.sin(this.direction) * moveDistance;
 
     // 检查碰撞
     var finalPosition = this.checkCollision(this.x, this.y, newX, newY);
@@ -324,7 +326,10 @@ Zombie.prototype.checkCollision = function (fromX, fromY, toX, toY) {
     }
 
     if (window.collisionSystem.getWallFollowingPosition) {
-        var safePos = window.collisionSystem.getWallFollowingPosition(fromX, fromY, toX, toY, this.radius || 16, this.moveSpeed);
+        // 🔴 修复：使用移动距离而不是移动速度
+        // 🔴 简化：直接使用每帧移动距离
+        var moveDistance = this.moveSpeed; // 直接使用像素/帧
+        var safePos = window.collisionSystem.getWallFollowingPosition(fromX, fromY, toX, toY, this.radius || 16, moveDistance);
         if (safePos) {
             return safePos;
         }
@@ -608,7 +613,8 @@ var ZombieManager = {
             return;
         }
 
-        this.objectPool = window.objectPoolManager.createPool('zombie',
+        // 🔴 修复：使用recreatePool确保每次都是全新的对象池
+        this.objectPool = window.objectPoolManager.recreatePool('zombie',
             () => new Zombie('skinny', 0, 0),
             (zombie) => this.resetZombie(zombie));
     },
@@ -645,6 +651,11 @@ var ZombieManager = {
         }
 
         zombie.moveSpeed = expectedSpeed;
+
+        // 🔴 修复：重置动画速度，防止动画速度累积
+        var animationConfig = window.ConfigManager ? window.ConfigManager.get('ANIMATION') : null;
+        zombie.animationSpeed = animationConfig ? animationConfig.DEFAULT_FRAME_RATE : 0.2;
+        zombie.animationFrame = 0;
 
         zombie._updateFrame = 0;
         zombie._destroyed = false;

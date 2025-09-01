@@ -305,16 +305,25 @@ var GameEngine = function (canvas, ctx) {
 
     // 帧计数器
     this.frameCount = 0;
+    // 🔴 修复：确保lastUpdateTime在构造函数中正确初始化
     this.lastUpdateTime = performance.now();
+    
+    // 🔴 新增：重新开始标记，用于确保第一帧deltaTime一致
+    this.isRestarting = false;
 
     // 性能监控
     this.performanceMonitor = {
-        frameCount: 0, lastFPS: 60, fpsHistory: [], lastOptimizationTime: 0, targetFPS: 60, minFPS: 30,
+        frameCount: 0, lastFPS: 60, fpsHistory: [], lastOptimizationTime: 0, 
+        // 🔴 修复：从配置获取目标帧率
+        targetFPS: window.ConfigManager ? window.ConfigManager.get('PERFORMANCE.GAME_LOOP.TARGET_FPS') : 60, 
+        minFPS: 30,
 
         updateFPS: function (deltaTime) {
             this.frameCount++;
-            if (this.frameCount % 60 === 0) {
-                var currentFPS = Math.round(60 / deltaTime);
+            // 🔴 修复：从配置获取目标帧率
+            var targetFPS = window.ConfigManager ? window.ConfigManager.get('PERFORMANCE.GAME_LOOP.TARGET_FPS') : 60;
+            if (this.frameCount % targetFPS === 0) {
+                var currentFPS = Math.round(targetFPS / deltaTime);
                 this.lastFPS = currentFPS;
                 this.fpsHistory.push(currentFPS);
 
@@ -442,7 +451,19 @@ GameEngine.prototype.setGameState = function (newState) {
     }
 
     this.frameCount = 0;
+    
+    // 🔴 修复：重置时立即设置lastUpdateTime，避免第一帧deltaTime异常
     this.lastUpdateTime = performance.now();
+    
+    // 🔴 修复：如果是重新开始游戏，重置时间系统
+    if (newState === 'playing') {
+        this.timeSystem.currentTime = 0;
+        this.timeSystem.day = 1;
+        this.timeSystem.isDay = true;
+        
+        // 🔴 新增：标记这是重新开始，第一帧使用标准deltaTime
+        this.isRestarting = true;
+    }
 };
 
 // 设置死亡状态
@@ -635,10 +656,17 @@ GameEngine.prototype.calculateDistance = function (x1, y1, x2, y2) {
 
 // 获取增量时间
 GameEngine.prototype.getDeltaTime = function () {
-    var currentTime = performance.now();
-    var deltaTime = (currentTime - this.lastUpdateTime) / 1000;
-    this.lastUpdateTime = currentTime;
-    return Math.min(deltaTime, 1 / 30);
+    // 🔴 优化：由于游戏循环已限制为固定帧率，直接返回固定帧时间
+    // 这样可以确保所有移动计算都使用相同的deltaTime，完全一致
+    
+    // 如果是重新开始的第一帧，重置时间
+    if (this.isRestarting) {
+        this.isRestarting = false;
+        this.lastUpdateTime = performance.now();
+    }
+    
+    // 🔴 简化：直接返回固定帧时间，无需复杂计算
+    return 1 / 60; // 固定60fps的帧时间
 };
 
 // 更新计时系统
@@ -647,7 +675,9 @@ GameEngine.prototype.updateTimeSystem = function () {
     var dayDuration = timeConfig ? timeConfig.DAY_DURATION : 10;
     var dayPhaseDuration = timeConfig ? timeConfig.DAY_PHASE_DURATION : 5;
 
-    this.timeSystem.currentTime += 1 / 60;
+    // 🔴 修复：从配置获取目标帧率
+    var targetFPS = window.ConfigManager ? window.ConfigManager.get('PERFORMANCE.GAME_LOOP.TARGET_FPS') : 60;
+    this.timeSystem.currentTime += 1 / targetFPS;
 
     if (this.timeSystem.currentTime >= dayDuration) {
         this.timeSystem.currentTime = 0;
@@ -837,6 +867,22 @@ GameEngine.prototype.isValidSpawnPosition = function (x, y, mainChar, existingEn
 GameEngine.prototype.update = function () {
     this.frameCount++;
 
+    // 🔴 修复：在死亡状态下暂停游戏逻辑更新，只保留基础功能
+    if (this.gameState === 'death') {
+        // 死亡状态下只更新性能监控和视图系统，不更新游戏逻辑
+        if (this.performanceMonitor) {
+            var deltaTime = this.getDeltaTime();
+            this.performanceMonitor.updateFPS(deltaTime);
+        }
+        
+        if (this.viewSystem) {
+            this.viewSystem.update();
+        }
+        
+        // 死亡状态下不更新其他游戏系统，避免找不到主人物等错误
+        return;
+    }
+
     if (this.performanceMonitor) {
         var deltaTime = this.getDeltaTime();
         this.performanceMonitor.updateFPS(deltaTime);
@@ -881,7 +927,9 @@ GameEngine.prototype.update = function () {
     }
 
     if (window.objectManager) {
-        if (this.frameCount % 60 === 0) {
+        // 🔴 修复：从配置获取目标帧率
+        var targetFPS = window.ConfigManager ? window.ConfigManager.get('PERFORMANCE.GAME_LOOP.TARGET_FPS') : 60;
+        if (this.frameCount % targetFPS === 0) {
             const cleanedCount = window.objectManager.cleanupDeadObjects();
         }
     }
@@ -1016,8 +1064,16 @@ GameEngine.prototype.render = function () {
             this.menuSystem.renderGameMenu();
         }
     } else if (this.gameState === 'death') {
+        // 🔴 修复：死亡状态下渲染死亡界面，不渲染游戏内容
         if (this.menuSystem && this.menuSystem.render) {
+            // 确保菜单系统处于死亡状态
+            if (this.menuSystem.getCurrentState && this.menuSystem.getCurrentState() !== 'death') {
+                this.menuSystem.setState('death');
+            }
             this.menuSystem.render();
+        } else {
+            // 备用死亡界面渲染
+            this.renderDeathScreen();
         }
     }
 };
@@ -1027,6 +1083,107 @@ GameEngine.prototype.renderJoystick = function () {
     if (this.joystick && this.viewSystem) {
         this.viewSystem.renderJoystick(this.joystick);
     }
+};
+
+// 🔴 新增：备用死亡界面渲染方法
+GameEngine.prototype.renderDeathScreen = function () {
+    if (!this.canvas || !this.ctx) return;
+    
+    const ctx = this.ctx;
+    const canvas = this.canvas;
+    
+    // 清空画布
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // 绘制死亡背景
+    ctx.fillStyle = 'rgba(255, 0, 0, 0.8)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // 绘制死亡文字
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 32px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('💀 主人物已死亡', canvas.width / 2, canvas.height / 2 - 60);
+    
+    ctx.fillStyle = '#FFEB3B';
+    ctx.font = '20px Arial';
+    ctx.fillText('点击屏幕重新开始游戏', canvas.width / 2, canvas.height / 2 - 20);
+    
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = '16px Arial';
+    ctx.fillText('或返回主菜单', canvas.width / 2, canvas.height / 2 + 20);
+    
+    // 添加点击事件监听器（如果还没有的话）
+    if (!this.deathClickListener) {
+        this.deathClickListener = (event) => {
+            event.preventDefault();
+            // 移除事件监听器
+            canvas.removeEventListener('touchstart', this.deathClickListener);
+            this.deathClickListener = null;
+            
+            // 重新开始游戏
+            if (typeof window.restartGame === 'function') {
+                window.restartGame();
+            }
+        };
+        
+        canvas.addEventListener('touchstart', this.deathClickListener, {passive: true});
+    }
+};
+
+// 🔴 新增：游戏引擎销毁方法
+GameEngine.prototype.destroy = function () {
+    console.log('🗑️ 销毁游戏引擎...');
+    
+    // 停止更新
+    this.stopUpdate();
+    
+    // 重置时间相关属性
+    this.frameCount = 0;
+    this.lastUpdateTime = performance.now();
+    
+    // 重置时间系统
+    this.timeSystem = {
+        day: 1, 
+        isDay: true, 
+        dayTime: 0, 
+        currentTime: 0, 
+        dayDuration: 0, 
+        food: 5
+    };
+    
+    // 重置性能监控
+    if (this.performanceMonitor) {
+        this.performanceMonitor.frameCount = 0;
+        // 🔴 修复：从配置获取目标帧率
+        var targetFPS = window.ConfigManager ? window.ConfigManager.get('PERFORMANCE.GAME_LOOP.TARGET_FPS') : 60;
+        this.performanceMonitor.lastFPS = targetFPS;
+        this.performanceMonitor.fpsHistory = [];
+        this.performanceMonitor.lastOptimizationTime = 0;
+    }
+    
+    // 清理系统引用
+    this.mapSystem = null;
+    this.characterManager = null;
+    this.menuSystem = null;
+    this.eventSystem = null;
+    this.zombieManager = null;
+    this.navigationSystem = null;
+    this.dynamicObstacleManager = null;
+    
+    // 重置摇杆
+    if (this.joystick) {
+        this.joystick.resetJoystick();
+        this.joystick.hide();
+    }
+    
+    // 重置视图系统
+    if (this.viewSystem) {
+        this.viewSystem = null;
+    }
+    
+    console.log('✅ 游戏引擎已销毁');
 };
 
 // 导出

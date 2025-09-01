@@ -39,9 +39,21 @@
  *
  * 🚀 移动系统配置 (MOVEMENT)
  * ========================================
- * - CHARACTER_MOVE_SPEED: 5px/帧 - 主人物移动速度 (300px/秒，符合移动端操作直觉)
- * - ZOMBIE_MOVE_SPEED: 5px/帧 - 僵尸移动速度 (300px/秒，与主人物相同)
- * - PARTNER_MOVE_SPEED: 4.5px/帧 - 伙伴移动速度 (比主人物慢0.5px/帧)
+ * - CHARACTER_MOVE_SPEED: 3px/帧 - 主人物移动速度 (60fps下180px/秒)
+ * - ZOMBIE_MOVE_SPEED: 2px/帧 - 僵尸移动速度 (60fps下120px/秒，比主人物慢)
+ * - PARTNER_MOVE_SPEED: 3px/帧 - 伙伴移动速度 (60fps下180px/秒，与主人物相同)
+ *
+ * 🎮 游戏循环配置 (PERFORMANCE.GAME_LOOP)
+ * ========================================
+ * - TARGET_FPS: 60 - 目标帧率（60fps，确保游戏体验一致）
+ * - ENABLE_FPS_LIMIT: true - 启用帧率限制（节省电量，提高稳定性）
+ * - FRAME_TIME: 16.67ms - 目标帧时间（1000ms/60fps）
+ *
+ * 60fps限制的好处：
+ * 1. 性能稳定：避免高帧率导致的性能浪费
+ * 2. 电池续航：减少不必要的渲染，节省电量
+ * 3. 游戏一致性：所有设备上的游戏体验完全相同
+ * 4. 简化计算：deltaTime固定为1/60秒，移动计算更简单
  *
  * ⚔️ 攻击系统配置 (COMBAT)
  * ========================================
@@ -74,9 +86,9 @@
 const GAME_CONFIG = {
     // 移动系统配置
     MOVEMENT: {
-        CHARACTER_MOVE_SPEED: 3,        // ✅ 恢复：人物移动速度 (像素/帧)
-        ZOMBIE_MOVE_SPEED: 2,           // ✅ 恢复：僵尸移动速度 (像素/帧)
-        PARTNER_MOVE_SPEED: 3,          // ✅ 伙伴移动速度 (像素/帧)
+        CHARACTER_MOVE_SPEED: 3,        // 🔴 简化：人物移动速度 (像素/帧，60fps)
+        ZOMBIE_MOVE_SPEED: 2,           // 🔴 简化：僵尸移动速度 (像素/帧，60fps)
+        PARTNER_MOVE_SPEED: 3,          // 🔴 简化：伙伴移动速度 (像素/帧，60fps)
 
         // 贴着建筑物移动配置
         WALL_FOLLOWING: {
@@ -402,6 +414,13 @@ const GAME_CONFIG = {
 
     // 性能配置
     PERFORMANCE: {
+        // 游戏循环配置
+        GAME_LOOP: {
+            TARGET_FPS: 60,             // 🔴 新增：目标帧率（60fps）
+            ENABLE_FPS_LIMIT: true,     // 🔴 新增：是否启用帧率限制
+            FRAME_TIME: 16.67,          // 🔴 新增：目标帧时间（毫秒）
+        },
+        
         MAX_ZOMBIES: 100,               // 最大僵尸数量
         MAX_CHARACTERS: 50,             // 最大人物数量
         MAX_PARTNERS: 9999,             // 🔴 新增：最大伙伴数量（设置为9999，基本无限制）

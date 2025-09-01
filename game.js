@@ -91,6 +91,30 @@ function handleMainCharacterDeath() {
 // 设置全局函数
 window.handleMainCharacterDeath = handleMainCharacterDeath;
 
+// 🔴 新增：游戏状态变化处理函数
+window.onGameStateChange = function(newState) {
+    console.log('🔄 游戏状态变化:', newState);
+    
+    if (newState === 'playing') {
+        // 开始游戏
+        if (!isGameInitialized && !isInitializing) {
+            console.log('🎮 用户点击开始游戏，开始懒加载游戏系统...');
+            startGame();
+        } else if (isGameInitialized && gameEngine) {
+            // 重新开始游戏
+            console.log('🔄 重新开始游戏...');
+            // 🔴 修复：确保重新开始时游戏引擎状态正确重置
+            gameEngine.setGameState('playing');
+        }
+    } else if (newState === 'home') {
+        // 返回主菜单
+        if (gameEngine) {
+            gameEngine.setGameState('home');
+        }
+        showHomePage();
+    }
+};
+
 // 显示死亡消息
 function showDeathMessage() {
     console.log('💀 显示死亡消息...');
@@ -933,8 +957,18 @@ function continueGameSystemsInit() {
             
             // 启动内存监控
             if (window.memoryMonitor) {
-                window.memoryMonitor.start();
-                console.log('🔍 内存监控已启动');
+                try {
+                    window.memoryMonitor.start();
+                    console.log('🔍 内存监控已启动');
+                } catch (error) {
+                    console.warn('⚠️ 内存监控启动失败:', error.message);
+                    // 如果内存监控已在运行，重置后重新启动
+                    if (error.message.includes('已在运行中')) {
+                        window.memoryMonitor.reset();
+                        window.memoryMonitor.start();
+                        console.log('🔍 内存监控已重置并重新启动');
+                    }
+                }
             }
             
             if (window.objectHealthChecker) {
@@ -1096,12 +1130,39 @@ function startGameLoop() {
     // 重置停止标志
     window.shouldStopGameLoop = false;
     
-    function gameLoop() {
+    // 🔴 新增：从配置获取帧率限制设置
+    var performanceConfig = window.ConfigManager ? window.ConfigManager.get('PERFORMANCE.GAME_LOOP') : null;
+    var enableFPSLimit = performanceConfig ? performanceConfig.ENABLE_FPS_LIMIT : true;
+    var targetFPS = performanceConfig ? performanceConfig.TARGET_FPS : 60;
+    var targetFrameTime = performanceConfig ? performanceConfig.FRAME_TIME : 16.67;
+    var lastFrameTime = 0;
+    
+    function gameLoop(currentTime) {
         try {
             // 检查是否应该停止游戏循环
             if (window.shouldStopGameLoop) {
                 console.log('⏹️ 游戏循环收到停止信号，停止执行');
                 return;
+            }
+            
+            // 🔴 新增：帧率限制逻辑（仅在启用时执行）
+            if (enableFPSLimit) {
+                if (lastFrameTime === 0) {
+                    lastFrameTime = currentTime;
+                }
+                
+                var deltaTime = currentTime - lastFrameTime;
+                
+                // 如果距离上一帧的时间小于目标帧时间，跳过这一帧
+                if (deltaTime < targetFrameTime) {
+                    if (!window.shouldStopGameLoop) {
+                        window.gameLoopId = requestAnimationFrame(gameLoop);
+                    }
+                    return;
+                }
+                
+                // 更新上一帧时间（使用目标帧时间，确保稳定的帧率）
+                lastFrameTime = currentTime - (deltaTime % targetFrameTime);
             }
             
             // 检查游戏引擎状态
@@ -1136,12 +1197,25 @@ function startGameLoop() {
                         }
                     }
                 } else if (gameEngine.gameState === 'death') {
-                    // 渲染死亡界面
-                    if (menuSystem && menuSystem.render) {
-                        // 确保菜单系统处于死亡状态
-                        if (menuSystem.getCurrentState() !== 'death') {
-                            menuSystem.setState('death');
-                        } else {
+                    // 🔴 修复：死亡状态下使用游戏引擎的渲染方法
+                    if (gameEngine.render) {
+                        try {
+                            // 死亡状态下只渲染，不更新游戏逻辑
+                            gameEngine.render();
+                        } catch (error) {
+                            console.error('死亡界面渲染错误:', error);
+                            // 备用渲染方案
+                            if (menuSystem && menuSystem.render) {
+                                menuSystem.render();
+                            }
+                        }
+                    } else {
+                        // 备用方案：使用菜单系统渲染
+                        if (menuSystem && menuSystem.render) {
+                            // 确保菜单系统处于死亡状态
+                            if (menuSystem.getCurrentState && menuSystem.getCurrentState() !== 'death') {
+                                menuSystem.setState('death');
+                            }
                             menuSystem.render();
                         }
                     }
@@ -1158,7 +1232,7 @@ function startGameLoop() {
     }
 
     // 启动游戏循环
-    gameLoop();
-    console.log('✅ 游戏循环已启动');
+    requestAnimationFrame(gameLoop);
+    console.log('✅ 游戏循环已启动' + (enableFPSLimit ? `（${targetFPS}fps限制）` : '（无帧率限制）'));
 }
 

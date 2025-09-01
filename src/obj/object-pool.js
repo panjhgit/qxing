@@ -291,8 +291,64 @@ class ObjectPoolManager {
         this.pools.set(type, pool);
         this.performanceStats.totalPools = this.pools.size;
 
-
         return pool;
+    }
+
+    // 🔴 新增：强制重新创建对象池（用于重置）
+    recreatePool(type, createFunction, resetFunction = null) {
+        // 先销毁现有池
+        this.destroyPool(type);
+        
+        // 创建新池
+        const pool = new ObjectPool(type, createFunction, resetFunction);
+        this.pools.set(type, pool);
+        this.performanceStats.totalPools = this.pools.size;
+        
+        console.log(`✅ 对象池已重新创建: ${type}`);
+        return pool;
+    }
+
+    // 🔴 新增：销毁对象池
+    destroyPool(type) {
+        if (this.pools.has(type)) {
+            const pool = this.pools.get(type);
+            if (pool && pool.destroy) {
+                pool.destroy();
+            }
+            this.pools.delete(type);
+            this.performanceStats.totalPools = this.pools.size;
+            console.log(`✅ 对象池已销毁: ${type}`);
+        }
+    }
+
+    // 🔴 新增：销毁所有对象池
+    destroy() {
+        console.log('🗑️ 销毁所有对象池...');
+        
+        // 销毁所有池
+        for (const [type, pool] of this.pools) {
+            if (pool && pool.destroy) {
+                pool.destroy();
+            }
+        }
+        
+        // 清空池映射
+        this.pools.clear();
+        
+        // 重置统计信息
+        this.performanceStats = {
+            totalPools: 0,
+            totalObjects: 0,
+            totalMemoryUsage: 0,
+            averageHitRate: 0,
+            lastOptimization: 0
+        };
+        
+        // 重置帧计数
+        this.frameCount = 0;
+        this.lastCleanup = 0;
+        
+        console.log('✅ 所有对象池已销毁');
     }
 
     // 获取对象池
