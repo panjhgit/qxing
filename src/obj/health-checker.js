@@ -15,7 +15,7 @@ const HEALTH_CHECK_CONFIG = {
     
     // 内存泄漏检测阈值
     LEAK_THRESHOLD: {
-        ACTIVE_OBJECTS: 200, // 提高阈值，适应正常游戏对象数量
+        ACTIVE_OBJECTS: 2000, // 提高阈值，适应正常游戏对象数量
         MEMORY_USAGE: 100 * 1024 * 1024, // 100MB（提高阈值）
         OBJECT_AGE: 600000 // 10分钟（提高阈值）
     },

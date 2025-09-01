@@ -100,12 +100,12 @@ window.onGameStateChange = function(newState) {
         if (!isGameInitialized && !isInitializing) {
             console.log('🎮 用户点击开始游戏，开始懒加载游戏系统...');
             startGame();
-        } else if (isGameInitialized && gameEngine) {
-            // 重新开始游戏
-            console.log('🔄 重新开始游戏...');
-            // 🔴 修复：确保重新开始时游戏引擎状态正确重置
-            gameEngine.setGameState('playing');
-        }
+            } else if (isGameInitialized && gameEngine) {
+        // 重新开始游戏
+        console.log('🔄 重新开始游戏...');
+        // 🔴 修复：重新开始时应该完全重置环境，确保对象创建方式一致
+        resetGame();
+    }
     } else if (newState === 'home') {
         // 返回主菜单
         if (gameEngine) {
@@ -187,6 +187,9 @@ function resetGameEnvironment() {
     
     // 第一步：暂停系统更新
     pauseSystemUpdates();
+    
+    // 🔴 新增：重置游戏循环标志，确保重启时使用正确的帧率
+    window.shouldStopGameLoop = false;
     
     // 第二步：销毁所有角色对象
     if (window.characterManager) {
@@ -613,7 +616,7 @@ function initCharacterAndZombieSystems() {
         // 初始化僵尸管理器
         console.log('🧟‍♂️ 初始化僵尸管理器');
         var zombieManager = Object.create(ZombieManager);
-        zombieManager.maxZombies = zombieManager.maxZombies || 100;
+        zombieManager.maxZombies = zombieManager.maxZombies || 2000;
         zombieManager.difficulty = zombieManager.difficulty || 1;
         zombieManager.initObjectPool(); // 🔴 新增：初始化对象池
         
@@ -1135,10 +1138,39 @@ function startGameLoop() {
     var enableFPSLimit = performanceConfig ? performanceConfig.ENABLE_FPS_LIMIT : true;
     var targetFPS = performanceConfig ? performanceConfig.TARGET_FPS : 60;
     var targetFrameTime = performanceConfig ? performanceConfig.FRAME_TIME : 16.67;
-    var lastFrameTime = 0;
+    
+    // 🔴 修复：将帧率相关变量设为全局，确保重启时正确重置
+    if (!window.gameLoopVars) {
+        window.gameLoopVars = {
+            lastFrameTime: 0,
+            fpsCounter: 0,
+            fpsLastTime: 0,
+            currentFPS: 0
+        };
+    } else {
+        // 🔴 新增：重启时重置帧率变量
+        window.gameLoopVars.lastFrameTime = 0;
+        window.gameLoopVars.fpsCounter = 0;
+        window.gameLoopVars.fpsLastTime = 0;
+        window.gameLoopVars.currentFPS = 0;
+    }
     
     function gameLoop(currentTime) {
         try {
+            // 🔴 新增：FPS计算和打印
+            window.gameLoopVars.fpsCounter++;
+            if (window.gameLoopVars.fpsLastTime === 0) {
+                window.gameLoopVars.fpsLastTime = currentTime;
+            }
+            
+            // 每秒计算一次FPS
+            if (currentTime - window.gameLoopVars.fpsLastTime >= 1000) {
+                window.gameLoopVars.currentFPS = Math.round((window.gameLoopVars.fpsCounter * 1000) / (currentTime - window.gameLoopVars.fpsLastTime));
+                console.log('🎮 当前FPS:', window.gameLoopVars.currentFPS);
+                window.gameLoopVars.fpsCounter = 0;
+                window.gameLoopVars.fpsLastTime = currentTime;
+            }
+            
             // 检查是否应该停止游戏循环
             if (window.shouldStopGameLoop) {
                 console.log('⏹️ 游戏循环收到停止信号，停止执行');
@@ -1147,11 +1179,11 @@ function startGameLoop() {
             
             // 🔴 新增：帧率限制逻辑（仅在启用时执行）
             if (enableFPSLimit) {
-                if (lastFrameTime === 0) {
-                    lastFrameTime = currentTime;
+                if (window.gameLoopVars.lastFrameTime === 0) {
+                    window.gameLoopVars.lastFrameTime = currentTime;
                 }
                 
-                var deltaTime = currentTime - lastFrameTime;
+                var deltaTime = currentTime - window.gameLoopVars.lastFrameTime;
                 
                 // 如果距离上一帧的时间小于目标帧时间，跳过这一帧
                 if (deltaTime < targetFrameTime) {
@@ -1162,7 +1194,7 @@ function startGameLoop() {
                 }
                 
                 // 更新上一帧时间（使用目标帧时间，确保稳定的帧率）
-                lastFrameTime = currentTime - (deltaTime % targetFrameTime);
+                window.gameLoopVars.lastFrameTime = currentTime - (deltaTime % targetFrameTime);
             }
             
             // 检查游戏引擎状态

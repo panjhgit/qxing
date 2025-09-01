@@ -129,7 +129,7 @@ var Character = function (role, x, y) {
 
 // 🔴 新增：角色重置方法（供对象池调用）
 Character.prototype.reset = function () {
-    console.log('🔄 角色对象重置开始...');
+
     
     // 重置基础属性
     this.hp = this.maxHp || 100;
@@ -153,10 +153,7 @@ Character.prototype.reset = function () {
     this.animationFrame = 0;
     this.frameCount = 0;
 
-    // 🔴 重置速度监控变量
-    this._lastMoveSpeed = undefined;
 
-    console.log('✅ 角色对象重置完成 - 移动速度:', this.moveSpeed, '动画速度:', this.animationSpeed);
 };
 
 // 设置角色属性
@@ -170,7 +167,7 @@ Character.prototype.setupRoleProperties = function () {
             this.maxHp = this.hp;
             this.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取攻击力
             this.weapon = WEAPON.NONE;
-            this.attackRange = combatConfig ? combatConfig.POLICE_ATTACK_RANGE : 100; // 从config.js获取攻击范围
+            this.attackRange = combatConfig ? combatConfig.MAIN_CHARACTER_ATTACK_RANGE : 100; // 从config.js获取攻击范围
             this.icon = '👤';
             break;
 
@@ -257,7 +254,15 @@ Character.prototype.setupMainCharacterStateMachine = function () {
         // 攻击范围内有僵尸且无摇杆输入
         var attackJudgmentConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT.ATTACK_JUDGMENT') : {RANGE_BUFFER: 5};
         var effectiveAttackRange = this.attackRange + attackJudgmentConfig.RANGE_BUFFER;
-        return !this.hasJoystickInput() && this.hasZombieInRange(effectiveAttackRange);
+        var hasZombie = this.hasZombieInRange(effectiveAttackRange);
+        var hasInput = this.hasJoystickInput();
+        
+        // 🔴 新增：调试攻击状态转换
+        if (hasZombie && !hasInput) {
+            console.log('🎯 主人物准备攻击 - 攻击范围:', effectiveAttackRange, '僵尸在范围内:', hasZombie, '摇杆输入:', hasInput);
+        }
+        
+        return !hasInput && hasZombie;
     });
 
     // 移动状态：摇杆输入消失时才退出
@@ -407,8 +412,14 @@ Character.prototype.hasJoystickInput = function () {
     // 检查是否有移动方向
     var direction = joystick.getMoveDirection();
     var deadZone = 0.1;
-
-    return Math.abs(direction.x) > deadZone || Math.abs(direction.y) > deadZone;
+    var hasInput = Math.abs(direction.x) > deadZone || Math.abs(direction.y) > deadZone;
+    
+    // 🔴 新增：打印摇杆输入状态
+    if (hasInput) {
+        console.log('🎮 摇杆输入检测 - 方向:', direction, '死区:', deadZone, '有输入:', hasInput);
+    }
+    
+    return hasInput;
 };
 
 // 检查指定范围内是否有僵尸
@@ -456,9 +467,9 @@ Character.prototype.onEnterIdle = function (stateData) {
     this.attackCooldown = 0; // 重置攻击冷却
 };
 
-Character.prototype.onUpdateIdle = function (deltaTime, stateData) {
+Character.prototype.onUpdateIdle = function (stateData) {
     // 待机状态下的行为：渲染待机动画
-    this.updateAnimation(deltaTime);
+    this.updateAnimation();
 
     // 检查是否有僵尸需要攻击
     var attackJudgmentConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT.ATTACK_JUDGMENT') : {RANGE_BUFFER: 5};
@@ -483,9 +494,9 @@ Character.prototype.onEnterMove = function (stateData) {
     this.attackCooldown = 0; // 重置攻击冷却
 };
 
-Character.prototype.onUpdateMove = function (deltaTime, stateData) {
+Character.prototype.onUpdateMove = function (stateData) {
     // 移动状态下的行为：只处理移动逻辑，不进行攻击
-    this.updateMovement(deltaTime);
+    this.updateMovement();
 
     // 移动时不允许自动攻击，保持移动优先级
     // 只有在停止移动且无摇杆输入时才会进入攻击状态
@@ -504,9 +515,9 @@ Character.prototype.onEnterAttack = function (stateData) {
     this.findAttackTarget();
 };
 
-Character.prototype.onUpdateAttack = function (deltaTime, stateData) {
+Character.prototype.onUpdateAttack = function (stateData) {
     // 攻击状态下的行为：移动到攻击距离，触发攻击动画
-    this.updateAttack(deltaTime);
+    this.updateAttack();
 
     // 检查攻击目标是否仍然有效
     if (!this.attackTarget || this.attackTarget.hp <= 0) {
@@ -539,9 +550,9 @@ Character.prototype.onEnterDie = function (stateData) {
     this.handleGameOver();
 };
 
-Character.prototype.onUpdateDie = function (deltaTime, stateData) {
+Character.prototype.onUpdateDie = function (stateData) {
     // 死亡状态下的行为：播放死亡动画
-    this.deathAnimationTime += deltaTime;
+    this.deathAnimationTime += 1/60; // 固定60fps
 
     var gameplayConfig = window.ConfigManager ? window.ConfigManager.get('GAMEPLAY') : null;
     var deathDuration = gameplayConfig ? gameplayConfig.DEATH.MAIN_CHARACTER_DURATION : 3.0;
@@ -551,9 +562,7 @@ Character.prototype.onUpdateDie = function (deltaTime, stateData) {
     if (this.deathAnimationTime >= deathDuration) {
         // 动画播放完成，但保持死亡状态，等待用户选择
         console.log('💀 死亡动画播放完成，等待用户选择操作');
-        
-        // 不再自动调用resetGame，让用户手动选择
-        // 游戏状态已经设置为death，会显示死亡界面供用户选择
+
     }
 };
 
@@ -562,7 +571,7 @@ Character.prototype.onExitDie = function (stateData) {
 };
 
 // 通用的攻击更新方法
-Character.prototype.updateAttack = function (deltaTime) {
+Character.prototype.updateAttack = function () {
     // 首先检查当前攻击目标是否仍然有效
     if (!this.isAttackTargetValid()) {
         // 目标无效，重新寻找目标
@@ -578,8 +587,8 @@ Character.prototype.updateAttack = function (deltaTime) {
         return;
     }
 
-    // 检查攻击冷却
-    this.attackCooldown += deltaTime;
+    // 检查攻击冷却（固定60fps）
+    this.attackCooldown += 1/60;
 
     // 🔴 修复：从配置获取攻击间隔
     var combatConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT') : null;
@@ -587,6 +596,7 @@ Character.prototype.updateAttack = function (deltaTime) {
 
     if (this.attackCooldown >= attackInterval) {
         // 执行攻击
+        console.log('⚔️ 主人物执行攻击 - 目标:', this.attackTarget ? this.attackTarget.id : '无', '攻击力:', this.attack);
         this.performAttack();
         this.attackCooldown = 0;
     }
@@ -721,7 +731,6 @@ Character.prototype.handleGameOver = function () {
     if (window.gameEngine) {
         // 立即设置游戏状态为死亡，暂停游戏逻辑更新
         window.gameEngine.setDeathState();
-        console.log('💀 游戏引擎已设置为死亡状态，暂停游戏逻辑更新');
     }
     
     // 调用专门的死亡处理函数
@@ -920,11 +929,9 @@ Character.prototype.stopMovement = function () {
 };
 
 // 更新移动 - 只处理动画更新，实际移动由checkJoystickInput处理
-Character.prototype.updateMovement = function (deltaTime) {
+Character.prototype.updateMovement = function () {
     // 🔴 简化：使用固定帧时间
-    if (deltaTime === undefined) {
-        deltaTime = 1 / 60; // 固定60fps
-    }
+    var deltaTime = 1 / 60; // 固定60fps
     if (!this.isMoving) {
         return;
     }
@@ -946,13 +953,13 @@ Character.prototype.updateMovement = function (deltaTime) {
     var animationUtils = UtilsManager.getAnimationUtils();
     if (this.animationFrame !== undefined) {
         var animationConfig = window.ConfigManager ? window.ConfigManager.get('ANIMATION') : null;
-        this.animationFrame = animationUtils.updateFrame(this.animationFrame, this.animationSpeed * deltaTime, animationConfig ? animationConfig.MAX_ANIMATION_FRAMES : 8);
+        this.animationFrame = animationUtils.updateFrame(this.animationFrame, this.animationSpeed * (1/60), animationConfig ? animationConfig.MAX_ANIMATION_FRAMES : 8);
     }
 };
 
 
 // 更新动画 - 使用工具类
-Character.prototype.updateAnimation = function (deltaTime) {
+Character.prototype.updateAnimation = function () {
     var animationUtils = UtilsManager.getAnimationUtils();
     var animationConfig = window.ConfigManager ? window.ConfigManager.get('ANIMATION') : null;
 
@@ -981,8 +988,8 @@ Character.prototype.updateAnimation = function (deltaTime) {
             adjustedSpeed = baseSpeed; // 待机状态正常速度
     }
 
-    // 更新动画帧
-    this.animationFrame = animationUtils.updateFrame(this.animationFrame, adjustedSpeed * deltaTime, animationConfig ? animationConfig.MAX_ANIMATION_FRAMES : 8);
+    // 更新动画帧（固定60fps）
+    this.animationFrame = animationUtils.updateFrame(this.animationFrame, adjustedSpeed * (1/60), animationConfig ? animationConfig.MAX_ANIMATION_FRAMES : 8);
 
     // 检查动画是否应该重置
     if (animationUtils.shouldResetAnimation(this.animationFrame, animationConfig ? animationConfig.MAX_ANIMATION_FRAMES : 8)) {
@@ -1174,11 +1181,7 @@ var CharacterManager = {
     },
 
     // 更新所有角色 - 从四叉树获取角色列表
-    updateAllCharacters: function (deltaTime) {
-        // 🔴 简化：使用固定帧时间
-        if (deltaTime === undefined) {
-            deltaTime = 1 / 60; // 固定60fps
-        }
+    updateAllCharacters: function () {
         var performanceUtils = UtilsManager.getPerformanceUtils();
 
         // 🔴 重构：直接从管理器获取角色
@@ -1199,14 +1202,14 @@ var CharacterManager = {
                 if (char.role === 1) {
                     // 主人物：使用专用更新方法
                     if (typeof char.updateMainCharacter === 'function') {
-                        char.updateMainCharacter(deltaTime);
+                        char.updateMainCharacter();
                     } else {
                         throw new Error('主人物缺少updateMainCharacter方法: ' + char.id);
                     }
                 } else {
                     // 伙伴：使用通用更新方法
                     if (typeof char.updateMovement === 'function') {
-                        char.updateMovement(deltaTime);
+                        char.updateMovement();
                     } else {
                         throw new Error('伙伴缺少updateMovement方法: ' + char.id);
                     }
@@ -1232,7 +1235,7 @@ export {CharacterManager};
 export default Character;
 
 // 主人物专用更新方法
-Character.prototype.updateMainCharacter = function (deltaTime) {
+Character.prototype.updateMainCharacter = function () {
     // 🔴 修复：首先检查血量，如果血量小于等于0，立即切换到死亡状态
     if (this.hp <= 0 && this.stateMachine.currentState !== MAIN_CHARACTER_STATES.DIE) {
         this.stateMachine.forceState(MAIN_CHARACTER_STATES.DIE);
@@ -1244,31 +1247,31 @@ Character.prototype.updateMainCharacter = function (deltaTime) {
 
     // 更新状态机
     if (this.stateMachine) {
-        this.stateMachine.update(deltaTime);
+        this.stateMachine.update();
     }
 
     // 根据当前状态执行相应行为
     switch (this.stateMachine.currentState) {
         case MAIN_CHARACTER_STATES.IDLE:
             // 待机状态：渲染待机动画
-            this.updateAnimation(deltaTime);
+            this.updateAnimation();
             break;
 
         case MAIN_CHARACTER_STATES.MOVE:
             // 移动状态：处理移动逻辑
-            this.updateMovement(deltaTime);
-            this.updateAnimation(deltaTime);
+            this.updateMovement();
+            this.updateAnimation();
             break;
 
         case MAIN_CHARACTER_STATES.ATTACK:
             // 攻击状态：处理攻击逻辑
-            this.updateAttack(deltaTime);
-            this.updateAnimation(deltaTime);
+            this.updateAttack();
+            this.updateAnimation();
             break;
 
         case MAIN_CHARACTER_STATES.DIE:
             // 死亡状态：播放死亡动画
-            this.updateAnimation(deltaTime);
+            this.updateAnimation();
             break;
 
         default:
@@ -1298,10 +1301,7 @@ Character.prototype.checkJoystickInput = function () {
         this.moveSpeed = moveSpeed;
     }
     
-    // 🔴 新增：监控移动速度变化
-    if (this._lastMoveSpeed !== undefined && this._lastMoveSpeed !== moveSpeed) {
-        console.log('🔄 角色移动速度变化:', this._lastMoveSpeed, '->', moveSpeed, '对象ID:', this.id);
-    }
+
     this._lastMoveSpeed = moveSpeed;
 
     // 检查是否超过死区
@@ -1310,6 +1310,10 @@ Character.prototype.checkJoystickInput = function () {
         // 🔴 核心：直接移动，不使用目标移动
         // 🔴 简化：直接使用每帧移动距离，无需deltaTime计算
         var moveDistance = moveSpeed; // 直接使用像素/帧
+        
+        // 🔴 新增：打印人物移动速度
+        console.log('🎮 人物移动 - 速度:', moveSpeed, '移动距离:', moveDistance, '角色ID:', this.id, '角色类型:', this.role);
+        
         var newX = this.x + direction.x * moveDistance;
         var newY = this.y + direction.y * moveDistance;
 

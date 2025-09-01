@@ -128,8 +128,6 @@ Zombie.prototype.reset = function () {
     if (!this.id) {
         this.id = Date.now() + Math.random();
     }
-
-    console.log('✅ 僵尸对象重置完成 - 移动速度:', this.moveSpeed, '动画速度:', this.animationSpeed);
 };
 
 // 设置僵尸属性
@@ -182,7 +180,7 @@ Zombie.prototype.setupProperties = function () {
 };
 
 // 统一的僵尸更新方法
-Zombie.prototype.update = function (deltaTime, characters, currentFrame = 0) {
+Zombie.prototype.update = function (characters, currentFrame = 0) {
     // 检查死亡状态
     if (this.hp <= 0) {
         if (this.state !== ZOMBIE_STATE.DIE) {
@@ -205,7 +203,7 @@ Zombie.prototype.update = function (deltaTime, characters, currentFrame = 0) {
     this._updateFrame++;
 
     // 更新动画
-    this.updateAnimation(deltaTime);
+    this.updateAnimation();
 
     // 寻找目标
     this.findTarget(characters);
@@ -213,19 +211,19 @@ Zombie.prototype.update = function (deltaTime, characters, currentFrame = 0) {
     // 执行状态行为
     switch (this.state) {
         case ZOMBIE_STATE.CHASING:
-            this.chaseTarget(deltaTime);
+            this.chaseTarget();
             break;
         case ZOMBIE_STATE.ATTACK:
-            this.attackTarget(deltaTime);
+            this.attackTarget();
             break;
         case ZOMBIE_STATE.CHASE:
-            this.moveTowards(this.targetX, this.targetY, deltaTime);
+            this.moveTowards(this.targetX, this.targetY);
             break;
         case ZOMBIE_STATE.IDLE:
-            this.idleBehavior(deltaTime);
+            this.idleBehavior();
             break;
         case ZOMBIE_STATE.DIE:
-            this.updateDead(deltaTime);
+            this.updateDead();
             break;
     }
 
@@ -241,8 +239,8 @@ Zombie.prototype.onEnterDead = function () {
 };
 
 // 更新死亡状态
-Zombie.prototype.updateDead = function (deltaTime) {
-    this.deathAnimationTime += deltaTime;
+Zombie.prototype.updateDead = function () {
+    this.deathAnimationTime += 1/60; // 固定60fps
     var gameplayConfig = window.ConfigManager ? window.ConfigManager.get('GAMEPLAY') : null;
     var deathDuration = gameplayConfig ? gameplayConfig.DEATH.ANIMATION_DURATION : 2.0;
     
@@ -291,7 +289,7 @@ Zombie.prototype.findTarget = function (characters) {
 };
 
 // 追击目标
-Zombie.prototype.chaseTarget = function (deltaTime) {
+Zombie.prototype.chaseTarget = function () {
     if (!this.isTargetValid()) {
         this.findNearestEnemy();
         if (!this.targetCharacter) {
@@ -317,11 +315,11 @@ Zombie.prototype.chaseTarget = function (deltaTime) {
         return;
     }
 
-    this.moveTowards(this.targetX, this.targetY, deltaTime);
+    this.moveTowards(this.targetX, this.targetY);
 };
 
 // 攻击目标
-Zombie.prototype.attackTarget = function (deltaTime) {
+Zombie.prototype.attackTarget = function () {
     if (!this.isTargetValid()) {
         this.findNearestEnemy();
         if (!this.targetCharacter) {
@@ -341,15 +339,13 @@ Zombie.prototype.attackTarget = function (deltaTime) {
 
     var currentTime = Date.now();
     if (currentTime - this.lastAttackTime >= this.attackCooldown) {
-        console.log('僵尸攻击目标:', this.targetCharacter.id, '伤害:', this.attack, '目标当前血量:', this.targetCharacter.hp);
         this.targetCharacter.takeDamage(this.attack);
-        console.log('攻击后目标血量:', this.targetCharacter.hp);
         this.lastAttackTime = currentTime;
     }
 };
 
 // 向目标移动
-Zombie.prototype.moveTowards = function (targetX, targetY, deltaTime) {
+Zombie.prototype.moveTowards = function (targetX, targetY) {
     var distanceToTarget = this.getDistanceTo(targetX, targetY);
     var attackJudgmentConfig = ConfigManager.get('COMBAT.ATTACK_JUDGMENT');
     var effectiveAttackRange = this.attackRange + attackJudgmentConfig.RANGE_BUFFER;
@@ -415,7 +411,7 @@ Zombie.prototype.checkCollision = function (fromX, fromY, toX, toY) {
 };
 
 // 待机行为
-Zombie.prototype.idleBehavior = function (deltaTime) {
+Zombie.prototype.idleBehavior = function () {
     // 检查是否有任何可攻击的目标
     var allTargets = this.getAllValidTargets();
     if (allTargets.length > 0) {
@@ -462,7 +458,7 @@ Zombie.prototype.idleBehavior = function (deltaTime) {
 };
 
 // 更新动画
-Zombie.prototype.updateAnimation = function (deltaTime) {
+Zombie.prototype.updateAnimation = function () {
     if (this.state === ZOMBIE_STATE.CHASE) {
         var animationConfig = ConfigManager.get('ANIMATION');
         
@@ -477,7 +473,7 @@ Zombie.prototype.updateAnimation = function (deltaTime) {
             this.animationSpeed = currentSpeed;
         }
         
-        this.animationFrame += currentSpeed * deltaTime;
+        this.animationFrame += currentSpeed * (1/60); // 固定60fps
         if (this.animationFrame >= animationConfig.MAX_ANIMATION_FRAMES) {
             this.animationFrame = 0;
         }
@@ -945,7 +941,7 @@ var ZombieManager = {
     },
 
     // 更新所有僵尸
-    updateAllZombies: function (characters, deltaTime, currentFrame = 0) {
+    updateAllZombies: function (characters, currentFrame = 0) {
         if (!Array.isArray(characters)) {
             return;
         }
@@ -965,7 +961,7 @@ var ZombieManager = {
         var activeZombies = zombies.filter(zombie => zombie && zombie.hp > 0 && zombie.state !== ZOMBIE_STATE.DIE);
 
         activeZombies.forEach(zombie => {
-            zombie.update(deltaTime, characters, currentFrame);
+            zombie.update(characters, currentFrame);
         });
 
         // 清理死亡僵尸

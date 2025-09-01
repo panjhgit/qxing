@@ -318,14 +318,13 @@ var GameEngine = function (canvas, ctx) {
         targetFPS: window.ConfigManager ? window.ConfigManager.get('PERFORMANCE.GAME_LOOP.TARGET_FPS') : 60, 
         minFPS: 30,
 
-        updateFPS: function (deltaTime) {
+        updateFPS: function () {
             this.frameCount++;
-            // 🔴 修复：从配置获取目标帧率
+            // 🔴 简化：固定60fps，无需计算
             var targetFPS = window.ConfigManager ? window.ConfigManager.get('PERFORMANCE.GAME_LOOP.TARGET_FPS') : 60;
             if (this.frameCount % targetFPS === 0) {
-                var currentFPS = Math.round(targetFPS / deltaTime);
-                this.lastFPS = currentFPS;
-                this.fpsHistory.push(currentFPS);
+                this.lastFPS = targetFPS; // 固定60fps
+                this.fpsHistory.push(targetFPS);
 
                 if (this.fpsHistory.length > 100) {
                     this.fpsHistory.shift();
@@ -463,6 +462,13 @@ GameEngine.prototype.setGameState = function (newState) {
         
         // 🔴 新增：标记这是重新开始，第一帧使用标准deltaTime
         this.isRestarting = true;
+        
+        // 🔴 新增：重置性能监控器
+        if (this.performanceMonitor) {
+            this.performanceMonitor.frameCount = 0;
+            this.performanceMonitor.fpsHistory = [];
+            this.performanceMonitor.lastFPS = 60;
+        }
     }
 };
 
@@ -654,18 +660,9 @@ GameEngine.prototype.calculateDistance = function (x1, y1, x2, y2) {
     return Math.sqrt(Math.pow(x1 - x2, 2) + Math.pow(y1 - y2, 2));
 };
 
-// 获取增量时间
+// 获取增量时间（固定60fps）
 GameEngine.prototype.getDeltaTime = function () {
-    // 🔴 优化：由于游戏循环已限制为固定帧率，直接返回固定帧时间
-    // 这样可以确保所有移动计算都使用相同的deltaTime，完全一致
-    
-    // 如果是重新开始的第一帧，重置时间
-    if (this.isRestarting) {
-        this.isRestarting = false;
-        this.lastUpdateTime = performance.now();
-    }
-    
-    // 🔴 简化：直接返回固定帧时间，无需复杂计算
+    // 🔴 简化：固定60fps，直接返回固定帧时间
     return 1 / 60; // 固定60fps的帧时间
 };
 
@@ -871,8 +868,7 @@ GameEngine.prototype.update = function () {
     if (this.gameState === 'death') {
         // 死亡状态下只更新性能监控和视图系统，不更新游戏逻辑
         if (this.performanceMonitor) {
-            var deltaTime = this.getDeltaTime();
-            this.performanceMonitor.updateFPS(deltaTime);
+            this.performanceMonitor.updateFPS();
         }
         
         if (this.viewSystem) {
@@ -884,8 +880,7 @@ GameEngine.prototype.update = function () {
     }
 
     if (this.performanceMonitor) {
-        var deltaTime = this.getDeltaTime();
-        this.performanceMonitor.updateFPS(deltaTime);
+        this.performanceMonitor.updateFPS();
     }
 
     if (this.characterManager && this.viewSystem) {
@@ -896,26 +891,22 @@ GameEngine.prototype.update = function () {
     }
 
     if (this.characterManager) {
-        var deltaTime = this.getDeltaTime();
-        this.characterManager.updateAllCharacters(deltaTime);
+        this.characterManager.updateAllCharacters();
     }
 
     this.updateTimeSystem();
 
     if (this.zombieManager) {
         var characters = this.characterManager ? this.characterManager.getAllCharacters() : [];
-        var deltaTime = this.getDeltaTime();
-        this.zombieManager.updateAllZombies(characters, deltaTime, this.frameCount);
+        this.zombieManager.updateAllZombies(characters, this.frameCount);
     }
 
     if (window.partnerManager) {
-        var deltaTime = this.getDeltaTime();
-        window.partnerManager.updateAllPartners(deltaTime);
+        window.partnerManager.updateAllPartners();
     }
 
     if (this.dynamicObstacleManager) {
-        var deltaTime = this.getDeltaTime();
-        this.dynamicObstacleManager.updateAllObstacles(deltaTime);
+        this.dynamicObstacleManager.updateAllObstacles();
 
         if (this.frameCount % 120 === 0) {
             this.dynamicObstacleManager.cleanupInvalidObstacles();

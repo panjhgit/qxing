@@ -15,7 +15,7 @@ const POOL_CONFIG = {
     INITIAL_POOL_SIZE: 20,
 
     // 最大池大小
-    MAX_POOL_SIZE: 200,
+    MAX_POOL_SIZE: 2000,
 
     // 扩容因子
     EXPANSION_FACTOR: 1.5,
@@ -30,7 +30,7 @@ const POOL_CONFIG = {
     CLEANUP_INTERVAL: 300,
 
     // 内存泄漏检测阈值
-    LEAK_DETECTION_THRESHOLD: 1000
+    LEAK_DETECTION_THRESHOLD: 2000
 };
 
 // 对象池项

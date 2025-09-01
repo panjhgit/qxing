@@ -76,7 +76,7 @@ var Partner = function (role, x, y) {
     var movementConfig = window.ConfigManager ? window.ConfigManager.get('MOVEMENT') : null;
     var partnerConfig = window.ConfigManager ? window.ConfigManager.get('PARTNER') : null; // 🔴 修复：添加partnerConfig定义
     this.isMoving = false;                  // 是否在移动
-    this.moveSpeed = movementConfig ? movementConfig.PARTNER_MOVE_SPEED : 0; // 🔴 修复：统一为0，与配置一致
+    this.moveSpeed = movementConfig ? movementConfig.PARTNER_MOVE_SPEED : 3; // 🔴 修复：使用正确的移动速度，默认为3
     this.targetX = x;                       // 目标X坐标
     this.targetY = y;                       // 目标Y坐标
     // 伙伴移动速度 - 从配置获取
@@ -257,9 +257,9 @@ Partner.prototype.onEnterInit = function (stateData) {
     this.isMoving = false;
 };
 
-Partner.prototype.onUpdateInit = function (deltaTime, stateData) {
+Partner.prototype.onUpdateInit = function (stateData) {
     // 初始状态：静止不动，渲染待机动画
-    this.updateAnimation(deltaTime);
+    this.updateAnimation();
 
     // 检查与主角的碰撞
     this.checkCollisionWithMainCharacter();
@@ -275,9 +275,9 @@ Partner.prototype.onEnterIdle = function (stateData) {
     this.isMoving = false;
 };
 
-Partner.prototype.onUpdateIdle = function (deltaTime, stateData) {
+Partner.prototype.onUpdateIdle = function (stateData) {
     // 待机状态：静止不动，渲染待机动画
-    this.updateAnimation(deltaTime);
+    this.updateAnimation();
 };
 
 Partner.prototype.onExitIdle = function (stateData) {
@@ -291,10 +291,10 @@ Partner.prototype.onEnterFollow = function (stateData) {
 
 };
 
-Partner.prototype.onUpdateFollow = function (deltaTime, stateData) {
+Partner.prototype.onUpdateFollow = function (stateData) {
     // 跟随状态：追逐主人物侧后方跟随点
-    this.updateFollowMovement(deltaTime);
-    this.updateAnimation(deltaTime);
+    this.updateFollowMovement();
+    this.updateAnimation();
 };
 
 Partner.prototype.onExitFollow = function (stateData) {
@@ -309,10 +309,10 @@ Partner.prototype.onEnterAttack = function (stateData) {
     this.findAttackTarget();
 };
 
-Partner.prototype.onUpdateAttack = function (deltaTime, stateData) {
+Partner.prototype.onUpdateAttack = function (stateData) {
     // 攻击状态：移动到攻击距离并攻击
-    this.updateAttack(deltaTime);
-    this.updateAnimation(deltaTime);
+    this.updateAttack();
+    this.updateAnimation();
 };
 
 Partner.prototype.onExitAttack = function (stateData) {
@@ -328,10 +328,10 @@ Partner.prototype.onEnterDie = function (stateData) {
     this.playDeathAnimation();
 };
 
-Partner.prototype.onUpdateDie = function (deltaTime, stateData) {
+Partner.prototype.onUpdateDie = function (stateData) {
     // 死亡状态：播放死亡动画
-    this.deathAnimationTime += deltaTime;
-    this.updateAnimation(deltaTime);
+    this.deathAnimationTime += 1/60; // 固定60fps
+    this.updateAnimation();
 
     // 死亡动画持续2秒
     if (this.deathAnimationTime >= 2.0) {
@@ -345,7 +345,7 @@ Partner.prototype.onExitDie = function (stateData) {
 
 
 // 更新跟随移动
-Partner.prototype.updateFollowMovement = function (deltaTime) {
+Partner.prototype.updateFollowMovement = function () {
     // 计算跟随点
     this.calculateFollowPoint();
 
@@ -356,8 +356,11 @@ Partner.prototype.updateFollowMovement = function (deltaTime) {
 
     if (distance > moveThreshold) { // 从配置获取移动阈值
         var angle = Math.atan2(this.followPoint.y - this.y, this.followPoint.x - this.x);
-        // 🔴 修复：使用deltaTime确保移动速度与帧率无关
-        var moveDistance = this.moveSpeed * deltaTime;
+        // 🔴 修复：由于游戏引擎已固定deltaTime为1/60，直接使用移动速度
+        var moveDistance = this.moveSpeed;
+        
+        // 🔴 新增：打印伙伴移动速度
+        console.log('👥 伙伴移动 - 速度:', this.moveSpeed, '移动距离:', moveDistance, '伙伴ID:', this.id, '伙伴类型:', this.role);
 
         var newX = this.x + Math.cos(angle) * moveDistance;
         var newY = this.y + Math.sin(angle) * moveDistance;
@@ -490,7 +493,7 @@ Partner.prototype.calculateDynamicFollowDistance = function (partnerIndex) {
 };
 
 // 更新攻击
-Partner.prototype.updateAttack = function (deltaTime) {
+Partner.prototype.updateAttack = function () {
     if (!this.attackTarget || this.attackTarget.hp <= 0) {
         this.findAttackTarget();
         return;
@@ -705,7 +708,7 @@ Partner.prototype.getDistanceTo = function (targetX, targetY) {
 };
 
 // 更新动画
-Partner.prototype.updateAnimation = function (deltaTime) {
+Partner.prototype.updateAnimation = function () {
     var animationUtils = UtilsManager.getAnimationUtils();
     var animationConfig = window.ConfigManager ? window.ConfigManager.get('ANIMATION') : null;
 
@@ -730,8 +733,8 @@ Partner.prototype.updateAnimation = function (deltaTime) {
             adjustedSpeed = baseSpeed;
     }
 
-    // 更新动画帧
-    this.animationFrame = animationUtils.updateFrame(this.animationFrame, adjustedSpeed * deltaTime, animationConfig ? animationConfig.MAX_ANIMATION_FRAMES : 8);
+    // 更新动画帧（固定60fps）
+    this.animationFrame = animationUtils.updateFrame(this.animationFrame, adjustedSpeed * (1/60), animationConfig ? animationConfig.MAX_ANIMATION_FRAMES : 8);
 };
 
 // 播放攻击动画
@@ -939,7 +942,7 @@ var PartnerManager = {
 
         // 🔴 修复：重新设置移动速度，确保从对象池复用的伙伴有正确的速度
         var movementConfig = window.ConfigManager ? window.ConfigManager.get('MOVEMENT') : null;
-        var expectedSpeed = movementConfig ? movementConfig.PARTNER_MOVE_SPEED : 0; // 🔴 修复：统一为0，与配置一致
+        var expectedSpeed = movementConfig ? movementConfig.PARTNER_MOVE_SPEED : 3; // 🔴 修复：使用正确的移动速度，默认为3
 
         partner.moveSpeed = expectedSpeed;
 
@@ -1021,7 +1024,7 @@ var PartnerManager = {
     },
 
     // 更新所有伙伴
-    updateAllPartners: function (deltaTime) {
+    updateAllPartners: function () {
         var partners = this.getAllPartners();
 
         partners.forEach(partner => {
@@ -1031,7 +1034,7 @@ var PartnerManager = {
             }
 
             if (partner.stateMachine) {
-                partner.stateMachine.update(deltaTime);
+                partner.stateMachine.update();
             }
         });
     },

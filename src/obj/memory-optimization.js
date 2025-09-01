@@ -16,7 +16,7 @@ const MEMORY_CONFIG = {
         INTERVAL: 5000, // 5秒检查一次
         WARNING_THRESHOLD: 50 * 1024 * 1024, // 50MB警告阈值
         CRITICAL_THRESHOLD: 100 * 1024 * 1024, // 100MB临界阈值
-        MAX_OBJECTS_PER_TYPE: 1000, // 每种类型最大对象数
+        MAX_OBJECTS_PER_TYPE: 2000, // 每种类型最大对象数
         CLEANUP_INTERVAL: 30000 // 30秒清理一次
     },
     
@@ -24,7 +24,7 @@ const MEMORY_CONFIG = {
     OBJECT_POOL: {
         ENABLED: true,
         INITIAL_SIZE: 20,
-        MAX_SIZE: 200,
+        MAX_SIZE: 2000,
         EXPANSION_THRESHOLD: 0.8, // 使用率80%时扩容
         SHRINK_THRESHOLD: 0.3 // 使用率30%时收缩
     },
@@ -34,15 +34,15 @@ const MEMORY_CONFIG = {
         ENABLED: true,
         FORCE_GC_INTERVAL: 60000, // 1分钟强制GC
         MEMORY_THRESHOLD: 80 * 1024 * 1024, // 80MB时强制GC
-        OBJECT_COUNT_THRESHOLD: 5000 // 对象数量超过5000时强制GC
+        OBJECT_COUNT_THRESHOLD: 10000 // 对象数量超过10000时强制GC
     },
     
     // 内存泄漏检测配置
     LEAK_DETECTION: {
         ENABLED: true,
         CHECK_INTERVAL: 10000, // 10秒检查一次
-        WARNING_THRESHOLD: 100, // 100个对象警告
-        CRITICAL_THRESHOLD: 500 // 500个对象临界
+        WARNING_THRESHOLD: 2000, // 2000个对象警告
+        CRITICAL_THRESHOLD: 4000 // 4000个对象临界
     }
 };
 

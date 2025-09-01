@@ -163,6 +163,7 @@ const GAME_CONFIG = {
         MOVING_ATTACK_INTERVAL: 0.5,    // 移动攻击间隔0.5秒 (1秒攻击2下)
 
         // 角色攻击范围配置
+        MAIN_CHARACTER_ATTACK_RANGE: 100, // 主人物攻击范围
         POLICE_ATTACK_RANGE: 100,        // 🔴 修复：警察攻击范围增加到150px
         DOCTOR_ATTACK_RANGE: 100,        // 🔴 修复：医生攻击范围增加到140px
         NURSE_ATTACK_RANGE: 100,         // 🔴 修复：护士攻击范围增加到140px
@@ -421,9 +422,9 @@ const GAME_CONFIG = {
             FRAME_TIME: 16.67,          // 🔴 新增：目标帧时间（毫秒）
         },
         
-        MAX_ZOMBIES: 100,               // 最大僵尸数量
-        MAX_CHARACTERS: 50,             // 最大人物数量
-        MAX_PARTNERS: 9999,             // 🔴 新增：最大伙伴数量（设置为9999，基本无限制）
+        MAX_ZOMBIES: 2000,              // 最大僵尸数量
+        MAX_CHARACTERS: 2000,           // 最大人物数量
+        MAX_PARTNERS: 2000,             // 最大伙伴数量
         QUADTREE_MAX_OBJECTS: 8,        // 四叉树最大对象数
         QUADTREE_MAX_DEPTH: 6,          // 四叉树最大深度
         CACHE_CLEANUP_THRESHOLD: 1000,  // 缓存清理阈值
@@ -443,7 +444,7 @@ const GAME_CONFIG = {
             DISTANCE_CALC_CACHE: true,   // 启用距离计算缓存
 
             // 内存管理
-            MAX_ACTIVE_OBJECTS: 200,     // 最大活跃对象数
+            MAX_ACTIVE_OBJECTS: 2000,    // 最大活跃对象数
             GARBAGE_COLLECTION_INTERVAL: 300, // 垃圾回收间隔（帧数）
 
             // 渲染优化

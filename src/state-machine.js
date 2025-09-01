@@ -94,8 +94,8 @@ class StateMachine {
     }
 
     // 更新状态机
-    update(deltaTime) {
-        this.stateTime += deltaTime;
+    update() {
+        this.stateTime += 1/60; // 固定60fps
 
         // 检查状态转换
         this.checkTransitions();
@@ -104,7 +104,7 @@ class StateMachine {
         if (this.behaviors.has(this.currentState)) {
             const currentBehavior = this.behaviors.get(this.currentState);
             if (currentBehavior.update) {
-                currentBehavior.update.call(this.owner, deltaTime, this.stateData);
+                currentBehavior.update.call(this.owner, this.stateData);
             }
         }
     }
