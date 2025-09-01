@@ -248,8 +248,8 @@ const GAME_CONFIG = {
     TIME_SYSTEM: {
         DAY_DURATION: 10,              // 一天的长度（秒）- 白天5秒，晚上5秒
         DAY_PHASE_DURATION: 5,         // 白天/夜晚阶段长度（秒）
-        ZOMBIES_PER_DAY: 1,           // 每天刷新的僵尸数量
-        PARTNERS_PER_DAY: 1,          // 🔴 新增：每天刷新的伙伴数量
+        ZOMBIES_PER_DAY: 5,           // 每天刷新的僵尸数量
+        PARTNERS_PER_DAY: 2,          // 🔴 新增：每天刷新的伙伴数量
         SPAWN_RANGE: {
             MIN_DISTANCE: 500,         // 僵尸生成最小距离（px）
             MAX_DISTANCE: 700          // 僵尸生成最大距离（px）

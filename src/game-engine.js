@@ -556,9 +556,27 @@ GameEngine.prototype.addSampleDynamicObstacles = function () {
     });
 };
 
+// 获取时间配置
+GameEngine.prototype.getTimeConfig = function () {
+    return window.ConfigManager ? window.ConfigManager.get('TIME_SYSTEM') : null;
+};
+
+// 计算两点间距离
+GameEngine.prototype.calculateDistance = function (x1, y1, x2, y2) {
+    return Math.sqrt(Math.pow(x1 - x2, 2) + Math.pow(y1 - y2, 2));
+};
+
+// 获取增量时间
+GameEngine.prototype.getDeltaTime = function () {
+    var currentTime = performance.now();
+    var deltaTime = (currentTime - this.lastUpdateTime) / 1000;
+    this.lastUpdateTime = currentTime;
+    return Math.min(deltaTime, 1 / 30);
+};
+
 // 更新计时系统
 GameEngine.prototype.updateTimeSystem = function () {
-    var timeConfig = window.ConfigManager ? window.ConfigManager.get('TIME_SYSTEM') : null;
+    var timeConfig = this.getTimeConfig();
     var dayDuration = timeConfig ? timeConfig.DAY_DURATION : 10;
     var dayPhaseDuration = timeConfig ? timeConfig.DAY_PHASE_DURATION : 5;
 
@@ -607,65 +625,13 @@ GameEngine.prototype.spawnOneZombiePerDay = function () {
         return;
     }
 
-    var timeConfig = window.ConfigManager ? window.ConfigManager.get('TIME_SYSTEM') : null;
+    var timeConfig = this.getTimeConfig();
     var zombiesPerDay = timeConfig ? timeConfig.ZOMBIES_PER_DAY : 10;
     var minDistance = timeConfig ? timeConfig.SPAWN_RANGE.MIN_DISTANCE : 500;
     var maxDistance = timeConfig ? timeConfig.SPAWN_RANGE.MAX_DISTANCE : 700;
 
-    this.createZombieBatchAroundPlayer(zombiesPerDay, mainChar, minDistance, maxDistance);
+    this.createEntityBatchAroundPlayer('zombie', zombiesPerDay, mainChar, minDistance, maxDistance);
     this.spawnPartnersPerDay();
-};
-
-// 分批创建僵尸
-GameEngine.prototype.createZombieBatchAroundPlayer = function (batchSize, mainChar, minDistance, maxDistance) {
-    minDistance = minDistance || 500;
-    maxDistance = maxDistance || 700;
-
-    var createdZombies = [];
-    var maxAttempts = 100;
-
-    for (var i = 0; i < batchSize; i++) {
-        var zombieCreated = false;
-        var attempts = 0;
-
-        while (!zombieCreated && attempts < maxAttempts) {
-            attempts++;
-
-            var angle = Math.random() * Math.PI * 2;
-            var distance = minDistance + Math.random() * (maxDistance - minDistance);
-
-            var zombieTypes = ['skinny', 'fat', 'fast', 'tank', 'boss'];
-            var randomType = zombieTypes[Math.floor(Math.random() * zombieTypes.length)];
-
-            var zombieX = mainChar.x + Math.cos(angle) * distance;
-            var zombieY = mainChar.y + Math.sin(angle) * distance;
-
-            if (this.isValidZombieSpawnPosition(zombieX, zombieY, mainChar, createdZombies)) {
-                var createdZombie = this.zombieManager.createZombie(randomType, zombieX, zombieY);
-
-                if (createdZombie) {
-                    createdZombies.push(createdZombie);
-                    zombieCreated = true;
-
-                    if (!createdZombie._spatialIndexId) {
-                        console.warn('GameEngine: 僵尸未添加到空间索引！');
-                    }
-                } else {
-                    console.warn('GameEngine: 僵尸创建失败');
-                }
-            } else {
-                if (attempts % 20 === 0) {
-                    angle += Math.PI / 6;
-                    distance += (Math.random() - 0.5) * 100;
-                    distance = Math.max(400, Math.min(800, distance));
-                }
-            }
-        }
-
-        if (!zombieCreated) {
-            console.warn('GameEngine: 僵尸' + (i + 1) + '无法找到有效位置，跳过创建');
-        }
-    }
 };
 
 // 每天刷新伙伴
@@ -681,85 +647,80 @@ GameEngine.prototype.spawnPartnersPerDay = function () {
         return;
     }
 
-    var timeConfig = window.ConfigManager ? window.ConfigManager.get('TIME_SYSTEM') : null;
+    var timeConfig = this.getTimeConfig();
     var partnersPerDay = timeConfig ? timeConfig.PARTNERS_PER_DAY : 2;
     var minDistance = timeConfig ? timeConfig.PARTNER_SPAWN_RANGE.MIN_DISTANCE : 200;
     var maxDistance = timeConfig ? timeConfig.PARTNER_SPAWN_RANGE.MAX_DISTANCE : 400;
 
-    this.createPartnerBatchAroundPlayer(partnersPerDay, mainChar, minDistance, maxDistance);
+    this.createEntityBatchAroundPlayer('partner', partnersPerDay, mainChar, minDistance, maxDistance);
 };
 
-// 分批创建伙伴
-GameEngine.prototype.createPartnerBatchAroundPlayer = function (batchSize, mainChar, minDistance, maxDistance) {
-    if (!window.partnerManager) {
-        console.warn('GameEngine: 伙伴管理器未初始化，无法创建伙伴批次');
+// 通用实体批次创建方法
+GameEngine.prototype.createEntityBatchAroundPlayer = function (entityType, batchSize, mainChar, minDistance, maxDistance) {
+    var manager = entityType === 'zombie' ? this.zombieManager : window.partnerManager;
+    var entityTypes = entityType === 'zombie' ? ['skinny', 'fat', 'fast', 'tank', 'boss'] : ['police', 'civilian', 'doctor', 'nurse', 'chef'];
+    var managerName = entityType === 'zombie' ? '僵尸管理器' : '伙伴管理器';
+    var entityName = entityType === 'zombie' ? '僵尸' : '伙伴';
+
+    if (!manager) {
+        console.warn('GameEngine: ' + managerName + '未初始化，无法创建' + entityName + '批次');
         return;
     }
 
-    if (!this.characterManager) {
-        console.warn('GameEngine: 角色管理器未初始化，无法获取主人物');
-        return;
-    }
-
-    if (!mainChar) {
-        console.warn('GameEngine: 主人物未找到，无法创建伙伴批次');
-        return;
-    }
-
-    var createdPartners = [];
+    var createdEntities = [];
     var maxAttempts = 100;
 
     for (var i = 0; i < batchSize; i++) {
-        var partnerCreated = false;
+        var entityCreated = false;
         var attempts = 0;
 
-        while (!partnerCreated && attempts < maxAttempts) {
+        while (!entityCreated && attempts < maxAttempts) {
             attempts++;
 
             var angle = Math.random() * Math.PI * 2;
             var distance = minDistance + Math.random() * (maxDistance - minDistance);
+            var randomType = entityTypes[Math.floor(Math.random() * entityTypes.length)];
 
-            var partnerTypes = ['police', 'civilian', 'doctor', 'nurse', 'chef'];
-            var randomType = partnerTypes[Math.floor(Math.random() * partnerTypes.length)];
+            var entityX = mainChar.x + Math.cos(angle) * distance;
+            var entityY = mainChar.y + Math.sin(angle) * distance;
 
-            var partnerX = mainChar.x + Math.cos(angle) * distance;
-            var partnerY = mainChar.y + Math.sin(angle) * distance;
+            if (this.isValidSpawnPosition(entityX, entityY, mainChar, createdEntities, entityType)) {
+                var createMethod = entityType === 'zombie' ? 'createZombie' : 'createPartner';
+                var createdEntity = manager[createMethod](randomType, entityX, entityY);
 
-            if (this.isValidPartnerSpawnPosition(partnerX, partnerY, mainChar, createdPartners)) {
-                var createdPartner = window.partnerManager.createPartner(randomType, partnerX, partnerY);
+                if (createdEntity) {
+                    createdEntities.push(createdEntity);
+                    entityCreated = true;
 
-                if (createdPartner) {
-                    createdPartners.push(createdPartner);
-                    partnerCreated = true;
-
-                    if (!createdPartner._spatialIndexId) {
-                        console.warn('GameEngine: 伙伴未添加到空间索引！');
+                    if (!createdEntity._spatialIndexId) {
+                        console.warn('GameEngine: ' + entityName + '未添加到空间索引！');
                     }
                 } else {
-                    console.warn('GameEngine: 伙伴创建失败');
+                    console.warn('GameEngine: ' + entityName + '创建失败');
                 }
             } else {
                 if (attempts % 20 === 0) {
                     angle += Math.PI / 6;
                     distance += (Math.random() - 0.5) * 100;
-                    distance = Math.max(200, Math.min(400, distance));
+                    distance = Math.max(minDistance - 100, Math.min(maxDistance + 100, distance));
                 }
             }
         }
 
-        if (!partnerCreated) {
-            console.warn('GameEngine: 伙伴' + (i + 1) + '无法找到有效位置，跳过创建');
+        if (!entityCreated) {
+            console.warn('GameEngine: ' + entityName + (i + 1) + '无法找到有效位置，跳过创建');
         }
     }
 };
 
-// 检查僵尸生成位置是否有效
-GameEngine.prototype.isValidZombieSpawnPosition = function (x, y, mainChar, existingZombies) {
-    var timeConfig = window.ConfigManager ? window.ConfigManager.get('TIME_SYSTEM') : null;
-    var minDistance = timeConfig ? timeConfig.SPAWN_RANGE.MIN_DISTANCE : 500;
-    var maxDistance = timeConfig ? timeConfig.SPAWN_RANGE.MAX_DISTANCE : 700;
+// 通用位置验证方法
+GameEngine.prototype.isValidSpawnPosition = function (x, y, mainChar, existingEntities, entityType) {
+    var timeConfig = this.getTimeConfig();
+    var configKey = entityType === 'zombie' ? 'SPAWN_RANGE' : 'PARTNER_SPAWN_RANGE';
+    var minDistance = timeConfig ? timeConfig[configKey].MIN_DISTANCE : (entityType === 'zombie' ? 500 : 200);
+    var maxDistance = timeConfig ? timeConfig[configKey].MAX_DISTANCE : (entityType === 'zombie' ? 700 : 400);
 
-    var distanceFromMain = Math.sqrt(Math.pow(x - mainChar.x, 2) + Math.pow(y - mainChar.y, 2));
+    var distanceFromMain = this.calculateDistance(x, y, mainChar.x, mainChar.y);
     if (distanceFromMain < minDistance || distanceFromMain > maxDistance) {
         return false;
     }
@@ -770,10 +731,10 @@ GameEngine.prototype.isValidZombieSpawnPosition = function (x, y, mainChar, exis
         }
     }
 
-    if (existingZombies && existingZombies.length > 0) {
-        for (var i = 0; i < existingZombies.length; i++) {
-            var existingZombie = existingZombies[i];
-            var distance = Math.sqrt(Math.pow(x - existingZombie.x, 2) + Math.pow(y - existingZombie.y, 2));
+    if (existingEntities && existingEntities.length > 0) {
+        for (var i = 0; i < existingEntities.length; i++) {
+            var existingEntity = existingEntities[i];
+            var distance = this.calculateDistance(x, y, existingEntity.x, existingEntity.y);
             if (distance < 50) {
                 return false;
             }
@@ -805,41 +766,12 @@ GameEngine.prototype.isValidZombieSpawnPosition = function (x, y, mainChar, exis
     return true;
 };
 
-// 检查伙伴生成位置是否有效
-GameEngine.prototype.isValidPartnerSpawnPosition = function (x, y, mainChar, existingPartners) {
-    var timeConfig = window.ConfigManager ? window.ConfigManager.get('TIME_SYSTEM') : null;
-    var minDistance = timeConfig ? timeConfig.PARTNER_SPAWN_RANGE.MIN_DISTANCE : 200;
-    var maxDistance = timeConfig ? timeConfig.PARTNER_SPAWN_RANGE.MAX_DISTANCE : 400;
-
-    var distance = Math.sqrt(Math.pow(x - mainChar.x, 2) + Math.pow(y - mainChar.y, 2));
-    if (distance < minDistance || distance > maxDistance) {
-        return false;
-    }
-
-    if (existingPartners && existingPartners.length > 0) {
-        for (var i = 0; i < existingPartners.length; i++) {
-            var existingPartner = existingPartners[i];
-            var partnerDistance = Math.sqrt(Math.pow(x - existingPartner.x, 2) + Math.pow(y - existingPartner.y, 2));
-            if (partnerDistance < 50) {
-                return false;
-            }
-        }
-    }
-
-    if (window.collisionSystem && window.collisionSystem.isPositionWalkable) {
-        return window.collisionSystem.isPositionWalkable(x, y);
-    }
-
-    return true;
-};
-
 // 游戏循环更新
 GameEngine.prototype.update = function () {
     this.frameCount++;
 
     if (this.performanceMonitor) {
-        var currentTime = performance.now();
-        var deltaTime = (currentTime - this.lastUpdateTime) / 1000;
+        var deltaTime = this.getDeltaTime();
         this.performanceMonitor.updateFPS(deltaTime);
     }
 
@@ -851,10 +783,7 @@ GameEngine.prototype.update = function () {
     }
 
     if (this.characterManager) {
-        var currentTime = performance.now();
-        var deltaTime = (currentTime - this.lastUpdateTime) / 1000;
-        deltaTime = Math.min(deltaTime, 1 / 30);
-
+        var deltaTime = this.getDeltaTime();
         this.characterManager.updateAllCharacters(deltaTime);
     }
 
@@ -862,26 +791,17 @@ GameEngine.prototype.update = function () {
 
     if (this.zombieManager) {
         var characters = this.characterManager ? this.characterManager.getAllCharacters() : [];
-        var currentTime = performance.now();
-        var deltaTime = (currentTime - this.lastUpdateTime) / 1000;
-        this.lastUpdateTime = currentTime;
-        deltaTime = Math.min(deltaTime, 1 / 30);
-
+        var deltaTime = this.getDeltaTime();
         this.zombieManager.updateAllZombies(characters, deltaTime, this.frameCount);
     }
 
     if (window.partnerManager) {
-        var currentTime = performance.now();
-        var deltaTime = (currentTime - this.lastUpdateTime) / 1000;
-        deltaTime = Math.min(deltaTime, 1 / 30);
+        var deltaTime = this.getDeltaTime();
         window.partnerManager.updateAllPartners(deltaTime);
-        this.lastUpdateTime = currentTime;
     }
 
     if (this.dynamicObstacleManager) {
-        var currentTime = performance.now();
-        var deltaTime = (currentTime - this.lastUpdateTime) / 1000;
-
+        var deltaTime = this.getDeltaTime();
         this.dynamicObstacleManager.updateAllObstacles(deltaTime);
 
         if (this.frameCount % 120 === 0) {
