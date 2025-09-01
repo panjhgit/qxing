@@ -77,7 +77,7 @@ const GAME_CONFIG = {
         CHARACTER_MOVE_SPEED: 4,        // ✅ 恢复：人物移动速度 (像素/帧)
         ZOMBIE_MOVE_SPEED: 2,           // ✅ 恢复：僵尸移动速度 (像素/帧)
         PARTNER_MOVE_SPEED: 4,          // ✅ 伙伴移动速度 (像素/帧)
-        
+
         // 贴着建筑物移动配置
         WALL_FOLLOWING: {
             ENABLED: true,               // 启用贴着建筑物移动
@@ -93,11 +93,11 @@ const GAME_CONFIG = {
         DEFAULT_FRAME_RATE: 0.2,        // 默认动画帧率 (每帧更新0.2)
         MAX_ANIMATION_FRAMES: 8,        // 最大动画帧数
         ANIMATION_RESET_THRESHOLD: 8,   // 动画重置阈值
-        
+
         // 角色动画速度配置
         ATTACK_ANIMATION_SPEED: 0.3,    // 攻击动画速度
         DEATH_ANIMATION_SPEED: 0.1,     // 死亡动画速度
-        
+
         // 动画状态速度倍数
         STATE_SPEED_MULTIPLIERS: {
             MOVING: 1.5,                // 移动状态动画速度倍数
@@ -105,7 +105,7 @@ const GAME_CONFIG = {
             AVOIDING: 1.8,              // 避障状态动画速度倍数
             DIE: 0.5                    // 死亡状态动画速度倍数
         },
-        
+
         // 僵尸动画速度配置
         ZOMBIE_ATTACK_ANIMATION_SPEED: 0.4,  // 僵尸攻击动画速度
         DEATH_ANIMATION_DURATION: 2.0        // 死亡动画持续时间（秒）
@@ -132,23 +132,23 @@ const GAME_CONFIG = {
         MIN_ATTACK_RANGE: 100,           // 最小攻击距离10px
         MAX_ATTACK_RANGE: 100,           // 最大攻击距离10px
         DAMAGE_REDUCTION_FACTOR: 0.8,   // 伤害衰减因子
-        
+
         // 角色基础属性配置
         DEFAULT_HP: 100,                // 默认血量100
         DEFAULT_ATTACK: 20,             // 默认攻击力20
         DEFAULT_ATTACK_INTERVAL: 0.5,   // 默认攻击间隔0.5秒 (1秒攻击2下)
         MOVING_ATTACK_INTERVAL: 0.5,    // 移动攻击间隔0.5秒 (1秒攻击2下)
-        
+
         // 角色攻击范围配置
         POLICE_ATTACK_RANGE: 150,        // 🔴 修复：警察攻击范围增加到150px
         DOCTOR_ATTACK_RANGE: 140,        // 🔴 修复：医生攻击范围增加到140px
         NURSE_ATTACK_RANGE: 140,         // 🔴 修复：护士攻击范围增加到140px
         CHEF_ATTACK_RANGE: 130,         // 🔴 修复：厨师攻击范围增加到130px
-        
+
         // 僵尸攻击配置
         ZOMBIE_ATTACK_RANGE: 80,        // 僵尸攻击范围（像素）
         ZOMBIE_ATTACK_COOLDOWN: 1500,   // 僵尸攻击冷却时间（毫秒）- 1.5秒攻击一下
-        
+
         // 攻击判定配置
         ATTACK_JUDGMENT: {
             RANGE_BUFFER: 5,            // 攻击范围缓冲（像素）- 让攻击更流畅
@@ -253,8 +253,7 @@ const GAME_CONFIG = {
         SPAWN_RANGE: {
             MIN_DISTANCE: 500,         // 僵尸生成最小距离（px）
             MAX_DISTANCE: 700          // 僵尸生成最大距离（px）
-        },
-        PARTNER_SPAWN_RANGE: {         // 🔴 新增：伙伴生成距离范围
+        }, PARTNER_SPAWN_RANGE: {         // 🔴 新增：伙伴生成距离范围
             MIN_DISTANCE: 200,         // 伙伴生成最小距离（px）
             MAX_DISTANCE: 400          // 伙伴生成最大距离（px）
         }
@@ -265,7 +264,7 @@ const GAME_CONFIG = {
         // 基础属性
         BASE_HP: 50,                    // 僵尸基础血量
         BASE_ATTACK: 1,                  // 僵尸基础攻击力
-        
+
         // 僵尸类型配置
         TYPES: {
             SKINNY: {
@@ -274,29 +273,25 @@ const GAME_CONFIG = {
                 SIZE: 32,                // 尺寸
                 COLOR: '#8B4513',        // 颜色
                 SPEED_MULTIPLIER: 1.2    // 速度倍数
-            },
-            FAT: {
+            }, FAT: {
                 HP_MULTIPLIER: 1.5,      // 血量倍数
                 ATTACK_MULTIPLIER: 1.2,  // 攻击力倍数
                 SIZE: 48,                // 尺寸
                 COLOR: '#654321',        // 颜色
                 SPEED_MULTIPLIER: 0.8    // 速度倍数
-            },
-            BOSS: {
+            }, BOSS: {
                 HP_MULTIPLIER: 3.0,      // 血量倍数
                 ATTACK_MULTIPLIER: 2.0,  // 攻击力倍数
                 SIZE: 48,                // 尺寸
                 COLOR: '#8B0000',        // 颜色
                 SPEED_MULTIPLIER: 0.9    // 速度倍数
-            },
-            FAST: {
+            }, FAST: {
                 HP_MULTIPLIER: 0.8,      // 血量倍数
                 ATTACK_MULTIPLIER: 0.8,  // 攻击力倍数
                 SIZE: 32,                // 尺寸
                 COLOR: '#228B22',        // 颜色
                 SPEED_MULTIPLIER: 1.5    // 速度倍数
-            },
-            TANK: {
+            }, TANK: {
                 HP_MULTIPLIER: 2.5,      // 血量倍数
                 ATTACK_MULTIPLIER: 1.5,  // 攻击力倍数
                 SIZE: 48,                // 尺寸
@@ -304,7 +299,7 @@ const GAME_CONFIG = {
                 SPEED_MULTIPLIER: 0.7    // 速度倍数
             }
         },
-        
+
         // 行为配置
         BEHAVIOR: {
             ACTIVATION_DISTANCE: 700,    // 🔴 修复：激活距离改为700px，确保700px范围内都追击人物
@@ -313,7 +308,7 @@ const GAME_CONFIG = {
             RANDOM_WALK_PROBABILITY: 0.1, // 随机游荡概率
             RANDOM_WALK_DISTANCE: 150    // 随机游荡距离
         },
-        
+
         // 🔴 新增：目标锁定配置
         TARGET_LOCK_DURATION: 1000,     // 目标锁定持续时间（毫秒）- 1秒
         TARGET_SWITCH_COOLDOWN: 500     // 目标切换冷却时间（毫秒）- 0.5秒
@@ -323,8 +318,7 @@ const GAME_CONFIG = {
     OBJECT_SIZES: {
         CHARACTER: {
             WIDTH: 32, HEIGHT: 48
-        }, 
-        ZOMBIE: {
+        }, ZOMBIE: {
             DEFAULT: {WIDTH: 32, HEIGHT: 32},
             SKINNY: {WIDTH: 24, HEIGHT: 24},
             FAT: {WIDTH: 32, HEIGHT: 32},
@@ -341,14 +335,17 @@ const GAME_CONFIG = {
             COUNT: 5,                    // 生成伙伴数量
             ROLES: [2, 3, 4, 5, 6],      // 伙伴职业类型数组
             REGIONS: [                    // 生成区域配置
-                {name: 'NORTH', centerX: 5000, centerY: 2000},
-                {name: 'EAST', centerX: 8000, centerY: 5000},
-                {name: 'WEST', centerX: 2000, centerY: 5000},
-                {name: 'SOUTH', centerX: 5000, centerY: 8000},
-                {name: 'CENTER', centerX: 5000, centerY: 5000}
-            ]
+                {name: 'NORTH', centerX: 5000, centerY: 2000}, {
+                    name: 'EAST',
+                    centerX: 8000,
+                    centerY: 5000
+                }, {name: 'WEST', centerX: 2000, centerY: 5000}, {
+                    name: 'SOUTH',
+                    centerX: 5000,
+                    centerY: 8000
+                }, {name: 'CENTER', centerX: 5000, centerY: 5000}]
         },
-        
+
         // 伙伴跟随配置
         FOLLOW: {
             MIN_DISTANCE: 200,           // 最小生成距离
@@ -357,7 +354,7 @@ const GAME_CONFIG = {
             FOLLOW_DISTANCE: 80,         // 跟随距离
             FOLLOW_ANGLE: Math.PI,       // 跟随角度（后方）
             MOVE_THRESHOLD: 5,           // 移动阈值
-            
+
             // 🔴 新增：伙伴跟随分散配置
             SPREAD: {
                 ANGLE_RANGE: Math.PI / 3,  // 分散角度范围（60度）
@@ -365,14 +362,14 @@ const GAME_CONFIG = {
                 DISTANCE_VARIATION: 20     // 距离变化范围（像素）
             }
         },
-        
+
         // 伙伴碰撞配置
         COLLISION: {
             DETECTION_DISTANCE: 50,      // 碰撞检测距离
             MIN_OVERLAP_DISTANCE: 30,    // 最小重叠距离
             TARGET_DISTANCE: 40          // 目标距离
         },
-        
+
         // 🔴 新增：伙伴检测范围配置
         DETECTION: {
             POLICE_RANGE: 300,           // 警察检测范围
@@ -391,14 +388,14 @@ const GAME_CONFIG = {
             DEAD_ZONE: 0.1,              // 摇杆死区
             MOVE_SPEED: 4                // 摇杆移动速度
         },
-        
+
         // 卡住检测配置
         STUCK_DETECTION: {
             MIN_MOVE_DISTANCE: 5,        // 最小移动距离
             STUCK_THRESHOLD: 30,         // 卡住阈值（帧数）
             RESET_DELAY: 0.5             // 重置延迟（秒）
         },
-        
+
         // 死亡动画配置
         DEATH: {
             ANIMATION_DURATION: 2.0,     // 死亡动画持续时间
@@ -414,30 +411,30 @@ const GAME_CONFIG = {
         QUADTREE_MAX_OBJECTS: 8,        // 四叉树最大对象数
         QUADTREE_MAX_DEPTH: 6,          // 四叉树最大深度
         CACHE_CLEANUP_THRESHOLD: 1000,  // 缓存清理阈值
-        
+
         // 性能优化配置
         OPTIMIZATION: {
             // 检测范围限制（防止性能问题）
             MAX_DETECTION_RANGE: 500,    // 最大检测范围限制
             MIN_DETECTION_RANGE: 100,    // 最小检测范围限制
-            
+
             // 更新频率控制
             ZOMBIE_UPDATE_INTERVAL: 2,   // 僵尸每2帧更新一次（减少CPU负载）
             CHARACTER_UPDATE_INTERVAL: 1, // 角色每帧更新一次
-            
+
             // 碰撞检测优化
             COLLISION_CHECK_INTERVAL: 3, // 碰撞检测每3帧检查一次
             DISTANCE_CALC_CACHE: true,   // 启用距离计算缓存
-            
+
             // 内存管理
             MAX_ACTIVE_OBJECTS: 200,     // 最大活跃对象数
             GARBAGE_COLLECTION_INTERVAL: 300, // 垃圾回收间隔（帧数）
-            
+
             // 渲染优化
             RENDER_DISTANCE: 1500,       // 渲染距离限制
             CULLING_ENABLED: true,       // 启用视锥剔除
             LOD_ENABLED: true,           // 启用细节层次
-            
+
             // 摄像机配置
             CAMERA: {
                 ZOOM: 0.7,               // 摄像机缩放比例
