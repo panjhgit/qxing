@@ -382,7 +382,12 @@ const GAME_CONFIG = {
         // 摇杆配置
         JOYSTICK: {
             DEAD_ZONE: 0.1,              // 摇杆死区
-            MOVE_SPEED: 4                // 摇杆移动速度
+            MOVE_SPEED: 4,               // 摇杆移动速度
+            DYNAMIC_POSITION: true,      // 是否使用动态位置（触摸点为中心）
+            AUTO_HIDE: false,            // 触摸结束后是否自动隐藏（改为false，让摇杆回到默认位置）
+            OUTER_RADIUS: 60,            // 外圈半径
+            INNER_RADIUS: 25,            // 内圈半径
+            TOUCH_THRESHOLD: 20          // 触摸检测阈值
         },
 
         // 卡住检测配置

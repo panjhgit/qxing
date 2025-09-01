@@ -116,18 +116,8 @@ export class UIRenderer {
         this.ctx.arc(joystick.centerX, joystick.centerY, 3, 0, Math.PI * 2);
         this.ctx.fill();
 
-        // 🔴 新增：绘制方向指示器
-        if (joystick.isActive && (joystick.joystickX !== 0 || joystick.joystickY !== 0)) {
-            this.ctx.strokeStyle = 'rgba(255, 255, 0, 0.8)';
-            this.ctx.lineWidth = 3;
-            this.ctx.beginPath();
-            this.ctx.moveTo(joystick.centerX, joystick.centerY);
-            this.ctx.lineTo(innerX, innerY);
-            this.ctx.stroke();
-            
-        }
 
-        return true;
+
         return true;
     }
 
