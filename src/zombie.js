@@ -1,11 +1,5 @@
 /**
  * 僵尸模块 - 优化版本 (zombie.js)
- *
- * 优化内容：
- * - 合并重复的属性设置逻辑
- * - 删除未使用的工具方法
- * - 简化性能优化逻辑
- * - 统一距离计算和状态管理
  */
 
 import ConfigManager from './config.js';
@@ -54,19 +48,19 @@ var Zombie = function (type, x, y) {
     this.targetY = this.y;
     this.targetCharacter = null;
     
-    // 🔴 新增：目标锁定相关属性
+    // 目标锁定相关属性
     this.targetLockTime = null;
     this.targetLockDuration = null;
 
-    // 性能相关 - 从config.js获取
+    // 性能相关
     this.isActive = false;
     var zombieBehaviorConfig = ConfigManager.get('ZOMBIE.BEHAVIOR');
     this.updateInterval = zombieBehaviorConfig.ACTIVE_UPDATE_INTERVAL;
 
-    // 战斗属性 - 从config.js获取
+    // 战斗属性
     this.lastAttackTime = 0;
     var combatConfig = ConfigManager.get('COMBAT');
-    this.attackCooldown = combatConfig.ZOMBIE_ATTACK_COOLDOWN || 500; // 从配置获取攻击冷却时间
+    this.attackCooldown = combatConfig.ZOMBIE_ATTACK_COOLDOWN || 500;
 
     // 动画属性
     var animationConfig = ConfigManager.get('ANIMATION');
@@ -75,7 +69,7 @@ var Zombie = function (type, x, y) {
     this.direction = 0;
 };
 
-// 设置僵尸属性 - 完全使用config.js中的配置
+// 设置僵尸属性
 Zombie.prototype.setupProperties = function () {
     var zombieTypeKey = ZOMBIE_CONFIGS[this.zombieType] || 'SKINNY';
 
@@ -97,20 +91,20 @@ Zombie.prototype.setupProperties = function () {
     this.color = zombieTypeConfig.COLOR;
     this.icon = '🧟‍♂️';
 
-    // 移动速度 - 从config.js获取并应用类型倍数
+    // 移动速度
     var movementConfig = ConfigManager.get('MOVEMENT');
     this.moveSpeed = movementConfig.ZOMBIE_MOVE_SPEED * zombieTypeConfig.SPEED_MULTIPLIER;
 
-    // 攻击范围 - 从config.js获取
+    // 攻击范围
     var combatConfig = ConfigManager.get('COMBAT');
     this.attackRange = combatConfig.ZOMBIE_ATTACK_RANGE;
 
-    // 检测范围 - 从config.js获取
+    // 检测范围
     var detectionConfig = ConfigManager.get('DETECTION');
     this.detectionRange = detectionConfig.ZOMBIE_DETECTION_RANGE;
     this.mainCharacterDetectionRange = detectionConfig.MAIN_CHARACTER_DETECTION;
 
-    // 🔴 修复：重置状态相关属性，避免对象池复用时的状态残留
+    // 重置状态相关属性
     this.state = ZOMBIE_STATE.IDLE;
     this.targetCharacter = null;
     this.targetX = this.x;
@@ -122,8 +116,6 @@ Zombie.prototype.setupProperties = function () {
     this.direction = 0;
     this._updateFrame = 0;
     this._destroyed = false;
-
-    // 僵尸属性设置完成
 };
 
 // 统一的僵尸更新方法
@@ -137,7 +129,7 @@ Zombie.prototype.update = function (deltaTime, characters, currentFrame = 0) {
         return false;
     }
 
-    // 🔴 修复：总是更新活性状态，不要跳过
+    // 更新活性状态
     if (characters && characters.length > 0) {
         var mainCharacter = characters.find(c => c.role === 1);
         if (mainCharacter) {
@@ -145,28 +137,12 @@ Zombie.prototype.update = function (deltaTime, characters, currentFrame = 0) {
         }
     }
 
-    // 🔴 修复：使用僵尸ID进行稳定的批次分配，而不是数组索引
+    // 更新帧计数
     if (!this._updateFrame) this._updateFrame = 0;
     this._updateFrame++;
 
-    // 总是更新动画
+    // 更新动画
     this.updateAnimation(deltaTime);
-
-    // 🔴 紧急修复：简化更新逻辑，确保僵尸能移动
-    var performanceConfig = ConfigManager.get('PERFORMANCE.OPTIMIZATION');
-    var fixedUpdateInterval = performanceConfig ? performanceConfig.ZOMBIE_UPDATE_INTERVAL : 2;
-
-    // 🔴 紧急修复：临时改为每帧都更新，确保僵尸能动
-    var shouldUpdateAI = true;
-
-    // 如果不在更新间隔，只更新动画和基础逻辑
-    if (!shouldUpdateAI) {
-        // 🔴 新增：即使不在更新间隔，也要检查目标有效性
-        if (this.targetCharacter && !this.isTargetValid()) {
-            this.findNearestEnemy();
-        }
-        return true;
-    }
 
     // 寻找目标
     this.findTarget(characters);
@@ -190,10 +166,8 @@ Zombie.prototype.update = function (deltaTime, characters, currentFrame = 0) {
             break;
     }
 
-    this.updateAnimation(deltaTime);
     return true;
 };
-
 
 // 进入死亡状态
 Zombie.prototype.onEnterDead = function () {
@@ -209,7 +183,6 @@ Zombie.prototype.updateDead = function (deltaTime) {
     var gameplayConfig = window.ConfigManager ? window.ConfigManager.get('GAMEPLAY') : null;
     var deathDuration = gameplayConfig ? gameplayConfig.DEATH.ANIMATION_DURATION : 2.0;
     
-    // 死亡动画持续配置的时间
     if (this.deathAnimationTime >= deathDuration) {
         this.destroy();
     }
@@ -217,13 +190,11 @@ Zombie.prototype.updateDead = function (deltaTime) {
 
 // 销毁僵尸
 Zombie.prototype.destroy = function () {
-    // 🔴 协调僵尸管理器：让僵尸管理器处理销毁逻辑
     if (window.zombieManager && window.zombieManager.destroyZombie) {
         window.zombieManager.destroyZombie(this);
         return;
     }
 
-    // 备用方案：直接归还到对象池
     if (window.zombieManager && window.zombieManager.objectPool) {
         if (window.zombieManager.objectPool.return(this)) {
             return;
@@ -244,7 +215,7 @@ Zombie.prototype.findTarget = function (characters) {
         var attackJudgmentConfig = ConfigManager.get('COMBAT.ATTACK_JUDGMENT');
         var effectiveAttackRange = this.attackRange + attackJudgmentConfig.RANGE_BUFFER;
 
-        if (distance <= effectiveAttackRange) { // 使用带缓冲的攻击范围
+        if (distance <= effectiveAttackRange) {
             this.state = ZOMBIE_STATE.ATTACKING;
         } else if (distance <= this.detectionRange) {
             this.state = ZOMBIE_STATE.CHASING;
@@ -270,11 +241,10 @@ Zombie.prototype.chaseTarget = function (deltaTime) {
     this.targetY = this.targetCharacter.y;
 
     var distance = this.getDistanceTo(this.targetCharacter.x, this.targetCharacter.y);
-
     var attackJudgmentConfig = ConfigManager.get('COMBAT.ATTACK_JUDGMENT');
     var effectiveAttackRange = this.attackRange + attackJudgmentConfig.RANGE_BUFFER;
 
-    if (distance <= effectiveAttackRange) { // 使用带缓冲的攻击范围
+    if (distance <= effectiveAttackRange) {
         this.state = ZOMBIE_STATE.ATTACK;
         return;
     }
@@ -301,7 +271,7 @@ Zombie.prototype.attackTarget = function (deltaTime) {
     var attackJudgmentConfig = ConfigManager.get('COMBAT.ATTACK_JUDGMENT');
     var effectiveAttackRange = this.attackRange + attackJudgmentConfig.RANGE_BUFFER;
 
-    if (distance > effectiveAttackRange) { // 使用带缓冲的攻击范围
+    if (distance > effectiveAttackRange) {
         this.state = ZOMBIE_STATE.CHASING;
         return;
     }
@@ -319,18 +289,15 @@ Zombie.prototype.moveTowards = function (targetX, targetY, deltaTime) {
     var attackJudgmentConfig = ConfigManager.get('COMBAT.ATTACK_JUDGMENT');
     var effectiveAttackRange = this.attackRange + attackJudgmentConfig.RANGE_BUFFER;
 
-    if (distanceToTarget <= effectiveAttackRange) { // 使用带缓冲的攻击范围
+    if (distanceToTarget <= effectiveAttackRange) {
         this.state = ZOMBIE_STATE.ATTACK;
         return;
     }
 
     this.direction = Math.atan2(targetY - this.y, targetX - this.x);
 
-    // 使用从config.js获取的移动速度
     var newX = this.x + Math.cos(this.direction) * this.moveSpeed;
     var newY = this.y + Math.sin(this.direction) * this.moveSpeed;
-
-    // 僵尸移动
 
     // 检查碰撞
     var finalPosition = this.checkCollision(this.x, this.y, newX, newY);
@@ -348,27 +315,23 @@ Zombie.prototype.moveTowards = function (targetX, targetY, deltaTime) {
     }
 };
 
-// 检查碰撞 - 优化版本，支持贴着建筑物移动
+// 检查碰撞
 Zombie.prototype.checkCollision = function (fromX, fromY, toX, toY) {
     if (!window.collisionSystem) {
         return {x: toX, y: toY};
     }
 
-    // 🔴 优化：使用贴着建筑物移动算法
     if (window.collisionSystem.getWallFollowingPosition) {
         var safePos = window.collisionSystem.getWallFollowingPosition(fromX, fromY, toX, toY, this.radius || 16, this.moveSpeed);
-
         if (safePos) {
             return safePos;
         }
     }
 
-    // 备用方案：直接检查目标位置是否可行走
     if (window.collisionSystem.isPositionWalkable && window.collisionSystem.isPositionWalkable(toX, toY)) {
         return {x: toX, y: toY};
     }
 
-    // 如果目标位置不可行走，返回起始位置
     return {x: fromX, y: fromY};
 };
 
@@ -394,7 +357,7 @@ Zombie.prototype.idleBehavior = function (deltaTime) {
         }
     }
 
-    // 随机游荡 - 从config.js获取配置
+    // 随机游荡
     var zombieBehaviorConfig = ConfigManager.get('ZOMBIE.BEHAVIOR');
     if (Math.random() < zombieBehaviorConfig.RANDOM_WALK_PROBABILITY) {
         this.direction = Math.random() * Math.PI * 2;
@@ -429,7 +392,6 @@ Zombie.prototype.updateAnimation = function (deltaTime) {
 Zombie.prototype.takeDamage = function (damage) {
     if (this.hp <= 0) return this.hp;
 
-    var oldState = this.state;
     this.hp -= damage;
     if (this.hp < 0) this.hp = 0;
 
@@ -443,9 +405,8 @@ Zombie.prototype.takeDamage = function (damage) {
         this.state = ZOMBIE_STATE.IDLE;
 
         var gameplayConfig = window.ConfigManager ? window.ConfigManager.get('GAMEPLAY') : null;
-        var resetDelay = gameplayConfig ? gameplayConfig.STUCK_DETECTION.RESET_DELAY * 1000 : 500; // 转换为毫秒
+        var resetDelay = gameplayConfig ? gameplayConfig.STUCK_DETECTION.RESET_DELAY * 1000 : 500;
         
-        // 延迟恢复移动
         setTimeout(() => {
             if (this.hp > 0 && this.state !== ZOMBIE_STATE.DIE) {
                 this.state = ZOMBIE_STATE.CHASE;
@@ -458,7 +419,6 @@ Zombie.prototype.takeDamage = function (damage) {
 
 // 寻找最近的敌人
 Zombie.prototype.findNearestEnemy = function () {
-    // 🔴 新增：检查目标锁定缓存
     if (this.isTargetLocked()) {
         return;
     }
@@ -472,8 +432,6 @@ Zombie.prototype.findNearestEnemy = function () {
     for (var i = 0; i < allTargets.length; i++) {
         var target = allTargets[i];
         var distance = this.getDistanceTo(target.x, target.y);
-
-        // 🔴 新增：目标优先级计算
         var priority = this.calculateTargetPriority(target, distance);
 
         if (distance <= this.detectionRange && (distance < nearestDistance || (distance === nearestDistance && priority < (nearestEnemy ? this.calculateTargetPriority(nearestEnemy, nearestDistance) : Infinity)))) {
@@ -487,23 +445,20 @@ Zombie.prototype.findNearestEnemy = function () {
         if (this.targetCharacter) {
             this.targetX = this.targetCharacter.x;
             this.targetY = this.targetCharacter.y;
-            // 🔴 新增：锁定目标
             this.lockTarget();
         }
     }
 };
 
-// 🔴 新增：获取所有有效目标（主人物 + 伙伴）
+// 获取所有有效目标
 Zombie.prototype.getAllValidTargets = function () {
     var allTargets = [];
 
-    // 添加主人物
     if (window.characterManager) {
         var mainCharacters = window.characterManager.getAllCharacters().filter(c => c.hp > 0);
         allTargets = allTargets.concat(mainCharacters);
     }
 
-    // 添加伙伴（排除INIT状态的伙伴）
     if (window.objectManager) {
         var partners = window.objectManager.getAllPartners().filter(p => 
             p.hp > 0 && 
@@ -516,33 +471,27 @@ Zombie.prototype.getAllValidTargets = function () {
     return allTargets;
 };
 
-// 🔴 新增：计算目标优先级
+// 计算目标优先级
 Zombie.prototype.calculateTargetPriority = function (target, distance) {
-    // 基础优先级：距离越近优先级越高
     var basePriority = distance;
-    
-    // 类型优先级：主人物 > 伙伴
     var typePriority = target.type === 'character' ? 0 : 100;
-    
-    // 血量优先级：血量越低优先级越高（更容易击杀）
     var healthPriority = target.hp / target.maxHp * 50;
     
     return basePriority + typePriority + healthPriority;
 };
 
-// 🔴 新增：目标锁定机制
+// 目标锁定机制
 Zombie.prototype.lockTarget = function () {
     if (!this.targetCharacter) return;
     
-    // 从配置获取锁定时间
     var zombieConfig = ConfigManager.get('ZOMBIE');
-    var lockDuration = zombieConfig ? zombieConfig.TARGET_LOCK_DURATION : 1000; // 默认1秒
+    var lockDuration = zombieConfig ? zombieConfig.TARGET_LOCK_DURATION : 1000;
     
     this.targetLockTime = Date.now();
     this.targetLockDuration = lockDuration;
 };
 
-// 🔴 新增：检查目标是否被锁定
+// 检查目标是否被锁定
 Zombie.prototype.isTargetLocked = function () {
     if (!this.targetCharacter || !this.targetLockTime) {
         return false;
@@ -551,12 +500,10 @@ Zombie.prototype.isTargetLocked = function () {
     var currentTime = Date.now();
     var lockElapsed = currentTime - this.targetLockTime;
     
-    // 如果锁定时间未到，保持当前目标
     if (lockElapsed < this.targetLockDuration) {
         return true;
     }
     
-    // 锁定时间已到，清除锁定状态
     this.targetLockTime = null;
     this.targetLockDuration = null;
     return false;
@@ -566,7 +513,6 @@ Zombie.prototype.isTargetLocked = function () {
 Zombie.prototype.isTargetValid = function () {
     if (!this.targetCharacter) return false;
 
-    // 🔴 新增：检查目标是否仍然存在
     if (!this.isTargetStillExists()) {
         this.clearTarget();
         return false;
@@ -589,17 +535,15 @@ Zombie.prototype.isTargetValid = function () {
     return true;
 };
 
-// 🔴 新增：检查目标是否仍然存在
+// 检查目标是否仍然存在
 Zombie.prototype.isTargetStillExists = function () {
     if (!this.targetCharacter) return false;
     
-    // 检查主人物
     if (this.targetCharacter.type === 'character' && window.characterManager) {
         var characters = window.characterManager.getAllCharacters();
         return characters.some(c => c.id === this.targetCharacter.id);
     }
     
-    // 检查伙伴（排除INIT状态的伙伴）
     if (this.targetCharacter.type === 'partner' && window.objectManager) {
         var partners = window.objectManager.getAllPartners();
         return partners.some(p => 
@@ -612,7 +556,7 @@ Zombie.prototype.isTargetStillExists = function () {
     return false;
 };
 
-// 🔴 新增：清除目标
+// 清除目标
 Zombie.prototype.clearTarget = function () {
     this.targetCharacter = null;
     this.targetX = this.x;
@@ -649,30 +593,23 @@ Zombie.prototype.getDistanceTo = function (targetX, targetY) {
 // 僵尸管理器
 var ZombieManager = {
     maxZombies: ConfigManager.get('PERFORMANCE.MAX_ZOMBIES'),
-
-    // 对象池引用
     objectPool: null,
 
     // 初始化对象池
     initObjectPool: function () {
         if (!window.objectPoolManager) {
-
             return;
         }
 
-        // 创建僵尸对象池
-        this.objectPool = window.objectPoolManager.createPool('zombie', // 创建函数
-            () => new Zombie('skinny', 0, 0), // 重置函数
+        this.objectPool = window.objectPoolManager.createPool('zombie',
+            () => new Zombie('skinny', 0, 0),
             (zombie) => this.resetZombie(zombie));
-
-        // 僵尸对象池初始化完成
     },
 
-    // 重置僵尸状态（对象池复用）
+    // 重置僵尸状态
     resetZombie: function (zombie) {
         if (!zombie) return;
 
-        // 重置基础属性
         zombie.hp = zombie.maxHp || 30;
         zombie.state = ZOMBIE_STATES.IDLE;
         zombie.targetX = zombie.x;
@@ -683,55 +620,40 @@ var ZombieManager = {
         zombie.lastAttackTime = 0;
         zombie.animationFrame = 0;
         zombie.direction = 0;
-        
-        // 🔴 新增：重置目标锁定相关属性
         zombie.targetLockTime = null;
         zombie.targetLockDuration = null;
 
-        // 🔴 修复：重新设置移动速度，确保从对象池复用的僵尸有正确的速度
+        // 重新设置移动速度
         var movementConfig = window.ConfigManager ? window.ConfigManager.get('MOVEMENT') : null;
         var zombieConfig = window.ConfigManager ? window.ConfigManager.get('ZOMBIE') : null;
-        var expectedSpeed = 2; // 默认基础速度
+        var expectedSpeed = 2;
 
         if (movementConfig && zombieConfig && zombieConfig.TYPES && zombie.zombieType) {
             var zombieTypeConfig = zombieConfig.TYPES[zombie.zombieType.toUpperCase()];
             if (zombieTypeConfig) {
                 expectedSpeed = movementConfig.ZOMBIE_MOVE_SPEED * zombieTypeConfig.SPEED_MULTIPLIER;
             } else {
-                expectedSpeed = movementConfig.ZOMBIE_MOVE_SPEED; // 默认速度
+                expectedSpeed = movementConfig.ZOMBIE_MOVE_SPEED;
             }
-        } else {
-            expectedSpeed = 2; // 备用默认速度
         }
 
         zombie.moveSpeed = expectedSpeed;
 
-        // 🔴 新增：验证移动速度
-        if (zombie.moveSpeed !== expectedSpeed) {
-            console.warn('⚠️ 僵尸移动速度不一致:', zombie.moveSpeed, 'vs', expectedSpeed, '类型:', zombie.zombieType);
-            zombie.moveSpeed = expectedSpeed;
-        }
-
-        // 重置性能相关
         zombie._updateFrame = 0;
         zombie._destroyed = false;
 
-        // 🔴 新增：确保僵尸ID存在且唯一
         if (!zombie.id) {
             zombie.id = Date.now() + Math.random();
         }
-
-        // 僵尸状态重置完成
     },
 
-    // 🔴 重构：创建僵尸 - 注册到对象管理器
+    // 创建僵尸
     createZombie: function (type, x, y) {
         if (!window.collisionSystem) {
             console.warn('碰撞系统未初始化');
             return null;
         }
 
-        // 🔴 重构：使用对象管理器的计数方法
         if (!window.objectManager) {
             throw new Error('对象管理器未初始化');
         }
@@ -762,46 +684,34 @@ var ZombieManager = {
 
         var zombie = null;
 
-        // 🔴 协调对象池：优先使用对象池获取对象
         if (this.objectPool) {
             zombie = this.objectPool.get();
             if (zombie) {
-                // 重新初始化僵尸属性
                 zombie.zombieType = type;
                 zombie.x = x;
                 zombie.y = y;
                 zombie.setupProperties();
-
-                // 从对象池获取僵尸
             }
         }
 
-        // 对象池不可用时，使用传统创建方式
         if (!zombie) {
             zombie = new Zombie(type, x, y);
         }
 
-        // 🔴 重构：不再添加到内部存储，只注册到对象管理器
-
-        // 🔴 协调对象管理器：注册新创建的僵尸
         if (zombie && window.objectManager) {
             window.objectManager.registerObject(zombie, 'zombie', zombie.id);
         } else {
             throw new Error('对象管理器未初始化或僵尸创建失败');
         }
 
-        // 🔴 协调四叉树：四叉树只负责空间索引，不管理对象生命周期
         if (window.collisionSystem && window.collisionSystem.addToSpatialIndex) {
             var spatialIndexResult = window.collisionSystem.addToSpatialIndex(zombie);
             if (spatialIndexResult) {
-                // 给僵尸添加空间索引ID标识
                 zombie._spatialIndexId = spatialIndexResult;
             }
         }
 
         this.initializeZombieTarget(zombie);
-
-        // 🔴 重构：不再添加到内部存储，对象管理器作为唯一数据源
 
         return zombie;
     },
@@ -821,7 +731,6 @@ var ZombieManager = {
         var minDistance = 500;
         var maxDistance = Math.min(mapWidth, mapHeight) / 2 - 1000;
 
-        // 使用碰撞系统的安全位置生成方法
         if (window.collisionSystem && window.collisionSystem.generateGameSafePosition) {
             var safePosition = window.collisionSystem.generateGameSafePosition(centerX, centerY, minDistance, maxDistance, 32, 48, true);
             if (safePosition && safePosition.success) {
@@ -829,7 +738,6 @@ var ZombieManager = {
             }
         }
 
-        // 备用方案：直接返回边缘位置
         return {x: 1000, y: 1000};
     },
 
@@ -848,13 +756,12 @@ var ZombieManager = {
             zombie.targetY = mainChar.y;
 
             var distance = Math.sqrt(Math.pow(zombie.x - mainChar.x, 2) + Math.pow(zombie.y - mainChar.y, 2));
-
             var attackJudgmentConfig = ConfigManager.get('COMBAT.ATTACK_JUDGMENT');
             var effectiveAttackRange = zombie.attackRange + attackJudgmentConfig.RANGE_BUFFER;
 
-            if (distance <= effectiveAttackRange) { // 使用带缓冲的攻击范围
+            if (distance <= effectiveAttackRange) {
                 zombie.state = ZOMBIE_STATE.ATTACKING;
-            } else if (distance <= zombie.detectionRange) { // 使用从config.js获取的检测范围
+            } else if (distance <= zombie.detectionRange) {
                 zombie.state = ZOMBIE_STATE.CHASING;
             } else {
                 zombie.state = ZOMBIE_STATES.IDLE;
@@ -878,7 +785,6 @@ var ZombieManager = {
         var zombieWidth = zombieType === 'fat' || zombieType === 'boss' ? 48 : 32;
         var zombieHeight = zombieWidth;
 
-        // 检查建筑物碰撞
         if (window.collisionSystem.isPositionWalkable && !window.collisionSystem.isPositionWalkable(x, y)) {
             var collisionConfig = ConfigManager.get('COLLISION');
             var detectionConfig = ConfigManager.get('DETECTION');
@@ -891,7 +797,6 @@ var ZombieManager = {
             }
         }
 
-        // 检查与角色距离
         if (window.characterManager && window.characterManager.getAllCharacters) {
             var characters = window.characterManager.getAllCharacters();
             var minSafeDistance = 100;
@@ -945,39 +850,29 @@ var ZombieManager = {
             return;
         }
 
-        // 🔴 核心：从内部存储获取僵尸列表
         var zombies = this.getAllZombies();
-
         var activeZombies = zombies.filter(zombie => zombie && zombie.hp > 0 && zombie.state !== ZOMBIE_STATE.DIE);
 
-        // 🔴 紧急修复：所有僵尸都更新，不再分批
-        var zombiesToUpdate = activeZombies;
-
-        var updatedCount = 0;
-        zombiesToUpdate.forEach(zombie => {
-            if (zombie.update(deltaTime, characters, currentFrame)) {
-                updatedCount++;
-            }
+        activeZombies.forEach(zombie => {
+            zombie.update(deltaTime, characters, currentFrame);
         });
 
         // 清理死亡僵尸
         var deadZombies = zombies.filter(zombie => zombie.hp <= 0 || zombie.state === ZOMBIE_STATE.DIE);
         deadZombies.forEach(zombie => {
-            // 🔴 协调对象池：优先使用对象池归还
             if (this.objectPool) {
                 if (this.objectPool.return(zombie)) {
-                    return; // 使用return而不是continue
+                    return;
                 }
             }
 
-            // 对象池不可用时，使用传统销毁方式
             if (window.collisionSystem && window.collisionSystem.destroyZombieObject) {
                 window.collisionSystem.destroyZombieObject(zombie);
             }
         });
     },
 
-    // 🔴 重构：从对象管理器获取所有僵尸 - 对象管理器作为唯一数据源
+    // 获取所有僵尸
     getAllZombies: function () {
         if (!window.objectManager) {
             throw new Error('对象管理器未初始化');
@@ -986,7 +881,7 @@ var ZombieManager = {
         return window.objectManager.getAllZombies();
     },
 
-    // 🔴 重构：从对象管理器获取批次信息
+    // 获取批次信息
     getBatchInfo: function (currentFrame) {
         var allZombies = this.getAllZombies();
         var activeZombies = allZombies.filter(zombie => zombie && zombie.hp > 0 && zombie.state !== ZOMBIE_STATE.DIE);
@@ -1001,11 +896,10 @@ var ZombieManager = {
         };
     },
 
-    // 🔴 核心：销毁僵尸 - 从内部存储移除，协调对象池和四叉树
+    // 销毁僵尸
     destroyZombie: function (zombie) {
         if (!zombie) return;
 
-        // 🔴 协调对象管理器：从对象管理器中移除
         if (window.objectManager) {
             const destroyResult = window.objectManager.destroyObject(zombie.id);
             if (!destroyResult) {
@@ -1013,21 +907,14 @@ var ZombieManager = {
             }
         }
 
-        // 🔴 协调对象池：使用对象池管理对象生命周期
         if (this.objectPool) {
-                    // 重置僵尸状态
-        zombie.hp = 0;
-        zombie.state = ZOMBIE_STATES.DIE;
-        zombie.isActive = false;
-
-            // 归还到对象池
+            zombie.hp = 0;
+            zombie.state = ZOMBIE_STATES.DIE;
+            zombie.isActive = false;
             this.objectPool.return(zombie);
         } else {
-            // 对象池不可用时，直接删除引用
             zombie.isActive = false;
         }
-
-        // 🔴 重构：对象已通过对象管理器销毁，无需从内部列表移除
     }
 };
 
