@@ -114,6 +114,6 @@ const UtilsManager = {
 
 // 导出工具类
 export {
-    MathUtils, CollisionUtils, AnimationUtils, MovementUtils, ValidationUtils, PerformanceUtils, UtilsManager
+    MathUtils, AnimationUtils, ValidationUtils, PerformanceUtils, UtilsManager
 };
 export default UtilsManager;

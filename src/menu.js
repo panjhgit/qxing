@@ -449,7 +449,7 @@ class IndependentMenuSystem {
     }
 
     /**
-     * 渲染沙盒背景
+     * 渲染背景
      */
     renderSandboxBackground() {
         this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
@@ -505,7 +505,7 @@ class IndependentMenuSystem {
         this.ctx.textBaseline = 'middle';
 
         const titleY = this.isMobile ? centerY - 80 : centerY - 120;
-        this.ctx.fillText('🧟 Q版僵尸沙盒', centerX, titleY);
+        this.ctx.fillText('🧟 末日生存', centerX, titleY);
 
         // 副标题
         this.ctx.fillStyle = '#ffeb3b';

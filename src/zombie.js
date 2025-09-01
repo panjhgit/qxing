@@ -216,7 +216,7 @@ Zombie.prototype.findTarget = function (characters) {
         var effectiveAttackRange = this.attackRange + attackJudgmentConfig.RANGE_BUFFER;
 
         if (distance <= effectiveAttackRange) {
-            this.state = ZOMBIE_STATE.ATTACKING;
+            this.state = ZOMBIE_STATE.ATTACK;
         } else if (distance <= this.detectionRange) {
             this.state = ZOMBIE_STATE.CHASING;
         } else {
@@ -278,7 +278,9 @@ Zombie.prototype.attackTarget = function (deltaTime) {
 
     var currentTime = Date.now();
     if (currentTime - this.lastAttackTime >= this.attackCooldown) {
+        console.log('僵尸攻击目标:', this.targetCharacter.id, '伤害:', this.attack, '目标当前血量:', this.targetCharacter.hp);
         this.targetCharacter.takeDamage(this.attack);
+        console.log('攻击后目标血量:', this.targetCharacter.hp);
         this.lastAttackTime = currentTime;
     }
 };
@@ -337,23 +339,28 @@ Zombie.prototype.checkCollision = function (fromX, fromY, toX, toY) {
 
 // 待机行为
 Zombie.prototype.idleBehavior = function (deltaTime) {
-    var detectionConfig = ConfigManager.get('DETECTION');
-    var mainCharacterPriorityRange = detectionConfig.SPECIAL_DETECTION.MAIN_CHARACTER_PRIORITY_RANGE;
+    // 检查是否有任何可攻击的目标
+    var allTargets = this.getAllValidTargets();
+    if (allTargets.length > 0) {
+        var nearestTarget = null;
+        var nearestDistance = Infinity;
 
-    // 检查主人物
-    if (window.characterManager && window.characterManager.getAllCharacters) {
-        var allCharacters = window.characterManager.getAllCharacters();
-        var mainCharacter = allCharacters.find(c => c.role === 1 && c.hp > 0);
-
-        if (mainCharacter) {
-            var distance = this.getDistanceTo(mainCharacter.x, mainCharacter.y);
-            if (distance <= mainCharacterPriorityRange) {
-                this.targetCharacter = mainCharacter;
-                this.targetX = mainCharacter.x;
-                this.targetY = mainCharacter.y;
-                this.state = ZOMBIE_STATE.CHASING;
-                return;
+        for (var i = 0; i < allTargets.length; i++) {
+            var target = allTargets[i];
+            var distance = this.getDistanceTo(target.x, target.y);
+            
+            if (distance <= this.detectionRange && distance < nearestDistance) {
+                nearestDistance = distance;
+                nearestTarget = target;
             }
+        }
+
+        if (nearestTarget) {
+            this.targetCharacter = nearestTarget;
+            this.targetX = nearestTarget.x;
+            this.targetY = nearestTarget.y;
+            this.state = ZOMBIE_STATE.CHASING;
+            return;
         }
     }
 
@@ -432,9 +439,9 @@ Zombie.prototype.findNearestEnemy = function () {
     for (var i = 0; i < allTargets.length; i++) {
         var target = allTargets[i];
         var distance = this.getDistanceTo(target.x, target.y);
-        var priority = this.calculateTargetPriority(target, distance);
 
-        if (distance <= this.detectionRange && (distance < nearestDistance || (distance === nearestDistance && priority < (nearestEnemy ? this.calculateTargetPriority(nearestEnemy, nearestDistance) : Infinity)))) {
+        // 简单选择距离最近的目标，不涉及优先级
+        if (distance <= this.detectionRange && distance < nearestDistance) {
             nearestDistance = distance;
             nearestEnemy = target;
         }
@@ -471,14 +478,14 @@ Zombie.prototype.getAllValidTargets = function () {
     return allTargets;
 };
 
-// 计算目标优先级
-Zombie.prototype.calculateTargetPriority = function (target, distance) {
-    var basePriority = distance;
-    var typePriority = target.type === 'character' ? 0 : 100;
-    var healthPriority = target.hp / target.maxHp * 50;
-    
-    return basePriority + typePriority + healthPriority;
-};
+// 移除优先级计算方法，不再使用
+// Zombie.prototype.calculateTargetPriority = function (target, distance) {
+//     var basePriority = distance;
+//     var typePriority = target.type === 'character' ? 0 : 100;
+//     var healthPriority = target.hp / target.maxHp * 50;
+//     
+//     return basePriority + typePriority + healthPriority;
+// };
 
 // 目标锁定机制
 Zombie.prototype.lockTarget = function () {
@@ -745,23 +752,32 @@ var ZombieManager = {
     initializeZombieTarget: function (zombie) {
         if (!zombie) return;
 
-        var mainChar = null;
-        if (window.characterManager && window.characterManager.getMainCharacter) {
-            mainChar = window.characterManager.getMainCharacter();
+        // 寻找距离最近的目标
+        var allTargets = zombie.getAllValidTargets();
+        var nearestTarget = null;
+        var nearestDistance = Infinity;
+
+        for (var i = 0; i < allTargets.length; i++) {
+            var target = allTargets[i];
+            var distance = zombie.getDistanceTo(target.x, target.y);
+            
+            if (distance <= zombie.detectionRange && distance < nearestDistance) {
+                nearestDistance = distance;
+                nearestTarget = target;
+            }
         }
 
-        if (mainChar && mainChar.hp > 0) {
-            zombie.targetCharacter = mainChar;
-            zombie.targetX = mainChar.x;
-            zombie.targetY = mainChar.y;
+        if (nearestTarget) {
+            zombie.targetCharacter = nearestTarget;
+            zombie.targetX = nearestTarget.x;
+            zombie.targetY = nearestTarget.y;
 
-            var distance = Math.sqrt(Math.pow(zombie.x - mainChar.x, 2) + Math.pow(zombie.y - mainChar.y, 2));
             var attackJudgmentConfig = ConfigManager.get('COMBAT.ATTACK_JUDGMENT');
             var effectiveAttackRange = zombie.attackRange + attackJudgmentConfig.RANGE_BUFFER;
 
-            if (distance <= effectiveAttackRange) {
-                zombie.state = ZOMBIE_STATE.ATTACKING;
-            } else if (distance <= zombie.detectionRange) {
+            if (nearestDistance <= effectiveAttackRange) {
+                zombie.state = ZOMBIE_STATE.ATTACK;
+            } else if (nearestDistance <= zombie.detectionRange) {
                 zombie.state = ZOMBIE_STATE.CHASING;
             } else {
                 zombie.state = ZOMBIE_STATES.IDLE;
