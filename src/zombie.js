@@ -69,6 +69,69 @@ var Zombie = function (type, x, y) {
     this.direction = 0;
 };
 
+// 🔴 新增：僵尸重置方法（供对象池调用）
+Zombie.prototype.reset = function () {
+    console.log('🔄 僵尸对象重置开始...');
+    
+    // 重置基础属性
+    this.hp = this.maxHp || 30;
+    this.state = ZOMBIE_STATES.IDLE;
+    this.targetX = this.x;
+    this.targetY = this.y;
+    this.targetCharacter = null;
+    this.isActive = false;
+    this.updateInterval = 1;
+    this.lastAttackTime = 0;
+    this.animationFrame = 0;
+    this.direction = 0;
+    this.targetLockTime = null;
+    this.targetLockDuration = null;
+
+    // 🔴 强制重新设置移动速度，确保从对象池复用的僵尸有正确的速度
+    var movementConfig = window.ConfigManager ? window.ConfigManager.get('MOVEMENT') : null;
+    var zombieConfig = window.ConfigManager ? window.ConfigManager.get('ZOMBIE') : null;
+    var expectedSpeed = 0;
+
+    if (movementConfig && zombieConfig && zombieConfig.TYPES && this.zombieType) {
+        var zombieTypeConfig = zombieConfig.TYPES[this.zombieType.toUpperCase()];
+        if (zombieTypeConfig) {
+            expectedSpeed = movementConfig.ZOMBIE_MOVE_SPEED * zombieTypeConfig.SPEED_MULTIPLIER;
+        } else {
+            expectedSpeed = movementConfig.ZOMBIE_MOVE_SPEED;
+        }
+    }
+
+    // 🔴 强制重置移动速度，防止累积
+    this.moveSpeed = expectedSpeed;
+
+    // 🔴 强制重置动画速度，防止动画速度累积
+    var animationConfig = window.ConfigManager ? window.ConfigManager.get('ANIMATION') : null;
+    this.animationSpeed = animationConfig ? animationConfig.DEFAULT_FRAME_RATE : 0.2;
+    this.animationFrame = 0;
+
+    // 🔴 验证移动速度，确保重置成功
+    if (this.moveSpeed !== expectedSpeed) {
+        console.warn('⚠️ 僵尸移动速度重置失败:', this.moveSpeed, 'vs', expectedSpeed);
+        this.moveSpeed = expectedSpeed;
+    }
+
+    // 🔴 验证动画速度，确保重置成功
+    var expectedAnimationSpeed = animationConfig ? animationConfig.DEFAULT_FRAME_RATE : 0.2;
+    if (this.animationSpeed !== expectedAnimationSpeed) {
+        console.warn('⚠️ 僵尸动画速度重置失败:', this.animationSpeed, 'vs', expectedAnimationSpeed);
+        this.animationSpeed = expectedAnimationSpeed;
+    }
+
+    this._updateFrame = 0;
+    this._destroyed = false;
+
+    if (!this.id) {
+        this.id = Date.now() + Math.random();
+    }
+
+    console.log('✅ 僵尸对象重置完成 - 移动速度:', this.moveSpeed, '动画速度:', this.animationSpeed);
+};
+
 // 设置僵尸属性
 Zombie.prototype.setupProperties = function () {
     var zombieTypeKey = ZOMBIE_CONFIGS[this.zombieType] || 'SKINNY';
@@ -298,8 +361,17 @@ Zombie.prototype.moveTowards = function (targetX, targetY, deltaTime) {
 
     this.direction = Math.atan2(targetY - this.y, targetX - this.x);
 
+    // 🔴 修复：确保移动速度在合理范围内，防止异常累积
+    var moveSpeed = this.moveSpeed || 0;
+    var maxSpeed = 8; // 最大移动速度限制
+    if (moveSpeed > maxSpeed) {
+        console.warn('⚠️ 僵尸移动速度异常:', moveSpeed, '已限制为:', maxSpeed);
+        moveSpeed = maxSpeed;
+        this.moveSpeed = moveSpeed;
+    }
+
     // 🔴 简化：直接使用每帧移动距离，无需deltaTime计算
-    var moveDistance = this.moveSpeed; // 直接使用像素/帧
+    var moveDistance = moveSpeed; // 直接使用像素/帧
     var newX = this.x + Math.cos(this.direction) * moveDistance;
     var newY = this.y + Math.sin(this.direction) * moveDistance;
 
@@ -393,7 +465,19 @@ Zombie.prototype.idleBehavior = function (deltaTime) {
 Zombie.prototype.updateAnimation = function (deltaTime) {
     if (this.state === ZOMBIE_STATE.CHASE) {
         var animationConfig = ConfigManager.get('ANIMATION');
-        this.animationFrame += this.animationSpeed * deltaTime;
+        
+        // 🔴 修复：确保动画速度不会累积，每次都从配置重新获取
+        var baseSpeed = animationConfig ? animationConfig.DEFAULT_FRAME_RATE : 0.2;
+        
+        // 🔴 修复：确保动画速度在合理范围内，防止异常累积
+        var maxSpeed = baseSpeed * 3; // 最大速度不超过基础速度的3倍
+        var currentSpeed = this.animationSpeed;
+        if (currentSpeed > maxSpeed) {
+            currentSpeed = maxSpeed;
+            this.animationSpeed = currentSpeed;
+        }
+        
+        this.animationFrame += currentSpeed * deltaTime;
         if (this.animationFrame >= animationConfig.MAX_ANIMATION_FRAMES) {
             this.animationFrame = 0;
         }
@@ -639,7 +723,7 @@ var ZombieManager = {
         // 重新设置移动速度
         var movementConfig = window.ConfigManager ? window.ConfigManager.get('MOVEMENT') : null;
         var zombieConfig = window.ConfigManager ? window.ConfigManager.get('ZOMBIE') : null;
-        var expectedSpeed = 2;
+        var expectedSpeed = 0;
 
         if (movementConfig && zombieConfig && zombieConfig.TYPES && zombie.zombieType) {
             var zombieTypeConfig = zombieConfig.TYPES[zombie.zombieType.toUpperCase()];

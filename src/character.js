@@ -116,7 +116,7 @@ var Character = function (role, x, y) {
     var movementConfig = window.ConfigManager ? window.ConfigManager.get('MOVEMENT') : null;
     this.isMoving = false;                  // 是否在移动
     // 🔴 修复：设置移动速度，从配置获取
-    this.moveSpeed = movementConfig ? movementConfig.CHARACTER_MOVE_SPEED : 3;
+    this.moveSpeed = movementConfig ? movementConfig.CHARACTER_MOVE_SPEED : 0;
     this.targetX = x;                       // 目标X坐标
     this.targetY = y;                       // 目标Y坐标
 
@@ -125,6 +125,38 @@ var Character = function (role, x, y) {
 
     // 初始化状态机
     this.initializeStateMachine();
+};
+
+// 🔴 新增：角色重置方法（供对象池调用）
+Character.prototype.reset = function () {
+    console.log('🔄 角色对象重置开始...');
+    
+    // 重置基础属性
+    this.hp = this.maxHp || 100;
+    this.status = STATUS.IDLE;
+    this.isMoving = false;
+    this.targetX = this.x;
+    this.targetY = this.y;
+    this.attackCooldown = 0;
+    this.attackTarget = null;
+    this.stuckTime = 0;
+    this.lastPosition = null;
+
+    // 🔴 强制重置移动速度，确保从对象池复用的角色有正确的速度
+    var movementConfig = window.ConfigManager ? window.ConfigManager.get('MOVEMENT') : null;
+    var expectedSpeed = movementConfig ? movementConfig.CHARACTER_MOVE_SPEED : 0;
+    this.moveSpeed = expectedSpeed;
+
+    // 🔴 强制重置动画速度，防止动画速度累积
+    var animationConfig = window.ConfigManager ? window.ConfigManager.get('ANIMATION') : null;
+    this.animationSpeed = animationConfig ? animationConfig.DEFAULT_FRAME_RATE : 0.2;
+    this.animationFrame = 0;
+    this.frameCount = 0;
+
+    // 🔴 重置速度监控变量
+    this._lastMoveSpeed = undefined;
+
+    console.log('✅ 角色对象重置完成 - 移动速度:', this.moveSpeed, '动画速度:', this.animationSpeed);
 };
 
 // 设置角色属性
@@ -1023,7 +1055,7 @@ var CharacterManager = {
 
         // 🔴 修复：重新设置移动速度，确保从对象池复用的角色有正确的速度
         var movementConfig = window.ConfigManager ? window.ConfigManager.get('MOVEMENT') : null;
-        var expectedSpeed = movementConfig ? movementConfig.CHARACTER_MOVE_SPEED : 3;
+        var expectedSpeed = movementConfig ? movementConfig.CHARACTER_MOVE_SPEED : 0;
 
         if (character.role === ROLE.MAIN) {
             // 主人物移动速度
@@ -1255,8 +1287,23 @@ Character.prototype.checkJoystickInput = function () {
     var gameplayConfig = window.ConfigManager ? window.ConfigManager.get('GAMEPLAY') : null;
     var deadZone = gameplayConfig ? gameplayConfig.JOYSTICK.DEAD_ZONE : 0.1;
     // 🔴 修复：使用角色的移动速度，而不是摇杆配置的速度
-    var moveSpeed = this.moveSpeed || 180;
+    var moveSpeed = this.moveSpeed || 0;
     
+    // 🔴 修复：确保移动速度在合理范围内，防止异常累积
+    var maxSpeed = 10; // 最大移动速度限制
+    if (moveSpeed > maxSpeed) {
+        console.warn('⚠️ 角色移动速度异常:', moveSpeed, '已限制为:', maxSpeed);
+        console.warn('⚠️ 速度异常来源 - 对象ID:', this.id, '角色类型:', this.role);
+        moveSpeed = maxSpeed;
+        this.moveSpeed = moveSpeed;
+    }
+    
+    // 🔴 新增：监控移动速度变化
+    if (this._lastMoveSpeed !== undefined && this._lastMoveSpeed !== moveSpeed) {
+        console.log('🔄 角色移动速度变化:', this._lastMoveSpeed, '->', moveSpeed, '对象ID:', this.id);
+    }
+    this._lastMoveSpeed = moveSpeed;
+
     // 检查是否超过死区
     if (Math.abs(direction.x) > deadZone || Math.abs(direction.y) > deadZone) {
 

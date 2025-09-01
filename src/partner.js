@@ -72,16 +72,15 @@ var Partner = function (role, x, y) {
     this.animationFrame = 0;
     this.animationSpeed = animationConfig ? animationConfig.DEFAULT_FRAME_RATE : 60;
 
-    // 移动属性
+    // 从配置获取移动属性
     var movementConfig = window.ConfigManager ? window.ConfigManager.get('MOVEMENT') : null;
-    this.isMoving = false;
-    this.targetX = x;
-    this.targetY = y;
+    var partnerConfig = window.ConfigManager ? window.ConfigManager.get('PARTNER') : null; // 🔴 修复：添加partnerConfig定义
+    this.isMoving = false;                  // 是否在移动
+    this.moveSpeed = movementConfig ? movementConfig.PARTNER_MOVE_SPEED : 0; // 🔴 修复：统一为0，与配置一致
+    this.targetX = x;                       // 目标X坐标
+    this.targetY = y;                       // 目标Y坐标
     // 伙伴移动速度 - 从配置获取
-    this.moveSpeed = movementConfig ? movementConfig.PARTNER_MOVE_SPEED : 4.5;
-
-    // 🔴 修复：从配置获取跟随距离
-    var partnerConfig = window.ConfigManager ? window.ConfigManager.get('PARTNER') : null;
+    // this.moveSpeed = movementConfig ? movementConfig.PARTNER_MOVE_SPEED : 4.5; // 从config.js获取跟随距离
     this.followDistance = partnerConfig ? partnerConfig.FOLLOW.FOLLOW_DISTANCE : 80; // 从config.js获取跟随距离
     this.followAngle = partnerConfig ? partnerConfig.FOLLOW.FOLLOW_ANGLE : Math.PI; // 从config.js获取跟随角度
     this.followPoint = {x: x, y: y};     // 跟随点
@@ -714,16 +713,18 @@ Partner.prototype.updateAnimation = function (deltaTime) {
     var baseSpeed = this.animationSpeed;
     var adjustedSpeed = baseSpeed;
 
+    // 从配置获取状态速度倍数
+    var stateSpeedMultipliers = animationConfig ? animationConfig.STATE_SPEED_MULTIPLIERS : {};
+    
     switch (this.status) {
         case PARTNER_STATE.FOLLOW:
-            adjustedSpeed = baseSpeed * 1.5;
+            adjustedSpeed = baseSpeed * (stateSpeedMultipliers.MOVING || 1.5);
             break;
         case PARTNER_STATE.ATTACK:
-            adjustedSpeed = baseSpeed * 2.0;
+            adjustedSpeed = baseSpeed * (stateSpeedMultipliers.ATTACKING || 2.0);
             break;
-
         case PARTNER_STATE.DIE:
-            adjustedSpeed = baseSpeed * 0.5;
+            adjustedSpeed = baseSpeed * (stateSpeedMultipliers.DIE || 0.5);
             break;
         default:
             adjustedSpeed = baseSpeed;
@@ -938,7 +939,7 @@ var PartnerManager = {
 
         // 🔴 修复：重新设置移动速度，确保从对象池复用的伙伴有正确的速度
         var movementConfig = window.ConfigManager ? window.ConfigManager.get('MOVEMENT') : null;
-        var expectedSpeed = movementConfig ? movementConfig.PARTNER_MOVE_SPEED : 4.5;
+        var expectedSpeed = movementConfig ? movementConfig.PARTNER_MOVE_SPEED : 0; // 🔴 修复：统一为0，与配置一致
 
         partner.moveSpeed = expectedSpeed;
 
