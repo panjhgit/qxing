@@ -510,8 +510,11 @@ Character.prototype.onUpdateDie = function (deltaTime, stateData) {
     // 死亡状态下的行为：播放死亡动画
     this.deathAnimationTime += deltaTime;
 
-    // 死亡动画持续3秒
-    if (this.deathAnimationTime >= 3.0) {
+    var gameplayConfig = window.ConfigManager ? window.ConfigManager.get('GAMEPLAY') : null;
+    var deathDuration = gameplayConfig ? gameplayConfig.DEATH.MAIN_CHARACTER_DURATION : 3.0;
+    
+    // 死亡动画持续配置的时间
+    if (this.deathAnimationTime >= deathDuration) {
         // 动画结束后立即触发环境重置
         if (typeof window.resetGame === 'function') {
             window.resetGame();
@@ -769,12 +772,16 @@ Character.prototype.isStuck = function () {
 
     var distance = Math.sqrt(Math.pow(this.x - this.lastPosition.x, 2) + Math.pow(this.y - this.lastPosition.y, 2));
 
-    // 如果移动距离小于5像素，增加卡住时间
-    if (distance < 5) {
+    var gameplayConfig = window.ConfigManager ? window.ConfigManager.get('GAMEPLAY') : null;
+    var minMoveDistance = gameplayConfig ? gameplayConfig.STUCK_DETECTION.MIN_MOVE_DISTANCE : 5;
+    var stuckThreshold = gameplayConfig ? gameplayConfig.STUCK_DETECTION.STUCK_THRESHOLD : 30;
+    
+    // 如果移动距离小于配置的最小移动距离，增加卡住时间
+    if (distance < minMoveDistance) {
         this.stuckTime = (this.stuckTime || 0) + 1;
 
-        // 如果卡住超过30帧（0.5秒），认为卡住了
-        if (this.stuckTime > 30) {
+        // 如果卡住超过配置的阈值，认为卡住了
+        if (this.stuckTime > stuckThreshold) {
             return true;
         }
     } else {
@@ -903,6 +910,9 @@ Character.prototype.updateAnimation = function (deltaTime) {
     var animationUtils = UtilsManager.getAnimationUtils();
     var animationConfig = window.ConfigManager ? window.ConfigManager.get('ANIMATION') : null;
 
+    // 从配置获取动画状态速度倍数
+    var stateSpeedMultipliers = animationConfig ? animationConfig.STATE_SPEED_MULTIPLIERS : {};
+    
     // 根据状态调整动画速度
     var baseSpeed = this.animationSpeed;
     var adjustedSpeed = baseSpeed;
@@ -910,16 +920,16 @@ Character.prototype.updateAnimation = function (deltaTime) {
     switch (this.status) {
         case STATUS.MOVING:
         case STATUS.FOLLOW:
-            adjustedSpeed = baseSpeed * 1.5; // 移动状态动画更快
+            adjustedSpeed = baseSpeed * (stateSpeedMultipliers.MOVING || 1.5); // 从配置获取移动状态倍数
             break;
         case STATUS.ATTACKING:
-            adjustedSpeed = baseSpeed * 2.0; // 攻击状态动画最快
+            adjustedSpeed = baseSpeed * (stateSpeedMultipliers.ATTACKING || 2.0); // 从配置获取攻击状态倍数
             break;
         case STATUS.AVOIDING:
-            adjustedSpeed = baseSpeed * 1.8; // 避障状态动画较快
+            adjustedSpeed = baseSpeed * (stateSpeedMultipliers.AVOIDING || 1.8); // 从配置获取避障状态倍数
             break;
         case STATUS.DIE:
-            adjustedSpeed = baseSpeed * 0.5; // 死亡状态动画较慢
+            adjustedSpeed = baseSpeed * (stateSpeedMultipliers.DIE || 0.5); // 从配置获取死亡状态倍数
             break;
         default:
             adjustedSpeed = baseSpeed; // 待机状态正常速度
@@ -1201,13 +1211,12 @@ Character.prototype.checkJoystickInput = function () {
     }
 
     var direction = this.getJoystickDirection();
-    var deadZone = 0.1;
-
+    var gameplayConfig = window.ConfigManager ? window.ConfigManager.get('GAMEPLAY') : null;
+    var deadZone = gameplayConfig ? gameplayConfig.JOYSTICK.DEAD_ZONE : 0.1;
+    var moveSpeed = gameplayConfig ? gameplayConfig.JOYSTICK.MOVE_SPEED : 4;
+    
     // 检查是否超过死区
     if (Math.abs(direction.x) > deadZone || Math.abs(direction.y) > deadZone) {
-        // 从config.js获取移动速度
-        var movementConfig = window.ConfigManager ? window.ConfigManager.get('MOVEMENT') : null;
-        var moveSpeed = movementConfig ? movementConfig.CHARACTER_MOVE_SPEED : 4; // 默认4px/帧
 
         // 🔴 核心：直接移动，不使用目标移动
         var newX = this.x + direction.x * moveSpeed;

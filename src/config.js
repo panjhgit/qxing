@@ -98,6 +98,14 @@ const GAME_CONFIG = {
         ATTACK_ANIMATION_SPEED: 0.3,    // 攻击动画速度
         DEATH_ANIMATION_SPEED: 0.1,     // 死亡动画速度
         
+        // 动画状态速度倍数
+        STATE_SPEED_MULTIPLIERS: {
+            MOVING: 1.5,                // 移动状态动画速度倍数
+            ATTACKING: 2.0,             // 攻击状态动画速度倍数
+            AVOIDING: 1.8,              // 避障状态动画速度倍数
+            DIE: 0.5                    // 死亡状态动画速度倍数
+        },
+        
         // 僵尸动画速度配置
         ZOMBIE_ATTACK_ANIMATION_SPEED: 0.4,  // 僵尸攻击动画速度
         DEATH_ANIMATION_DURATION: 2.0        // 死亡动画持续时间（秒）
@@ -311,13 +319,69 @@ const GAME_CONFIG = {
     OBJECT_SIZES: {
         CHARACTER: {
             WIDTH: 32, HEIGHT: 48
-        }, ZOMBIE: {
+        }, 
+        ZOMBIE: {
             DEFAULT: {WIDTH: 32, HEIGHT: 32},
             SKINNY: {WIDTH: 24, HEIGHT: 24},
             FAT: {WIDTH: 32, HEIGHT: 32},
             BOSS: {WIDTH: 48, HEIGHT: 48},
             FAST: {WIDTH: 20, HEIGHT: 20},
             TANK: {WIDTH: 40, HEIGHT: 40}
+        }
+    },
+
+    // 伙伴系统配置
+    PARTNER: {
+        // 伙伴生成配置
+        SPAWN: {
+            COUNT: 5,                    // 生成伙伴数量
+            ROLES: [2, 3, 4, 5, 6],      // 伙伴职业类型数组
+            REGIONS: [                    // 生成区域配置
+                {name: 'NORTH', centerX: 5000, centerY: 2000},
+                {name: 'EAST', centerX: 8000, centerY: 5000},
+                {name: 'WEST', centerX: 2000, centerY: 5000},
+                {name: 'SOUTH', centerX: 5000, centerY: 8000},
+                {name: 'CENTER', centerX: 5000, centerY: 5000}
+            ]
+        },
+        
+        // 伙伴跟随配置
+        FOLLOW: {
+            MIN_DISTANCE: 200,           // 最小生成距离
+            MAX_DISTANCE: 800,           // 最大生成距离
+            SAFE_RADIUS: 16,             // 安全半径
+            FOLLOW_DISTANCE: 80,         // 跟随距离
+            FOLLOW_ANGLE: Math.PI,       // 跟随角度（后方）
+            MOVE_THRESHOLD: 5            // 移动阈值
+        },
+        
+        // 伙伴碰撞配置
+        COLLISION: {
+            DETECTION_DISTANCE: 50,      // 碰撞检测距离
+            MIN_OVERLAP_DISTANCE: 30,    // 最小重叠距离
+            TARGET_DISTANCE: 40          // 目标距离
+        }
+    },
+
+    // 游戏机制配置
+    GAMEPLAY: {
+        // 摇杆配置
+        JOYSTICK: {
+            DEAD_ZONE: 0.1,              // 摇杆死区
+            MOVE_SPEED: 4                // 摇杆移动速度
+        },
+        
+        // 卡住检测配置
+        STUCK_DETECTION: {
+            MIN_MOVE_DISTANCE: 5,        // 最小移动距离
+            STUCK_THRESHOLD: 30,         // 卡住阈值（帧数）
+            RESET_DELAY: 0.5             // 重置延迟（秒）
+        },
+        
+        // 死亡动画配置
+        DEATH: {
+            ANIMATION_DURATION: 2.0,     // 死亡动画持续时间
+            MAIN_CHARACTER_DURATION: 3.0 // 主人物死亡动画持续时间
         }
     },
 

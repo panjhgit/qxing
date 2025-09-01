@@ -89,9 +89,9 @@ var Partner = function (role, x, y) {
     this.moveSpeed = movementConfig ? movementConfig.PARTNER_MOVE_SPEED : 4.5;
 
     // 🔴 修复：从配置获取跟随距离
-    var combatConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT') : null;
-    this.followDistance = combatConfig ? combatConfig.MIN_ATTACK_RANGE : 80; // 从config.js获取跟随距离，默认80px
-    this.followAngle = Math.PI;          // 跟随角度（后方）
+    var partnerConfig = window.ConfigManager ? window.ConfigManager.get('PARTNER') : null;
+    this.followDistance = partnerConfig ? partnerConfig.FOLLOW.FOLLOW_DISTANCE : 80; // 从config.js获取跟随距离
+    this.followAngle = partnerConfig ? partnerConfig.FOLLOW.FOLLOW_ANGLE : Math.PI; // 从config.js获取跟随角度
     this.followPoint = {x: x, y: y};     // 跟随点
     this.lastMainCharPosition = {x: 0, y: 0}; // 主人物上次位置
 
@@ -361,8 +361,10 @@ Partner.prototype.updateFollowMovement = function (deltaTime) {
 
     // 移动到跟随点
     var distance = this.getDistanceTo(this.followPoint.x, this.followPoint.y);
+    var partnerConfig = window.ConfigManager ? window.ConfigManager.get('PARTNER') : null;
+    var moveThreshold = partnerConfig ? partnerConfig.FOLLOW.MOVE_THRESHOLD : 5;
 
-    if (distance > 5) { // 距离跟随点超过5px才移动
+    if (distance > moveThreshold) { // 从配置获取移动阈值
         var angle = Math.atan2(this.followPoint.y - this.y, this.followPoint.x - this.x);
         var moveDistance = this.moveSpeed; // 🔴 修复：直接使用每帧的像素数，不使用deltaTime
 
@@ -564,8 +566,11 @@ Partner.prototype.checkCollisionWithMainCharacter = function () {
     var mathUtils = UtilsManager.getMathUtils();
     var distance = mathUtils.distance(this.x, this.y, mainChar.x, mainChar.y);
 
-    // 🔴 修复：增加碰撞检测距离到50px，确保能检测到碰撞
-    if (distance <= 50) {
+    var partnerConfig = window.ConfigManager ? window.ConfigManager.get('PARTNER') : null;
+    var detectionDistance = partnerConfig ? partnerConfig.COLLISION.DETECTION_DISTANCE : 50;
+    
+    // 🔴 修复：从配置获取碰撞检测距离
+    if (distance <= detectionDistance) {
         // 🔴 新增：碰撞后的特殊处理逻辑
         this.handleCollisionWithMainCharacter(distance);
     }
@@ -760,10 +765,13 @@ Partner.prototype.adjustPositionToAvoidOverlap = function () {
     var mathUtils = UtilsManager.getMathUtils();
     var distance = mathUtils.distance(this.x, this.y, mainChar.x, mainChar.y);
 
-    if (distance < 30) {
+    var partnerConfig = window.ConfigManager ? window.ConfigManager.get('PARTNER') : null;
+    var minOverlapDistance = partnerConfig ? partnerConfig.COLLISION.MIN_OVERLAP_DISTANCE : 30;
+    var targetDistance = partnerConfig ? partnerConfig.COLLISION.TARGET_DISTANCE : 40;
+    
+    if (distance < minOverlapDistance) {
         // 计算远离主角的方向
         var angle = Math.atan2(this.y - mainChar.y, this.x - mainChar.x);
-        var targetDistance = 40; // 目标距离40px
 
         // 计算新位置
         var newX = mainChar.x + Math.cos(angle) * targetDistance;
@@ -1003,9 +1011,10 @@ var PartnerManager = {
             return;
         }
 
-        // 伙伴职业类型
-        var partnerRoles = [PARTNER_ROLE.POLICE, PARTNER_ROLE.CIVILIAN, PARTNER_ROLE.DOCTOR, PARTNER_ROLE.NURSE, PARTNER_ROLE.CHEF]; // 警察、平民、医生、护士、厨师
-        var partnerCount = 5; // 生成5个伙伴
+        // 从配置获取伙伴生成信息
+        var partnerConfig = window.ConfigManager ? window.ConfigManager.get('PARTNER') : null;
+        var partnerRoles = partnerConfig ? partnerConfig.SPAWN.ROLES : [PARTNER_ROLE.POLICE, PARTNER_ROLE.CIVILIAN, PARTNER_ROLE.DOCTOR, PARTNER_ROLE.NURSE, PARTNER_ROLE.CHEF];
+        var partnerCount = partnerConfig ? partnerConfig.SPAWN.COUNT : 5;
 
         for (var i = 0; i < partnerCount; i++) {
             // 随机选择职业
@@ -1014,38 +1023,22 @@ var PartnerManager = {
             // 生成安全位置
             var safePosition = null;
             if (window.collisionSystem && window.collisionSystem.generateGameSafePosition) {
-                // 在地图不同区域生成伙伴
-                var centerX, centerY;
-                switch (i) {
-                    case 0: // 北部区域
-                        centerX = 5000;
-                        centerY = 2000;
-                        break;
-                    case 1: // 东部区域
-                        centerX = 8000;
-                        centerY = 5000;
-                        break;
-                    case 2: // 西部区域
-                        centerX = 2000;
-                        centerY = 5000;
-                        break;
-                    case 3: // 南部区域
-                        centerX = 5000;
-                        centerY = 8000;
-                        break;
-                    case 4: // 中心区域
-                        centerX = 5000;
-                        centerY = 5000;
-                        break;
-                    default:
-                        centerX = 5000;
-                        centerY = 5000;
-                }
+                // 从配置获取生成区域
+                var partnerConfig = window.ConfigManager ? window.ConfigManager.get('PARTNER') : null;
+                var regions = partnerConfig ? partnerConfig.SPAWN.REGIONS : [];
+                var region = regions[i] || {centerX: 5000, centerY: 5000};
+                var centerX = region.centerX;
+                var centerY = region.centerY;
 
+                var partnerConfig = window.ConfigManager ? window.ConfigManager.get('PARTNER') : null;
+                var minDistance = partnerConfig ? partnerConfig.FOLLOW.MIN_DISTANCE : 200;
+                var maxDistance = partnerConfig ? partnerConfig.FOLLOW.MAX_DISTANCE : 800;
+                var safeRadius = partnerConfig ? partnerConfig.FOLLOW.SAFE_RADIUS : 16;
+                
                 safePosition = window.collisionSystem.generateGameSafePosition(centerX, centerY,  // 中心位置
-                    200, 800,          // 最小距离200，最大距离800
+                    minDistance, maxDistance,          // 从配置获取距离范围
                     32, 48,            // 伙伴尺寸
-                    16                 // 安全半径
+                    safeRadius         // 从配置获取安全半径
                 );
 
                 if (!safePosition || !safePosition.success) {

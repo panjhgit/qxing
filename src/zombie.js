@@ -201,7 +201,11 @@ Zombie.prototype.onEnterDead = function () {
 // 更新死亡状态
 Zombie.prototype.updateDead = function (deltaTime) {
     this.deathAnimationTime += deltaTime;
-    if (this.deathAnimationTime >= this.deathAnimationDuration) {
+    var gameplayConfig = window.ConfigManager ? window.ConfigManager.get('GAMEPLAY') : null;
+    var deathDuration = gameplayConfig ? gameplayConfig.DEATH.ANIMATION_DURATION : 2.0;
+    
+    // 死亡动画持续配置的时间
+    if (this.deathAnimationTime >= deathDuration) {
         this.destroy();
     }
 };
@@ -433,12 +437,15 @@ Zombie.prototype.takeDamage = function (damage) {
     if (this.state === ZOMBIE_STATE.WALKING || this.state === ZOMBIE_STATE.CHASING) {
         this.state = ZOMBIE_STATE.IDLE;
 
+        var gameplayConfig = window.ConfigManager ? window.ConfigManager.get('GAMEPLAY') : null;
+        var resetDelay = gameplayConfig ? gameplayConfig.STUCK_DETECTION.RESET_DELAY * 1000 : 500; // 转换为毫秒
+        
         // 延迟恢复移动
         setTimeout(() => {
             if (this.hp > 0 && this.state !== ZOMBIE_STATE.DEAD) {
                 this.state = ZOMBIE_STATE.CHASING;
             }
-        }, 500);
+        }, resetDelay);
     }
 
     return this.hp;
