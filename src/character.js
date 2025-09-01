@@ -14,7 +14,12 @@ import StateMachine, {MAIN_CHARACTER_STATES, PARTNER_STATES} from './state-machi
 
 // 角色枚举
 const ROLE = {
-    MAIN: 1      // 主人物
+    MAIN: 1,      // 主人物
+    POLICE: 2,    // 警察
+    CIVILIAN: 3,  // 平民
+    DOCTOR: 4,    // 医生
+    NURSE: 5,     // 护士
+    CHEF: 6       // 厨师
 };
 
 // 角色ID枚举

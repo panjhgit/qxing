@@ -14,6 +14,8 @@ import objectManager from './src/obj/object-manager.js';
 import objectHealthChecker from './src/obj/health-checker.js';
 import ConfigManager from './src/config.js';
 
+
+
 // 全局变量声明
 let systemInfo = tt.getSystemInfoSync();
 let canvas = tt.createCanvas(), ctx = canvas.getContext('2d');

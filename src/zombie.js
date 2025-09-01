@@ -40,7 +40,8 @@ const ZOMBIE_CONFIGS = {
 // 基础僵尸类
 var Zombie = function(type, x, y) {
     // 验证参数
-    if (!Object.values(ZOMBIE_TYPE).includes(type)) {
+    var validTypes = [ZOMBIE_TYPE.SKINNY, ZOMBIE_TYPE.FAT, ZOMBIE_TYPE.BOSS, ZOMBIE_TYPE.FAST, ZOMBIE_TYPE.TANK];
+    if (!validTypes.includes(type)) {
         type = ZOMBIE_TYPE.SKINNY;
     }
     
