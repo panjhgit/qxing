@@ -36,41 +36,38 @@ class StateMachine {
         this.previousState = null;    // 前一个状态
         this.stateTime = 0;           // 当前状态持续时间
         this.stateData = {};          // 状态相关数据
-        
+
         // 状态转换表
         this.transitions = new Map();
-        
+
         // 状态行为表
         this.behaviors = new Map();
-        
+
         // 初始化状态
         this.enterState(initialState);
     }
-    
+
     // 添加状态转换规则
     addTransition(fromState, toState, condition) {
         if (!this.transitions.has(fromState)) {
             this.transitions.set(fromState, []);
         }
         this.transitions.get(fromState).push({
-            toState: toState,
-            condition: condition
+            toState: toState, condition: condition
         });
     }
-    
+
     // 添加状态行为
     addBehavior(state, enterBehavior, updateBehavior, exitBehavior) {
         this.behaviors.set(state, {
-            enter: enterBehavior,
-            update: updateBehavior,
-            exit: exitBehavior
+            enter: enterBehavior, update: updateBehavior, exit: exitBehavior
         });
     }
-    
+
     // 进入状态
     enterState(newState) {
         if (this.currentState === newState) return;
-        
+
         // 退出当前状态
         if (this.currentState && this.behaviors.has(this.currentState)) {
             const currentBehavior = this.behaviors.get(this.currentState);
@@ -78,13 +75,13 @@ class StateMachine {
                 currentBehavior.exit.call(this.owner, this.stateData);
             }
         }
-        
+
         // 记录状态转换
         this.previousState = this.currentState;
         this.currentState = newState;
         this.stateTime = 0;
         this.stateData = {};
-        
+
         // 进入新状态
         if (this.behaviors.has(newState)) {
             const newBehavior = this.behaviors.get(newState);
@@ -92,17 +89,17 @@ class StateMachine {
                 newBehavior.enter.call(this.owner, this.stateData);
             }
         }
-        
+
         // 状态转换完成
     }
-    
+
     // 更新状态机
     update(deltaTime) {
         this.stateTime += deltaTime;
-        
+
         // 检查状态转换
         this.checkTransitions();
-        
+
         // 更新当前状态
         if (this.behaviors.has(this.currentState)) {
             const currentBehavior = this.behaviors.get(this.currentState);
@@ -111,16 +108,16 @@ class StateMachine {
             }
         }
     }
-    
+
     // 检查状态转换条件
     checkTransitions() {
         if (!this.transitions.has(this.currentState)) return;
-        
+
         // 🔴 修复：只对主人物应用移动状态限制，伙伴不受此限制
         if (this.currentState === 'MOVE' && this.owner.hasJoystickInput && this.owner.hasJoystickInput() && this.owner.role === 1) {
             return; // 只有主人物在移动状态且有摇杆输入时，不允许状态转换
         }
-        
+
         const possibleTransitions = this.transitions.get(this.currentState);
         for (const transition of possibleTransitions) {
             if (transition.condition.call(this.owner, this.stateData)) {
@@ -129,25 +126,22 @@ class StateMachine {
             }
         }
     }
-    
+
     // 强制切换状态（用于特殊情况）
     forceState(newState) {
         this.enterState(newState);
     }
-    
+
 
     // 检查是否在指定状态
     isInState(state) {
         return this.currentState === state;
     }
-    
+
 }
 
 // 导出
-export { 
-    StateMachine, 
-    MAIN_CHARACTER_STATES, 
-    PARTNER_STATES, 
-    ZOMBIE_STATES 
+export {
+    StateMachine, MAIN_CHARACTER_STATES, PARTNER_STATES, ZOMBIE_STATES
 };
 export default StateMachine;

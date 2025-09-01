@@ -36,10 +36,8 @@ const PARTNER_STATE = {
     IDLE: 'IDLE',           // 待机
     FOLLOW: 'FOLLOW',       // 跟随
     ATTACK: 'ATTACK',       // 攻击
-
     DIE: 'DIE'              // 死亡
 };
-
 
 
 // 伙伴类
@@ -67,7 +65,7 @@ var Partner = function (role, x, y) {
     this.status = PARTNER_STATE.INIT;
     this.type = 'partner';
     this.isInitialState = true; // 初始状态为灰色
-    
+
     // 🔴 修复：设置伙伴ID
     this.id = 'partner_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
 
@@ -101,7 +99,6 @@ var Partner = function (role, x, y) {
     this.attackTarget = null;
     this.attackCooldown = 0;
     this.lastAttackTime = 0;
-
 
 
     // 设置职业属性
@@ -194,13 +191,13 @@ Partner.prototype.initializeStateMachine = function () {
 Partner.prototype.setupPartnerStateMachine = function () {
     const sm = this.stateMachine;
 
-          // INIT -> FOLLOW: 主人物靠近配置距离
-      sm.addTransition(PARTNER_STATE.INIT, PARTNER_STATE.FOLLOW, () => {
-          // 从配置获取伙伴激活距离
-          var detectionConfig = window.ConfigManager ? window.ConfigManager.get('DETECTION') : null;
-          var activationDistance = detectionConfig ? detectionConfig.SAFE_SPAWN_DISTANCE : 100;
-          return this.isMainCharacterNearby(activationDistance);
-      });
+    // INIT -> FOLLOW: 主人物靠近配置距离
+    sm.addTransition(PARTNER_STATE.INIT, PARTNER_STATE.FOLLOW, () => {
+        // 从配置获取伙伴激活距离
+        var detectionConfig = window.ConfigManager ? window.ConfigManager.get('DETECTION') : null;
+        var activationDistance = detectionConfig ? detectionConfig.SAFE_SPAWN_DISTANCE : 100;
+        return this.isMainCharacterNearby(activationDistance);
+    });
 
     // INIT -> DIE: 血量归零
     sm.addTransition(PARTNER_STATE.INIT, PARTNER_STATE.DIE, () => {
@@ -233,7 +230,6 @@ Partner.prototype.setupPartnerStateMachine = function () {
     });
 
 
-
     // FOLLOW -> DIE: 血量归零
     sm.addTransition(PARTNER_STATE.FOLLOW, PARTNER_STATE.DIE, () => {
         return this.hp <= 0;
@@ -255,7 +251,6 @@ Partner.prototype.setupPartnerStateMachine = function () {
     });
 
 
-
     // 添加状态行为
     sm.addBehavior(PARTNER_STATE.INIT, this.onEnterInit.bind(this), this.onUpdateInit.bind(this), this.onExitInit.bind(this));
     sm.addBehavior(PARTNER_STATE.IDLE, this.onEnterIdle.bind(this), this.onUpdateIdle.bind(this), this.onExitIdle.bind(this));
@@ -265,7 +260,6 @@ Partner.prototype.setupPartnerStateMachine = function () {
     sm.addBehavior(PARTNER_STATE.DIE, this.onEnterDie.bind(this), this.onUpdateDie.bind(this), this.onExitDie.bind(this));
 };
 
-// ==================== 状态行为方法 ====================
 
 // INIT状态
 Partner.prototype.onEnterInit = function (stateData) {
@@ -276,7 +270,7 @@ Partner.prototype.onEnterInit = function (stateData) {
 Partner.prototype.onUpdateInit = function (deltaTime, stateData) {
     // 初始状态：静止不动，渲染待机动画
     this.updateAnimation(deltaTime);
-    
+
     // 检查与主角的碰撞
     this.checkCollisionWithMainCharacter();
 };
@@ -336,7 +330,6 @@ Partner.prototype.onExitAttack = function (stateData) {
 };
 
 
-
 // DIE状态
 Partner.prototype.onEnterDie = function (stateData) {
     this.status = PARTNER_STATE.DIE;
@@ -360,7 +353,6 @@ Partner.prototype.onExitDie = function (stateData) {
     // 退出死亡状态
 };
 
-// ==================== 核心逻辑方法 ====================
 
 // 更新跟随移动
 Partner.prototype.updateFollowMovement = function (deltaTime) {
@@ -418,7 +410,7 @@ Partner.prototype.calculateFollowPoint = function () {
     // 记录主人物位置
     this.lastMainCharPosition.x = mainChar.x;
     this.lastMainCharPosition.y = mainChar.y;
-    
+
 
 };
 
@@ -432,12 +424,12 @@ Partner.prototype.updateAttack = function (deltaTime) {
     var distance = this.getDistanceTo(this.attackTarget.x, this.attackTarget.y);
 
     // 🔴 修复：从配置获取攻击范围
-    var attackJudgmentConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT.ATTACK_JUDGMENT') : { RANGE_BUFFER: 5 };
+    var attackJudgmentConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT.ATTACK_JUDGMENT') : {RANGE_BUFFER: 5};
     var effectiveAttackRange = this.attackRange + attackJudgmentConfig.RANGE_BUFFER;
     if (distance <= effectiveAttackRange) { // 使用配置的攻击范围
         // 在攻击范围内，执行攻击
         this.attackCooldown += deltaTime;
-        
+
         // 🔴 修复：从配置获取攻击间隔
         var combatConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT') : null;
         var attackInterval = combatConfig ? combatConfig.DEFAULT_ATTACK_INTERVAL : 0.5; // 从配置获取攻击间隔
@@ -488,10 +480,10 @@ Partner.prototype.findAttackTarget = function () {
 Partner.prototype.moveToAttackRange = function () {
     if (!this.attackTarget || this.attackTarget.hp <= 0) return;
 
-          var distance = this.getDistanceTo(this.attackTarget.x, this.attackTarget.y);
-      var attackJudgmentConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT.ATTACK_JUDGMENT') : { RANGE_BUFFER: 5 };
-      var effectiveAttackRange = this.attackRange + attackJudgmentConfig.RANGE_BUFFER; // 有效攻击范围（攻击范围加上缓冲）
-      var targetDistance = this.attackRange; // 目标距离等于基础攻击范围（不使用缓冲）
+    var distance = this.getDistanceTo(this.attackTarget.x, this.attackTarget.y);
+    var attackJudgmentConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT.ATTACK_JUDGMENT') : {RANGE_BUFFER: 5};
+    var effectiveAttackRange = this.attackRange + attackJudgmentConfig.RANGE_BUFFER; // 有效攻击范围（攻击范围加上缓冲）
+    var targetDistance = this.attackRange; // 目标距离等于基础攻击范围（不使用缓冲）
 
     if (distance > targetDistance) {
         var angle = Math.atan2(this.attackTarget.y - this.y, this.attackTarget.x - this.x);
@@ -522,11 +514,6 @@ Partner.prototype.performAttack = function () {
     this.playAttackAnimation();
 };
 
-
-
-
-
-// ==================== 辅助方法 ====================
 
 // 检查碰撞
 Partner.prototype.checkCollision = function (fromX, fromY, toX, toY) {
@@ -576,7 +563,7 @@ Partner.prototype.checkCollisionWithMainCharacter = function () {
 
     var mathUtils = UtilsManager.getMathUtils();
     var distance = mathUtils.distance(this.x, this.y, mainChar.x, mainChar.y);
-    
+
     // 🔴 修复：增加碰撞检测距离到50px，确保能检测到碰撞
     if (distance <= 50) {
         // 🔴 新增：碰撞后的特殊处理逻辑
@@ -620,9 +607,6 @@ Partner.prototype.hasZombieInRange = function (range) {
         return distance <= range;
     });
 };
-
-
-
 
 
 // 计算距离
@@ -682,10 +666,6 @@ Partner.prototype.playDeathAnimation = function () {
     this.animationSpeed = animationConfig ? (animationConfig.DEATH_ANIMATION_SPEED || 0.1) : 0.1;
 };
 
-// 缓动函数
-Partner.prototype.easeInOutQuad = function (t) {
-    return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
-};
 
 // 受到伤害
 Partner.prototype.takeDamage = function (damage) {
@@ -698,14 +678,14 @@ Partner.prototype.takeDamage = function (damage) {
 
     this.hp -= damage;
     if (this.hp < 0) this.hp = 0;
-    
+
     // 🔴 修复：受到伤害后立即检查血量，如果血量归零则触发死亡
     if (this.hp <= 0) {
         if (this.stateMachine && this.stateMachine.currentState !== PARTNER_STATE.DIE) {
             this.stateMachine.forceState(PARTNER_STATE.DIE);
         }
     }
-    
+
     return this.hp;
 };
 
@@ -737,22 +717,22 @@ Partner.prototype.getHeadColor = function () {
 Partner.prototype.handleCollisionWithMainCharacter = function (distance) {
     // 确保伙伴已加入对象管理模块
     this.ensureRegisteredInObjectManager();
-    
+
     // 如果距离太近（小于30px），强制调整位置避免重叠
     if (distance < 30) {
         this.adjustPositionToAvoidOverlap();
     }
-    
+
     // 🔴 核心：如果还在INIT状态，强制转换为跟随状态
     if (this.status === PARTNER_STATE.INIT) {
         if (this.stateMachine) {
             this.stateMachine.forceState(PARTNER_STATE.FOLLOW);
         }
     }
-    
+
     // 更新跟随点，确保跟随逻辑正确
     this.calculateFollowPoint();
-    
+
     // 标记伙伴为活跃状态
     this.isActive = true;
     this.isInitialState = false;
@@ -763,7 +743,7 @@ Partner.prototype.ensureRegisteredInObjectManager = function () {
     if (!window.objectManager) {
         return;
     }
-    
+
     // 检查是否已经注册
     var existingPartner = window.objectManager.getObject(this.id);
     if (!existingPartner) {
@@ -776,19 +756,19 @@ Partner.prototype.ensureRegisteredInObjectManager = function () {
 Partner.prototype.adjustPositionToAvoidOverlap = function () {
     var mainChar = this.getMainCharacter();
     if (!mainChar) return;
-    
+
     var mathUtils = UtilsManager.getMathUtils();
     var distance = mathUtils.distance(this.x, this.y, mainChar.x, mainChar.y);
-    
+
     if (distance < 30) {
         // 计算远离主角的方向
         var angle = Math.atan2(this.y - mainChar.y, this.x - mainChar.x);
         var targetDistance = 40; // 目标距离40px
-        
+
         // 计算新位置
         var newX = mainChar.x + Math.cos(angle) * targetDistance;
         var newY = mainChar.y + Math.sin(angle) * targetDistance;
-        
+
         // 检查新位置是否可行走
         if (window.collisionSystem && window.collisionSystem.isPositionWalkable) {
             if (window.collisionSystem.isPositionWalkable(newX, newY)) {
@@ -805,7 +785,7 @@ Partner.prototype.debugFollowStatus = function () {
     if (!mainChar) {
         return;
     }
-    
+
     var distance = this.getDistanceTo(mainChar.x, mainChar.y);
     // 从配置获取伙伴激活距离
     var detectionConfig = window.ConfigManager ? window.ConfigManager.get('DETECTION') : null;
@@ -813,7 +793,7 @@ Partner.prototype.debugFollowStatus = function () {
     var isNearby = this.isMainCharacterNearby(activationDistance);
     var isMoving = this.isMainCharacterMoving();
     var followDistance = this.getDistanceTo(this.followPoint.x, this.followPoint.y);
-    
+
     // 调试信息已移除
 };
 
@@ -826,33 +806,29 @@ Partner.prototype.forceFollow = function () {
 
 // 伙伴管理器
 var PartnerManager = {
-    partners: [], 
-    maxPartners: 9999, // 🔴 修改：直接设置为9999，移除伙伴数量限制
-    
+    partners: [], maxPartners: 9999, // 🔴 修改：直接设置为9999，移除伙伴数量限制
+
     // 对象池引用
     objectPool: null,
 
     // 初始化对象池
-    initObjectPool: function() {
+    initObjectPool: function () {
         if (!window.objectPoolManager) {
             return;
         }
-        
+
         // 创建伙伴对象池
-        this.objectPool = window.objectPoolManager.createPool('partner', 
-            // 创建函数
-            () => new Partner(PARTNER_ROLE.CIVILIAN, 0, 0),
-            // 重置函数
-            (partner) => this.resetPartner(partner)
-        );
-        
+        this.objectPool = window.objectPoolManager.createPool('partner', // 创建函数
+            () => new Partner(PARTNER_ROLE.CIVILIAN, 0, 0), // 重置函数
+            (partner) => this.resetPartner(partner));
+
         // 伙伴对象池初始化完成
     },
-    
+
     // 重置伙伴状态（对象池复用）
-    resetPartner: function(partner) {
+    resetPartner: function (partner) {
         if (!partner) return;
-        
+
         // 重置基础属性
         partner.hp = partner.maxHp || 50;
         partner.status = PARTNER_STATE.IDLE;
@@ -863,28 +839,28 @@ var PartnerManager = {
         partner.attackTarget = null;
         partner.stuckTime = 0;
         partner.lastPosition = null;
-        
+
         // 🔴 修复：重新设置移动速度，确保从对象池复用的伙伴有正确的速度
         var movementConfig = window.ConfigManager ? window.ConfigManager.get('MOVEMENT') : null;
         var expectedSpeed = movementConfig ? movementConfig.PARTNER_MOVE_SPEED : 4.5;
-        
+
         partner.moveSpeed = expectedSpeed;
-        
+
         // 🔴 新增：验证移动速度
         if (partner.moveSpeed !== expectedSpeed) {
             console.warn('⚠️ 伙伴移动速度不一致:', partner.moveSpeed, 'vs', expectedSpeed, '角色:', partner.role);
             partner.moveSpeed = expectedSpeed;
         }
-        
+
         // 重置状态机
         if (partner.stateMachine) {
             partner.stateMachine.forceState(PARTNER_STATE.IDLE);
         }
-        
+
         // 重置动画
         partner.animationFrame = 0;
         partner.frameCount = 0;
-        
+
         // 伙伴状态重置完成
     },
 
@@ -894,7 +870,7 @@ var PartnerManager = {
             console.warn('❌ 对象管理器未初始化');
             return null;
         }
-        
+
         var currentPartnerCount = window.objectManager.getObjectCount('partner');
         if (currentPartnerCount >= this.maxPartners) {
             console.warn('达到最大伙伴数量限制:', currentPartnerCount, '/', this.maxPartners);
@@ -902,7 +878,7 @@ var PartnerManager = {
         }
 
         var partner = null;
-        
+
         // 优先使用对象池
         if (this.objectPool) {
             partner = this.objectPool.get();
@@ -913,24 +889,24 @@ var PartnerManager = {
                 partner.y = y;
                 partner.setupRoleProperties();
                 partner.initializeStateMachine();
-                
+
                 // 从对象池获取伙伴
             }
         }
-        
+
         // 对象池不可用时，使用传统创建方式
         if (!partner) {
             partner = new Partner(role, x, y);
             // 传统方式创建伙伴
         }
-        
+
         // 🔴 协调对象管理器：注册新创建的伙伴
         if (partner && window.objectManager) {
             window.objectManager.registerObject(partner, 'partner', partner.id);
         } else {
             throw new Error('对象管理器未初始化或伙伴创建失败');
         }
-        
+
         // 🔴 重构：不再添加到内部存储，对象管理器作为唯一数据源
         return partner;
     },
@@ -941,7 +917,7 @@ var PartnerManager = {
             console.warn('❌ 对象管理器未初始化');
             return [];
         }
-        
+
         return window.objectManager.getAllPartners();
     },
 
@@ -954,7 +930,7 @@ var PartnerManager = {
             if (partner.hp <= 0 && partner.stateMachine.currentState !== PARTNER_STATE.DIE) {
                 partner.stateMachine.forceState(PARTNER_STATE.DIE);
             }
-            
+
             if (partner.stateMachine) {
                 partner.stateMachine.update(deltaTime);
             }
@@ -964,9 +940,9 @@ var PartnerManager = {
     // 销毁伙伴
     destroyPartner: function (partner) {
         if (!partner) return;
-        
+
         // 销毁伙伴
-        
+
         // 🔴 协调对象管理器：从对象管理器中移除
         if (window.objectManager) {
             const destroyResult = window.objectManager.destroyObject(partner.id);
@@ -974,21 +950,21 @@ var PartnerManager = {
                 console.warn('⚠️ 伙伴从对象管理器移除失败:', partner.id);
             }
         }
-        
+
         // 🔴 协调对象池：使用对象池管理对象生命周期
         if (this.objectPool) {
             // 重置伙伴状态
             partner.hp = 0;
             partner.status = PARTNER_STATE.DIE;
             partner.isActive = false;
-            
+
             // 归还到对象池
             this.objectPool.return(partner);
         } else {
             // 对象池不可用时，直接删除引用
             partner.isActive = false;
         }
-        
+
         // 🔴 重构：对象已通过对象管理器销毁，无需从内部列表移除
     },
 
@@ -998,19 +974,19 @@ var PartnerManager = {
         if (partners.length === 0) {
             return;
         }
-        
+
         var mainChar = window.characterManager ? window.characterManager.getMainCharacter() : null;
         if (!mainChar) {
             return;
         }
-        
+
         // 测试每个伙伴
         partners.forEach((partner, index) => {
             // 调用调试方法
             if (partner.debugFollowStatus) {
                 partner.debugFollowStatus();
             }
-            
+
             // 如果伙伴在INIT状态，尝试强制跟随
             if (partner.status === PARTNER_STATE.INIT) {
                 if (partner.forceFollow) {
@@ -1026,72 +1002,68 @@ var PartnerManager = {
             console.warn('❌ 对象管理器未初始化');
             return;
         }
-            
-            // 伙伴职业类型
-            var partnerRoles = [PARTNER_ROLE.POLICE, PARTNER_ROLE.CIVILIAN, PARTNER_ROLE.DOCTOR, PARTNER_ROLE.NURSE, PARTNER_ROLE.CHEF]; // 警察、平民、医生、护士、厨师
-            var partnerCount = 5; // 生成5个伙伴
-            
-            for (var i = 0; i < partnerCount; i++) {
-                // 随机选择职业
-                var role = partnerRoles[Math.floor(Math.random() * partnerRoles.length)];
-                
-                // 生成安全位置
-                var safePosition = null;
-                if (window.collisionSystem && window.collisionSystem.generateGameSafePosition) {
-                    // 在地图不同区域生成伙伴
-                    var centerX, centerY;
-                    switch (i) {
-                        case 0: // 北部区域
-                            centerX = 5000;
-                            centerY = 2000;
-                            break;
-                        case 1: // 东部区域
-                            centerX = 8000;
-                            centerY = 5000;
-                            break;
-                        case 2: // 西部区域
-                            centerX = 2000;
-                            centerY = 5000;
-                            break;
-                        case 3: // 南部区域
-                            centerX = 5000;
-                            centerY = 8000;
-                            break;
-                        case 4: // 中心区域
-                            centerX = 5000;
-                            centerY = 5000;
-                            break;
-                        default:
-                            centerX = 5000;
-                            centerY = 5000;
-                    }
-                    
-                    safePosition = window.collisionSystem.generateGameSafePosition(
-                        centerX, centerY,  // 中心位置
-                        200, 800,          // 最小距离200，最大距离800
-                        32, 48,            // 伙伴尺寸
-                        16                 // 安全半径
-                    );
-                    
-                    if (!safePosition || !safePosition.success) {
-                        throw new Error(`伙伴${i+1}安全位置生成失败`);
-                    }
-                } else {
-                    // 备用位置
-                    var centerX = 5000 + (i - 2) * 1000;
-                    var centerY = 5000 + (i - 2) * 1000;
-                    safePosition = {x: centerX, y: centerY, success: true};
+
+        // 伙伴职业类型
+        var partnerRoles = [PARTNER_ROLE.POLICE, PARTNER_ROLE.CIVILIAN, PARTNER_ROLE.DOCTOR, PARTNER_ROLE.NURSE, PARTNER_ROLE.CHEF]; // 警察、平民、医生、护士、厨师
+        var partnerCount = 5; // 生成5个伙伴
+
+        for (var i = 0; i < partnerCount; i++) {
+            // 随机选择职业
+            var role = partnerRoles[Math.floor(Math.random() * partnerRoles.length)];
+
+            // 生成安全位置
+            var safePosition = null;
+            if (window.collisionSystem && window.collisionSystem.generateGameSafePosition) {
+                // 在地图不同区域生成伙伴
+                var centerX, centerY;
+                switch (i) {
+                    case 0: // 北部区域
+                        centerX = 5000;
+                        centerY = 2000;
+                        break;
+                    case 1: // 东部区域
+                        centerX = 8000;
+                        centerY = 5000;
+                        break;
+                    case 2: // 西部区域
+                        centerX = 2000;
+                        centerY = 5000;
+                        break;
+                    case 3: // 南部区域
+                        centerX = 5000;
+                        centerY = 8000;
+                        break;
+                    case 4: // 中心区域
+                        centerX = 5000;
+                        centerY = 5000;
+                        break;
+                    default:
+                        centerX = 5000;
+                        centerY = 5000;
                 }
-                
-                // 创建伙伴
-                var partner = this.createPartner(role, safePosition.x, safePosition.y);
-                if (!partner) {
-                    console.warn(`❌ 伙伴${i+1}创建失败`);
+
+                safePosition = window.collisionSystem.generateGameSafePosition(centerX, centerY,  // 中心位置
+                    200, 800,          // 最小距离200，最大距离800
+                    32, 48,            // 伙伴尺寸
+                    16                 // 安全半径
+                );
+
+                if (!safePosition || !safePosition.success) {
+                    throw new Error(`伙伴${i + 1}安全位置生成失败`);
                 }
+            } else {
+                // 备用位置
+                var centerX = 5000 + (i - 2) * 1000;
+                var centerY = 5000 + (i - 2) * 1000;
+                safePosition = {x: centerX, y: centerY, success: true};
             }
-            
-            var partners = this.getAllPartners();
-            
+
+            // 创建伙伴
+            var partner = this.createPartner(role, safePosition.x, safePosition.y);
+            if (!partner) {
+                console.warn(`❌ 伙伴${i + 1}创建失败`);
+            }
+        }
 
     }
 };

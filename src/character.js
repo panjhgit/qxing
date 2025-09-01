@@ -222,7 +222,7 @@ Character.prototype.setupMainCharacterStateMachine = function () {
 
     sm.addTransition(MAIN_CHARACTER_STATES.IDLE, MAIN_CHARACTER_STATES.ATTACK, () => {
         // 攻击范围内有僵尸且无摇杆输入
-        var attackJudgmentConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT.ATTACK_JUDGMENT') : { RANGE_BUFFER: 5 };
+        var attackJudgmentConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT.ATTACK_JUDGMENT') : {RANGE_BUFFER: 5};
         var effectiveAttackRange = this.attackRange + attackJudgmentConfig.RANGE_BUFFER;
         return !this.hasJoystickInput() && this.hasZombieInRange(effectiveAttackRange);
     });
@@ -230,7 +230,7 @@ Character.prototype.setupMainCharacterStateMachine = function () {
     // 移动状态：摇杆输入消失时才退出
     sm.addTransition(MAIN_CHARACTER_STATES.MOVE, MAIN_CHARACTER_STATES.IDLE, () => {
         // 🔴 修复：从配置获取检测范围
-        var attackJudgmentConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT.ATTACK_JUDGMENT') : { RANGE_BUFFER: 5 };
+        var attackJudgmentConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT.ATTACK_JUDGMENT') : {RANGE_BUFFER: 5};
         var effectiveAttackRange = this.attackRange + attackJudgmentConfig.RANGE_BUFFER;
         return !this.hasJoystickInput() && !this.hasZombieInRange(effectiveAttackRange);
     });
@@ -246,12 +246,12 @@ Character.prototype.setupMainCharacterStateMachine = function () {
         return this.hasJoystickInput();
     });
 
-          sm.addTransition(MAIN_CHARACTER_STATES.ATTACK, MAIN_CHARACTER_STATES.IDLE, () => {
-          // 无僵尸或僵尸超出范围，且无摇杆输入
-          var attackJudgmentConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT.ATTACK_JUDGMENT') : { RANGE_BUFFER: 5 };
-          var effectiveAttackRange = this.attackRange + attackJudgmentConfig.RANGE_BUFFER;
-          return !this.hasJoystickInput() && !this.hasZombieInRange(effectiveAttackRange);
-      });
+    sm.addTransition(MAIN_CHARACTER_STATES.ATTACK, MAIN_CHARACTER_STATES.IDLE, () => {
+        // 无僵尸或僵尸超出范围，且无摇杆输入
+        var attackJudgmentConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT.ATTACK_JUDGMENT') : {RANGE_BUFFER: 5};
+        var effectiveAttackRange = this.attackRange + attackJudgmentConfig.RANGE_BUFFER;
+        return !this.hasJoystickInput() && !this.hasZombieInRange(effectiveAttackRange);
+    });
 
     // 添加死亡状态转换（所有状态都可以进入死亡）
     sm.addTransition(MAIN_CHARACTER_STATES.IDLE, MAIN_CHARACTER_STATES.DIE, () => {
@@ -292,13 +292,13 @@ Character.prototype.setupMainCharacterStateMachine = function () {
 Character.prototype.setupPartnerStateMachine = function () {
     const sm = this.stateMachine;
 
-          // 简化的伙伴状态机：只保留必要的状态
-      sm.addTransition(PARTNER_STATES.INIT, PARTNER_STATES.FOLLOW, () => {
-          // 从配置获取伙伴激活距离
-          var detectionConfig = window.ConfigManager ? window.ConfigManager.get('DETECTION') : null;
-          var activationDistance = detectionConfig ? detectionConfig.SAFE_SPAWN_DISTANCE : 100;
-          return this.isMainCharacterNearby(activationDistance);
-      });
+    // 简化的伙伴状态机：只保留必要的状态
+    sm.addTransition(PARTNER_STATES.INIT, PARTNER_STATES.FOLLOW, () => {
+        // 从配置获取伙伴激活距离
+        var detectionConfig = window.ConfigManager ? window.ConfigManager.get('DETECTION') : null;
+        var activationDistance = detectionConfig ? detectionConfig.SAFE_SPAWN_DISTANCE : 100;
+        return this.isMainCharacterNearby(activationDistance);
+    });
 
     sm.addTransition(PARTNER_STATES.FOLLOW, PARTNER_STATES.IDLE, () => {
         return !this.isMainCharacterMoving();
@@ -344,14 +344,14 @@ Character.prototype.takeDamage = function (damage) {
 
     this.hp -= damage;
     if (this.hp < 0) this.hp = 0;
-    
+
     // 🔴 修复：受到伤害后立即检查血量，如果血量归零则触发死亡
     if (this.hp <= 0 && this.role === 1) { // 主人物
         if (this.stateMachine && this.stateMachine.currentState !== MAIN_CHARACTER_STATES.DIE) {
             this.stateMachine.forceState(MAIN_CHARACTER_STATES.DIE);
         }
     }
-    
+
     return this.hp;
 };
 
@@ -428,7 +428,7 @@ Character.prototype.onUpdateIdle = function (deltaTime, stateData) {
     this.updateAnimation(deltaTime);
 
     // 检查是否有僵尸需要攻击
-    var attackJudgmentConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT.ATTACK_JUDGMENT') : { RANGE_BUFFER: 5 };
+    var attackJudgmentConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT.ATTACK_JUDGMENT') : {RANGE_BUFFER: 5};
     var effectiveAttackRange = this.attackRange + attackJudgmentConfig.RANGE_BUFFER;
     if (this.hasZombieInRange(effectiveAttackRange)) {
         // 主人物在待机状态检测到僵尸，准备攻击
@@ -453,7 +453,7 @@ Character.prototype.onEnterMove = function (stateData) {
 Character.prototype.onUpdateMove = function (deltaTime, stateData) {
     // 移动状态下的行为：只处理移动逻辑，不进行攻击
     this.updateMovement(deltaTime);
-    
+
     // 移动时不允许自动攻击，保持移动优先级
     // 只有在停止移动且无摇杆输入时才会进入攻击状态
 };
@@ -542,7 +542,7 @@ Character.prototype.updateAttack = function (deltaTime) {
 
     // 检查攻击冷却
     this.attackCooldown += deltaTime;
-    
+
     // 🔴 修复：从配置获取攻击间隔
     var combatConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT') : null;
     var attackInterval = combatConfig ? combatConfig.DEFAULT_ATTACK_INTERVAL : 0.5; // 从配置获取攻击间隔
@@ -591,7 +591,7 @@ Character.prototype.findAttackTarget = function () {
     var mathUtils = UtilsManager.getMathUtils();
     var closestZombie = null;
     var closestDistance = Infinity;
-    var attackJudgmentConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT.ATTACK_JUDGMENT') : { RANGE_BUFFER: 5 };
+    var attackJudgmentConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT.ATTACK_JUDGMENT') : {RANGE_BUFFER: 5};
     var effectiveAttackRange = this.attackRange + attackJudgmentConfig.RANGE_BUFFER;
 
     // 寻找最近的僵尸
@@ -631,7 +631,7 @@ Character.prototype.isAttackTargetValid = function () {
     // 检查目标是否在攻击范围内
     var mathUtils = UtilsManager.getMathUtils();
     var distance = mathUtils.distance(this.x, this.y, this.attackTarget.x, this.attackTarget.y);
-    var attackJudgmentConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT.ATTACK_JUDGMENT') : { RANGE_BUFFER: 5 };
+    var attackJudgmentConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT.ATTACK_JUDGMENT') : {RANGE_BUFFER: 5};
     var effectiveAttackRange = this.attackRange + attackJudgmentConfig.RANGE_BUFFER;
 
     if (distance > effectiveAttackRange) { // 使用带缓冲的攻击范围
@@ -650,10 +650,10 @@ Character.prototype.moveToAttackRange = function () {
     if (this.hasJoystickInput()) return;
 
     var mathUtils = UtilsManager.getMathUtils();
-          var distance = mathUtils.distance(this.x, this.y, this.attackTarget.x, this.attackTarget.y);
-      var attackJudgmentConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT.ATTACK_JUDGMENT') : { RANGE_BUFFER: 5 };
-      var effectiveAttackRange = this.attackRange + attackJudgmentConfig.RANGE_BUFFER; // 有效攻击范围（攻击范围加上缓冲）
-      var targetDistance = this.attackRange; // 目标距离等于基础攻击范围（不使用缓冲）
+    var distance = mathUtils.distance(this.x, this.y, this.attackTarget.x, this.attackTarget.y);
+    var attackJudgmentConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT.ATTACK_JUDGMENT') : {RANGE_BUFFER: 5};
+    var effectiveAttackRange = this.attackRange + attackJudgmentConfig.RANGE_BUFFER; // 有效攻击范围（攻击范围加上缓冲）
+    var targetDistance = this.attackRange; // 目标距离等于基础攻击范围（不使用缓冲）
 
     if (distance > targetDistance) {
         var angle = mathUtils.angle(this.x, this.y, this.attackTarget.x, this.attackTarget.y);
@@ -744,7 +744,7 @@ Character.prototype.addGameOverClickListener = function (canvas) {
     };
 
     // 添加事件监听器
-            canvas.addEventListener('touchstart', this.gameOverClickListener, { passive: true });
+    canvas.addEventListener('touchstart', this.gameOverClickListener, {passive: true});
 };
 
 // 获取摇杆移动方向
@@ -971,7 +971,7 @@ var CharacterManager = {
     // 初始化对象池
     initObjectPool: function () {
         if (!window.objectPoolManager) {
-    
+
             return;
         }
 
@@ -1001,7 +1001,7 @@ var CharacterManager = {
         // 🔴 修复：重新设置移动速度，确保从对象池复用的角色有正确的速度
         var movementConfig = window.ConfigManager ? window.ConfigManager.get('MOVEMENT') : null;
         var expectedSpeed = movementConfig ? movementConfig.CHARACTER_MOVE_SPEED : 4;
-        
+
         if (character.role === ROLE.MAIN) {
             // 主人物移动速度
             character.moveSpeed = expectedSpeed;
@@ -1009,7 +1009,7 @@ var CharacterManager = {
             // 其他角色移动速度（如果有不同设置）
             character.moveSpeed = expectedSpeed;
         }
-        
+
         // 🔴 新增：验证移动速度
         if (character.moveSpeed !== expectedSpeed) {
             console.warn('⚠️ 角色移动速度不一致:', character.moveSpeed, 'vs', expectedSpeed);
@@ -1058,7 +1058,7 @@ var CharacterManager = {
         if (!mainChar) {
             mainChar = new Character(ROLE.MAIN, x, y);
         }
-        
+
         // 🔴 协调对象管理器：注册新创建的角色
         if (mainChar && window.objectManager) {
             window.objectManager.registerObject(mainChar, 'character', mainChar.id);
@@ -1083,7 +1083,7 @@ var CharacterManager = {
         if (!window.objectManager) {
             throw new Error('对象管理器未初始化');
         }
-        
+
         const mainChar = window.objectManager.getMainCharacter();
         if (mainChar && mainChar.hp > 0) {
             return mainChar;
@@ -1097,7 +1097,7 @@ var CharacterManager = {
         if (!window.objectManager) {
             throw new Error('对象管理器未初始化');
         }
-        
+
         const characters = window.objectManager.getAllCharacters();
         return characters;
     },
@@ -1155,7 +1155,7 @@ Character.prototype.updateMainCharacter = function (deltaTime) {
         this.stateMachine.forceState(MAIN_CHARACTER_STATES.DIE);
         return; // 进入死亡状态后不再执行其他逻辑
     }
-    
+
     // 🔴 核心：优先检查摇杆输入，确保移动优先级最高
     this.checkJoystickInput();
 
@@ -1208,7 +1208,7 @@ Character.prototype.checkJoystickInput = function () {
         // 从config.js获取移动速度
         var movementConfig = window.ConfigManager ? window.ConfigManager.get('MOVEMENT') : null;
         var moveSpeed = movementConfig ? movementConfig.CHARACTER_MOVE_SPEED : 4; // 默认4px/帧
-        
+
         // 🔴 核心：直接移动，不使用目标移动
         var newX = this.x + direction.x * moveSpeed;
         var newY = this.y + direction.y * moveSpeed;
@@ -1221,9 +1221,7 @@ Character.prototype.checkJoystickInput = function () {
             } else {
                 // 如果目标位置不可行走，尝试贴着建筑物移动
                 if (window.collisionSystem.getWallFollowingPosition) {
-                    var safePosition = window.collisionSystem.getWallFollowingPosition(
-                        this.x, this.y, newX, newY, this.radius || 16, moveSpeed
-                    );
+                    var safePosition = window.collisionSystem.getWallFollowingPosition(this.x, this.y, newX, newY, this.radius || 16, moveSpeed);
                     if (safePosition) {
                         this.x = safePosition.x;
                         this.y = safePosition.y;

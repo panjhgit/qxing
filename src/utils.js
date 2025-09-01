@@ -29,8 +29,6 @@ const MathUtils = {
     }
 };
 
-// 碰撞检测工具类
-const CollisionUtils = {};
 
 // 动画工具类
 const AnimationUtils = {
@@ -49,44 +47,6 @@ const AnimationUtils = {
     }
 };
 
-// 移动工具类
-const MovementUtils = {
-    // 计算移动向量 - 平滑的匀速移动
-    calculateMoveVector: function (fromX, fromY, toX, toY, deltaTime = 1 / 60) {
-        var deltaX = toX - fromX;
-        var deltaY = toY - fromY;
-        var distance = MathUtils.distance(fromX, fromY, toX, toY);
-
-        if (distance < 0.001) {
-            return {x: 0, y: 0, distance: 0, reached: true};
-        }
-
-        // 平滑移动：每帧移动固定距离，不受目标距离影响
-        var moveDistance = 50 * deltaTime; // 50px/秒 × deltaTime秒
-
-        // 确保每帧至少移动一个最小距离，避免卡顿
-        var minMoveDistance = 0.5; // 每帧最小移动0.5像素
-        if (moveDistance < minMoveDistance) {
-            moveDistance = minMoveDistance;
-        }
-
-        // 计算移动方向（归一化）
-        var directionX = deltaX / distance;
-        var directionY = deltaY / distance;
-
-        // 始终按固定速度移动，除非目标就在移动距离内
-        if (distance <= moveDistance) {
-            // 目标很近，直接移动到目标
-            return {x: deltaX, y: deltaY, distance: distance, reached: true};
-        } else {
-            // 目标较远，按固定速度移动
-            var moveX = directionX * moveDistance;
-            var moveY = directionY * moveDistance;
-            return {x: moveX, y: moveY, distance: moveDistance, reached: false};
-        }
-    }
-};
-
 // 验证工具类
 const ValidationUtils = {
     // 验证位置参数
@@ -98,24 +58,6 @@ const ValidationUtils = {
         // 检查坐标范围是否合理
         if (Math.abs(x) > 100000 || Math.abs(y) > 100000) {
             throw new Error('位置参数超出合理范围: ' + x + ', ' + y);
-        }
-
-        return true;
-    },
-
-    // 验证对象参数
-    validateObject: function (obj, requiredProps) {
-        if (!obj || typeof obj !== 'object') {
-            throw new Error('无效的对象参数: ' + obj);
-        }
-
-        if (requiredProps) {
-            for (var i = 0; i < requiredProps.length; i++) {
-                var prop = requiredProps[i];
-                if (obj[prop] === undefined) {
-                    throw new Error('对象缺少必需属性: ' + prop);
-                }
-            }
         }
 
         return true;
@@ -161,28 +103,12 @@ const UtilsManager = {
     // 获取所有工具类
     getMathUtils: function () {
         return MathUtils;
-    }, getCollisionUtils: function () {
-        return CollisionUtils;
     }, getAnimationUtils: function () {
         return AnimationUtils;
-    }, getMovementUtils: function () {
-        return MovementUtils;
     }, getValidationUtils: function () {
         return ValidationUtils;
     }, getPerformanceUtils: function () {
         return PerformanceUtils;
-    },
-
-    // 获取所有工具
-    getAll: function () {
-        return {
-            MathUtils: MathUtils,
-            CollisionUtils: CollisionUtils,
-            AnimationUtils: AnimationUtils,
-            MovementUtils: MovementUtils,
-            ValidationUtils: ValidationUtils,
-            PerformanceUtils: PerformanceUtils
-        };
     }
 };
 
