@@ -104,19 +104,6 @@ export class RenderManager {
         this.ctx.restore();
     }
 
-    // 开始渲染帧
-    beginFrame() {
-        this.state = RENDER_STATE.RENDERING;
-        this.lastFrameTime = performance.now();
-        this.resetRenderStats();
-    }
-
-    // 结束渲染帧
-    endFrame() {
-        this.state = RENDER_STATE.IDLE;
-        this.updatePerformanceStats();
-    }
-
     // 渲染实体（统一入口）
     renderEntity(entity, entityType) {
         if (!entity) return false;
@@ -296,50 +283,9 @@ export class RenderManager {
     getRenderStats() {
         return { ...this.renderStats };
     }
-
-    // 添加渲染插件
-    addPlugin(name, plugin) {
-        this.plugins.set(name, plugin);
-    }
-
-    // 移除渲染插件
-    removePlugin(name) {
-        this.plugins.delete(name);
-    }
-
-    // 执行渲染插件
-    executePlugin(name, ...args) {
-        const plugin = this.plugins.get(name);
-        if (plugin && typeof plugin.execute === 'function') {
-            return plugin.execute(this.ctx, this.camera, ...args);
-        }
-        return false;
-    }
-
-    // 设置渲染配置
-    setConfig(config) {
-        Object.assign(RENDER_CONFIG, config);
-    }
-
-    // 获取渲染配置
-    getConfig() {
-        return { ...RENDER_CONFIG };
-    }
-
     // 暂停渲染
     pause() {
         this.state = RENDER_STATE.PAUSED;
-    }
-
-    // 恢复渲染
-    resume() {
-        this.state = RENDER_STATE.IDLE;
-    }
-
-    // 清理资源
-    cleanup() {
-        this.renderQueue.clear();
-        this.plugins.clear();
     }
 }
 

@@ -107,7 +107,6 @@ class ObjectManager {
 
         const {object, type} = objectInfo;
 
-
         // 从空间索引移除
         if (this.spatialIndex && this.spatialIndex.removeFromSpatialIndex) {
             const removeResult = this.spatialIndex.removeFromSpatialIndex(object);
@@ -135,12 +134,9 @@ class ObjectManager {
 
         // 从对象管理器移除
         this.objects.delete(objectId);
-
         // 更新计数
         const currentCount = this.objectCounts.get(type) || 0;
         this.objectCounts.set(type, Math.max(0, currentCount - 1));
-
-
         return true;
     }
 
@@ -160,10 +156,6 @@ class ObjectManager {
                 cleanedCount++;
             }
         });
-
-        if (cleanedCount > 0) {
-    
-        }
 
         return cleanedCount;
     }

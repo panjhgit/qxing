@@ -76,7 +76,6 @@ export class Camera {
             this.y = this.mapHeight - halfScreenHeight;
         }
 
-        // 摄像机位置已约束到地图边界
     }
 
     // 世界坐标转屏幕坐标
@@ -130,10 +129,6 @@ export class Camera {
         return 0.7; // 默认值
     }
 
-    // 设置缩放
-    setZoom(zoom) {
-        this.zoom = Math.max(0.3, Math.min(1.2, zoom)); // 限制在配置范围内
-    }
 }
 
 export default Camera;

@@ -21,14 +21,6 @@ const PARTNER_ROLE = {
     NURSE: 5,     // 护士
     CHEF: 6       // 厨师
 };
-// 角色ID枚举
-const CHARACTER_ID = {
-    POLICE: 1002,    // 警察
-    CIVILIAN: 1003,  // 平民
-    DOCTOR: 1004,    // 医生
-    NURSE: 1005,     // 护士
-    CHEF: 1006       // 厨师
-};
 
 // 伙伴状态枚举（扩展）
 const PARTNER_STATE = {
@@ -256,7 +248,6 @@ Partner.prototype.setupPartnerStateMachine = function () {
     sm.addBehavior(PARTNER_STATE.IDLE, this.onEnterIdle.bind(this), this.onUpdateIdle.bind(this), this.onExitIdle.bind(this));
     sm.addBehavior(PARTNER_STATE.FOLLOW, this.onEnterFollow.bind(this), this.onUpdateFollow.bind(this), this.onExitFollow.bind(this));
     sm.addBehavior(PARTNER_STATE.ATTACK, this.onEnterAttack.bind(this), this.onUpdateAttack.bind(this), this.onExitAttack.bind(this));
-
     sm.addBehavior(PARTNER_STATE.DIE, this.onEnterDie.bind(this), this.onUpdateDie.bind(this), this.onExitDie.bind(this));
 };
 
@@ -417,20 +408,20 @@ Partner.prototype.calculateFollowPoint = function () {
 // 🔴 新增：获取伙伴在队伍中的索引
 Partner.prototype.getPartnerIndexInTeam = function () {
     if (!window.objectManager) return 0;
-    
+
     var allPartners = window.objectManager.getAllPartners();
     if (!allPartners || allPartners.length === 0) return 0;
-    
+
     // 按ID排序，确保稳定的索引
     allPartners.sort((a, b) => a.id.localeCompare(b.id));
-    
+
     // 找到当前伙伴的索引
     for (var i = 0; i < allPartners.length; i++) {
         if (allPartners[i].id === this.id) {
             return i;
         }
     }
-    
+
     return 0;
 };
 
@@ -440,7 +431,7 @@ Partner.prototype.calculateBaseFollowAngle = function (mainCharDirection) {
     if (mainCharDirection === 0) {
         var mainChar = this.getMainCharacter();
         if (!mainChar) return Math.PI;
-        
+
         // 计算伙伴到主角的方向
         var angleToMainChar = Math.atan2(mainChar.y - this.y, mainChar.x - this.x);
         // 跟随点在主角后方，所以角度要加π
@@ -459,19 +450,19 @@ Partner.prototype.calculateSpreadAngle = function (partnerIndex) {
         ANGLE_RANGE: Math.PI / 3,  // 60度范围
         MAX_PARTNERS: 5            // 最大伙伴数
     };
-    
+
     var angleRange = spreadConfig.ANGLE_RANGE || Math.PI / 3;
     var maxPartners = spreadConfig.MAX_PARTNERS || 5;
-    
+
     // 计算每个伙伴的角度间隔
     var angleStep = angleRange / Math.max(1, maxPartners - 1);
-    
+
     // 计算当前伙伴的分散角度（相对于中心位置）
     var spreadAngle = (partnerIndex - (maxPartners - 1) / 2) * angleStep;
-    
+
     // 限制角度范围
     spreadAngle = Math.max(-angleRange / 2, Math.min(angleRange / 2, spreadAngle));
-    
+
     return spreadAngle;
 };
 
@@ -482,19 +473,19 @@ Partner.prototype.calculateDynamicFollowDistance = function (partnerIndex) {
     var spreadConfig = partnerConfig ? partnerConfig.FOLLOW.SPREAD : {
         DISTANCE_VARIATION: 20  // 距离变化范围
     };
-    
+
     var distanceVariation = spreadConfig.DISTANCE_VARIATION || 20;
-    
+
     // 基于伙伴索引计算距离变化
     var distanceOffset = (partnerIndex % 3) * (distanceVariation / 2);
-    
+
     // 基础跟随距离 + 距离变化
     var dynamicDistance = this.followDistance + distanceOffset;
-    
+
     // 确保距离在合理范围内
     var minDistance = this.followDistance - distanceVariation / 2;
     var maxDistance = this.followDistance + distanceVariation / 2;
-    
+
     return Math.max(minDistance, Math.min(maxDistance, dynamicDistance));
 };
 
@@ -519,7 +510,7 @@ Partner.prototype.updateAttack = function (deltaTime) {
         // 🔴 修复：从配置获取攻击间隔
         var combatConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT') : null;
         var attackInterval = combatConfig ? combatConfig.DEFAULT_ATTACK_INTERVAL : 0.5; // 从配置获取攻击间隔
-        
+
         // 🔴 修复：将攻击间隔转换为帧数（假设60FPS）
         var attackIntervalFrames = Math.round(attackInterval * 60);
 
@@ -656,7 +647,7 @@ Partner.prototype.checkCollisionWithMainCharacter = function () {
 
     var partnerConfig = window.ConfigManager ? window.ConfigManager.get('PARTNER') : null;
     var detectionDistance = partnerConfig ? partnerConfig.COLLISION.DETECTION_DISTANCE : 50;
-    
+
     // 🔴 修复：从配置获取碰撞检测距离
     if (distance <= detectionDistance) {
         // 🔴 新增：碰撞后的特殊处理逻辑
@@ -856,7 +847,7 @@ Partner.prototype.adjustPositionToAvoidOverlap = function () {
     var partnerConfig = window.ConfigManager ? window.ConfigManager.get('PARTNER') : null;
     var minOverlapDistance = partnerConfig ? partnerConfig.COLLISION.MIN_OVERLAP_DISTANCE : 30;
     var targetDistance = partnerConfig ? partnerConfig.COLLISION.TARGET_DISTANCE : 40;
-    
+
     if (distance < minOverlapDistance) {
         // 计算远离主角的方向
         var angle = Math.atan2(this.y - mainChar.y, this.x - mainChar.x);
@@ -1122,7 +1113,7 @@ var PartnerManager = {
                 var minDistance = partnerConfig ? partnerConfig.FOLLOW.MIN_DISTANCE : 200;
                 var maxDistance = partnerConfig ? partnerConfig.FOLLOW.MAX_DISTANCE : 800;
                 var safeRadius = partnerConfig ? partnerConfig.FOLLOW.SAFE_RADIUS : 16;
-                
+
                 safePosition = window.collisionSystem.generateGameSafePosition(centerX, centerY,  // 中心位置
                     minDistance, maxDistance,          // 从配置获取距离范围
                     32, 48,            // 伙伴尺寸

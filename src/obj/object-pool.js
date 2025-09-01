@@ -311,7 +311,6 @@ class ObjectPoolManager {
         return null;
     }
 
-
     // 更新管理器
     update() {
         this.frameCount++;
@@ -336,18 +335,12 @@ class ObjectPoolManager {
     // 执行清理
     performCleanup() {
 
-
         let cleanedCount = 0;
         for (const [type, pool] of this.pools) {
             const beforeSize = pool.stats.poolSize;
             const afterSize = pool.stats.poolSize;
             cleanedCount += beforeSize - afterSize;
         }
-
-        if (cleanedCount > 0) {
-
-        }
-
         this.updatePerformanceStats();
     }
 
@@ -427,19 +420,6 @@ class ObjectPoolManager {
             leakWarnings: this.leakDetection.warnings.length,
             frameCount: this.frameCount
         };
-    }
-
-    // 重置所有池
-    resetAllPools() {
-
-
-        for (const pool of this.pools.values()) {
-            pool.reset();
-        }
-
-        this.frameCount = 0;
-        this.lastCleanup = 0;
-        this.updatePerformanceStats();
     }
 
 }

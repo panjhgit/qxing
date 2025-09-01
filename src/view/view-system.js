@@ -7,8 +7,8 @@
  * - 管理UI渲染和调试信息显示
  */
 
-import { Camera } from './camera.js';
-import { RenderManager, ENTITY_TYPE } from './render-manager.js';
+import {Camera} from './camera.js';
+import {RenderManager, ENTITY_TYPE} from './render-manager.js';
 
 // 视觉系统主类
 export class ViewSystem {
@@ -76,32 +76,31 @@ export class ViewSystem {
     // 渲染地图背景
     renderMapBackground(mapSystem) {
         if (!mapSystem) return;
-        
+
         // 获取当前地图配置
         const currentMap = mapSystem.getCurrentMap();
         if (!currentMap || !currentMap.config) return;
-        
+
         this.renderManager.renderMapBackground({
-            width: currentMap.config.width, 
-            height: currentMap.config.height
+            width: currentMap.config.width, height: currentMap.config.height
         });
     }
 
     // 渲染街道（可通行区域）
     renderStreets(mapSystem) {
         if (!mapSystem) return;
-        
+
         // 获取当前地图数据
         const currentMap = mapSystem.getCurrentMap();
         if (!currentMap || !currentMap.walkableAreas) return;
-        
+
         this.renderManager.renderWalkableAreas(currentMap.walkableAreas);
     }
 
     // 渲染建筑物
     renderBuildings(mapSystem) {
         if (!mapSystem) return;
-        
+
         // 获取当前地图数据
         const currentMap = mapSystem.getCurrentMap();
         if (!currentMap || !currentMap.buildings) return;
@@ -119,14 +118,13 @@ export class ViewSystem {
     // 渲染地图边界
     renderMapBoundaries(mapSystem) {
         if (!mapSystem) return;
-        
+
         // 获取当前地图配置
         const currentMap = mapSystem.getCurrentMap();
         if (!currentMap || !currentMap.config) return;
-        
+
         this.renderManager.renderMapBoundaries({
-            width: currentMap.config.width, 
-            height: currentMap.config.height
+            width: currentMap.config.width, height: currentMap.config.height
         });
     }
 
@@ -140,7 +138,7 @@ export class ViewSystem {
         // 🔴 修复：使用对象管理器获取主人物
         var mainCharacter = characterManager.getMainCharacter();
         var characters = mainCharacter ? [mainCharacter] : [];
-        
+
         // 使用统一渲染管理器渲染角色
         this.renderManager.renderEntityList(characters, ENTITY_TYPE.CHARACTER);
 
@@ -209,7 +207,7 @@ export class ViewSystem {
             camera: this.camera,
             renderDistance: this.renderDistance
         };
-        
+
         this.renderManager.renderUI('debugInfo', debugData);
     }
 
@@ -221,7 +219,7 @@ export class ViewSystem {
         const timeData = {
             timeInfo: gameEngine.getTimeInfo()
         };
-        
+
         this.renderManager.renderUI('timeInfo', timeData);
     }
 

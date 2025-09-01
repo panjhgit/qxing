@@ -26,8 +26,7 @@ const MEMORY_CONFIG = {
         INITIAL_SIZE: 20,
         MAX_SIZE: 200,
         EXPANSION_THRESHOLD: 0.8, // 使用率80%时扩容
-        SHRINK_THRESHOLD: 0.3, // 使用率30%时收缩
-        CLEANUP_AGE: 300000 // 5分钟清理过期对象
+        SHRINK_THRESHOLD: 0.3 // 使用率30%时收缩
     },
     
     // 垃圾回收配置
@@ -43,8 +42,7 @@ const MEMORY_CONFIG = {
         ENABLED: true,
         CHECK_INTERVAL: 10000, // 10秒检查一次
         WARNING_THRESHOLD: 100, // 100个对象警告
-        CRITICAL_THRESHOLD: 500, // 500个对象临界
-        MAX_AGE: 300000 // 5分钟最大对象年龄
+        CRITICAL_THRESHOLD: 500 // 500个对象临界
     }
 };
 
@@ -63,7 +61,6 @@ class MemoryMonitor {
         
         this.isMonitoring = false;
         this.monitorInterval = null;
-        
 
     }
     
@@ -79,17 +76,6 @@ class MemoryMonitor {
             this.checkMemoryUsage();
         }, MEMORY_CONFIG.MONITORING.INTERVAL);
         
-
-    }
-    
-    // 停止监控
-    stop() {
-        if (this.monitorInterval) {
-            clearInterval(this.monitorInterval);
-            this.monitorInterval = null;
-        }
-        
-        this.isMonitoring = false;
 
     }
     
@@ -210,8 +196,6 @@ class MemoryMonitor {
             warnings: [],
             optimizations: []
         };
-        
-
     }
 }
 

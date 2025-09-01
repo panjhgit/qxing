@@ -7,7 +7,7 @@
  * - 支持自定义渲染样式
  */
 
-import { ENTITY_TYPE } from './render-manager.js';
+import {ENTITY_TYPE} from './render-manager.js';
 
 /**
  * 实体渲染器类
@@ -54,7 +54,6 @@ export class EntityRenderer {
     renderCharacter(character) {
         const worldX = character.x;
         const worldY = character.y;
-
 
 
         // 绘制阴影
@@ -180,7 +179,6 @@ export class EntityRenderer {
             console.warn('❌ 建筑物对象为空');
             return false;
         }
-
 
 
         // 使用中心点坐标系统
@@ -319,7 +317,7 @@ export class EntityRenderer {
      */
     renderStatusIndicator(entity, x, y) {
         const bodyY = y - (entity.height || entity.size || 32) / 2;
-        
+
         if (entity.status === 'FOLLOW') {
             this.ctx.fillStyle = '#00ff00';
             this.ctx.beginPath();
@@ -333,23 +331,6 @@ export class EntityRenderer {
         }
     }
 
-    /**
-     * 批量渲染实体列表
-     * @param {Array} entities - 实体列表
-     * @param {string} entityType - 实体类型
-     * @returns {number} 渲染的实体数量
-     */
-    renderEntityList(entities, entityType) {
-        let renderedCount = 0;
-        
-        entities.forEach(entity => {
-            if (this.renderEntity(entity, entityType)) {
-                renderedCount++;
-            }
-        });
-        
-        return renderedCount;
-    }
 }
 
 export default EntityRenderer;

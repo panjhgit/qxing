@@ -45,89 +45,6 @@ var CollisionSystem = {
         return isWalkable;
     },
 
-    // 🔴 新增：边缘检测 - 检查位置周围是否有可行走空间
-    isPositionWalkableWithMargin: function (x, y, margin = 16) {
-        if (!this.mapMatrix) {
-            return true;
-        }
-
-        // 检查中心点
-        if (!this.isPositionWalkable(x, y)) {
-            return false;
-        }
-
-        // 检查周围8个方向是否有可行走空间
-        var directions = [{dx: -margin, dy: -margin}, {dx: 0, dy: -margin}, {dx: margin, dy: -margin}, {
-            dx: -margin,
-            dy: 0
-        }, {dx: margin, dy: 0}, {dx: -margin, dy: margin}, {dx: 0, dy: margin}, {dx: margin, dy: margin}];
-
-        var hasWalkableSpace = false;
-        for (var i = 0; i < directions.length; i++) {
-            var dir = directions[i];
-            var testX = x + dir.dx;
-            var testY = y + dir.dy;
-
-            if (this.isPositionWalkable(testX, testY)) {
-                hasWalkableSpace = true;
-                break;
-            }
-        }
-
-        return hasWalkableSpace;
-    },
-
-    // 🔴 新增：智能移动检测 - 允许贴着建筑物移动
-    getSmartMovePosition: function (fromX, fromY, toX, toY, radius) {
-        // 如果目标位置完全可行走，直接返回
-        if (this.isPositionWalkable(toX, toY)) {
-            return {x: toX, y: toY};
-        }
-
-        // 尝试在路径上找可行走位置
-        var dx = toX - fromX;
-        var dy = toY - fromY;
-        var distance = Math.sqrt(dx * dx + dy * dy);
-
-        if (distance === 0) {
-            return {x: fromX, y: fromY};
-        }
-
-        // 在路径上寻找可行走位置，允许贴着建筑物
-        var stepSize = Math.max(radius / 2, 8); // 步长
-        var steps = Math.ceil(distance / stepSize);
-
-        for (var i = 1; i <= steps; i++) {
-            var ratio = i / steps;
-            var testX = fromX + dx * ratio;
-            var testY = fromY + dy * ratio;
-
-            // 检查是否有足够的可行走空间
-            if (this.isPositionWalkableWithMargin(testX, testY, radius)) {
-                return {x: testX, y: testY};
-            }
-        }
-
-        // 如果找不到合适位置，尝试在起始位置周围找可行走位置
-        var nearbyPositions = [{dx: -radius, dy: 0}, {dx: radius, dy: 0}, {dx: 0, dy: -radius}, {
-            dx: 0,
-            dy: radius
-        }, {dx: -radius, dy: -radius}, {dx: radius, dy: -radius}, {dx: -radius, dy: radius}, {dx: radius, dy: radius}];
-
-        for (var j = 0; j < nearbyPositions.length; j++) {
-            var pos = nearbyPositions[j];
-            var testX = fromX + pos.dx;
-            var testY = fromY + pos.dy;
-
-            if (this.isPositionWalkableWithMargin(testX, testY, radius)) {
-                return {x: testX, y: testY};
-            }
-        }
-
-        // 最后返回起始位置
-        return {x: fromX, y: fromY};
-    },
-
     // 🔴 新增：贴着建筑物移动的位置计算
     getWallFollowingPosition: function (fromX, fromY, toX, toY, radius, moveSpeed) {
         if (!this.mapMatrix) {
@@ -136,8 +53,6 @@ var CollisionSystem = {
 
         // 获取配置参数
         var wallFollowingConfig = window.ConfigManager ? window.ConfigManager.get('MOVEMENT.WALL_FOLLOWING') : null;
-        var diagonalFactor = wallFollowingConfig ? wallFollowingConfig.DIAGONAL_FACTOR : 0.7;
-        var searchSteps = wallFollowingConfig ? wallFollowingConfig.SEARCH_STEPS : 8;
         var minStepSize = wallFollowingConfig ? wallFollowingConfig.MIN_STEP_SIZE : 4;
         var nearbyRadius = wallFollowingConfig ? wallFollowingConfig.NEARBY_SEARCH_RADIUS : 0.5;
 
@@ -210,8 +125,7 @@ var CollisionSystem = {
 
         // 5. 最后尝试在起始位置周围找可行走位置
         var nearbyPositions = [{dx: -radius * nearbyRadius, dy: 0}, {dx: radius * nearbyRadius, dy: 0}, {
-            dx: 0,
-            dy: -radius * nearbyRadius
+            dx: 0, dy: -radius * nearbyRadius
         }, {dx: 0, dy: radius * nearbyRadius}];
 
         for (var j = 0; j < nearbyPositions.length; j++) {
@@ -226,24 +140,6 @@ var CollisionSystem = {
 
         // 无法移动，返回起始位置
         return {x: fromX, y: fromY};
-    },
-
-    // 🔴 核心：简化的移动碰撞检测 - 检查目标位置是否可行走
-    getCircleSafeMovePosition: function (fromX, fromY, toX, toY, radius) {
-        // 使用智能移动检测，允许贴着建筑物移动
-        return this.getSmartMovePosition(fromX, fromY, toX, toY, radius);
-    },
-
-    // 🔴 核心：简化的圆形碰撞检测 - 检查中心点是否可行走
-    isCircleCollidingWithBuildings: function (circleX, circleY, circleRadius) {
-        // 简化：只检查中心点是否可行走
-        return !this.isPositionWalkable(circleX, circleY);
-    },
-
-    // 🔴 核心：简化的矩形碰撞检测 - 检查中心点是否可行走
-    isRectCollidingWithBuildings: function (rectX, rectY, rectWidth, rectHeight) {
-        // 简化：只检查中心点是否可行走
-        return !this.isPositionWalkable(rectX, rectY);
     },
 
     // 🔴 核心：简化的安全位置生成 - 在可行走区域找位置
@@ -264,8 +160,7 @@ var CollisionSystem = {
 
         // 备用方案：返回边缘位置
         var edgePositions = [{x: 100, y: 100}, {x: this.currentMap.mapWidth - 100, y: 100}, {
-            x: 100,
-            y: this.currentMap.mapHeight - 100
+            x: 100, y: this.currentMap.mapHeight - 100
         }, {x: this.currentMap.mapWidth - 100, y: this.currentMap.mapHeight - 100}];
 
         for (var i = 0; i < edgePositions.length; i++) {
@@ -283,9 +178,6 @@ var CollisionSystem = {
         if (!mapId) {
             mapId = 'city';
         }
-
-
-
         // 获取地图管理器
         if (typeof window !== 'undefined' && window.MapManager) {
             this.mapManager = window.MapManager;
@@ -313,7 +205,7 @@ var CollisionSystem = {
                 this.gridCols = mapConfig.config.gridCols;
                 this.gridRows = mapConfig.config.gridRows;
 
-                
+
             } else {
                 throw new Error('地图配置获取失败');
             }

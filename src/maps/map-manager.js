@@ -29,8 +29,6 @@ export const MapManager = {
         } else {
             throw new Error(`地图 ${defaultMapId} 不存在，无法初始化地图管理器`);
         }
-
-
         return this.currentMap;
     },
 
@@ -44,8 +42,6 @@ export const MapManager = {
             console.warn('❌ 地图不存在:', mapId);
             return null;
         }
-
-
 
         // 获取地图定义
         const mapDefinition = this.availableMaps[mapId];
@@ -77,7 +73,6 @@ export const MapManager = {
         this.mapCache.set(mapId, this.currentMap);
 
 
-
         return this.currentMap;
     },
 
@@ -90,25 +85,11 @@ export const MapManager = {
     },
 
     // 🔴 新增：注册地图到对象管理器
-    registerMapToObjectManager: function() {
+    registerMapToObjectManager: function () {
         if (this.currentMap && window.objectManager) {
             window.objectManager.registerObject(this.currentMap, 'map', 'current_map');
-    
-        }
-    },
 
-    /**
-     * 获取地图配置
-     * @param {string} mapId - 地图ID
-     * @returns {Object|null} 地图配置
-     */
-    getMapConfig: function (mapId) {
-        if (mapId === 'current' || !mapId) {
-            return this.currentMap ? this.currentMap.config : null;
         }
-
-        const map = this.availableMaps[mapId];
-        return map ? map.config : null;
     },
 
     /**
@@ -167,14 +148,13 @@ export const MapManager = {
     /**
      * 生成地图数据（建筑物和可通行区域）
      */
-    generateMapData: function() {
+    generateMapData: function () {
         if (!this.currentMap || !this.currentMap.matrix || !this.currentMap.buildingTypes) {
             console.warn('❌ 无法生成地图数据：缺少必要的地图信息');
             return;
         }
 
 
-        
         const matrix = this.currentMap.matrix;
         const buildingTypes = this.currentMap.buildingTypes;
         const cellSize = this.currentMap.config.cellSize || 50;
@@ -184,12 +164,11 @@ export const MapManager = {
         this.currentMap.walkableAreas = [];
 
 
-
         // 遍历矩阵，解析建筑物和可通行区域
         for (let row = 0; row < matrix.length; row++) {
             for (let col = 0; col < matrix[row].length; col++) {
                 const cellValue = matrix[row][col];
-                
+
                 if (cellValue === 0) {
                     // 可通行区域
                     this.addWalkableArea(row, col, cellSize);
@@ -209,16 +188,12 @@ export const MapManager = {
      * @param {number} col - 矩阵列
      * @param {number} cellSize - 单元格大小
      */
-    addWalkableArea: function(row, col, cellSize) {
+    addWalkableArea: function (row, col, cellSize) {
         const worldX = col * cellSize + cellSize / 2;
         const worldY = row * cellSize + cellSize / 2;
-        
+
         this.currentMap.walkableAreas.push({
-            x: worldX,
-            y: worldY,
-            width: cellSize,
-            height: cellSize,
-            bounds: {
+            x: worldX, y: worldY, width: cellSize, height: cellSize, bounds: {
                 left: worldX - cellSize / 2,
                 top: worldY - cellSize / 2,
                 right: worldX + cellSize / 2,
@@ -235,13 +210,13 @@ export const MapManager = {
      * @param {Object} buildingType - 建筑类型配置
      * @param {number} cellSize - 单元格大小
      */
-    addBuilding: function(row, col, buildingTypeId, buildingType, cellSize) {
+    addBuilding: function (row, col, buildingTypeId, buildingType, cellSize) {
         const worldX = col * cellSize + cellSize / 2;
         const worldY = row * cellSize + cellSize / 2;
-        
+
         const buildingWidth = buildingType.width || cellSize;
         const buildingHeight = buildingType.height || cellSize;
-        
+
         this.currentMap.buildings.push({
             x: worldX,
             y: worldY,

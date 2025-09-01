@@ -512,7 +512,7 @@ Character.prototype.onUpdateDie = function (deltaTime, stateData) {
 
     var gameplayConfig = window.ConfigManager ? window.ConfigManager.get('GAMEPLAY') : null;
     var deathDuration = gameplayConfig ? gameplayConfig.DEATH.MAIN_CHARACTER_DURATION : 3.0;
-    
+
     // 死亡动画持续配置的时间
     if (this.deathAnimationTime >= deathDuration) {
         // 动画结束后立即触发环境重置
@@ -775,7 +775,7 @@ Character.prototype.isStuck = function () {
     var gameplayConfig = window.ConfigManager ? window.ConfigManager.get('GAMEPLAY') : null;
     var minMoveDistance = gameplayConfig ? gameplayConfig.STUCK_DETECTION.MIN_MOVE_DISTANCE : 5;
     var stuckThreshold = gameplayConfig ? gameplayConfig.STUCK_DETECTION.STUCK_THRESHOLD : 30;
-    
+
     // 如果移动距离小于配置的最小移动距离，增加卡住时间
     if (distance < minMoveDistance) {
         this.stuckTime = (this.stuckTime || 0) + 1;
@@ -912,7 +912,7 @@ Character.prototype.updateAnimation = function (deltaTime) {
 
     // 从配置获取动画状态速度倍数
     var stateSpeedMultipliers = animationConfig ? animationConfig.STATE_SPEED_MULTIPLIERS : {};
-    
+
     // 根据状态调整动画速度
     var baseSpeed = this.animationSpeed;
     var adjustedSpeed = baseSpeed;
@@ -990,7 +990,6 @@ var CharacterManager = {
             () => new Character(ROLE.MAIN, 0, 0), // 重置函数
             (character) => this.resetCharacter(character));
 
-        // 角色对象池初始化完成
     },
 
     // 重置角色状态（对象池复用）
@@ -1214,7 +1213,7 @@ Character.prototype.checkJoystickInput = function () {
     var gameplayConfig = window.ConfigManager ? window.ConfigManager.get('GAMEPLAY') : null;
     var deadZone = gameplayConfig ? gameplayConfig.JOYSTICK.DEAD_ZONE : 0.1;
     var moveSpeed = gameplayConfig ? gameplayConfig.JOYSTICK.MOVE_SPEED : 4;
-    
+
     // 检查是否超过死区
     if (Math.abs(direction.x) > deadZone || Math.abs(direction.y) > deadZone) {
 

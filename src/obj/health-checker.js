@@ -144,8 +144,6 @@ class ObjectHealthChecker {
         try {
             const stats = window.objectPoolManager.getPerformanceStats();
             
-
-            
             // 检查命中率
             if (stats.averageHitRate < HEALTH_CHECK_CONFIG.PERFORMANCE_THRESHOLD.POOL_HIT_RATE) {
                 this.healthStatus.performanceIssues.push(`对象池命中率过低: ${(stats.averageHitRate * 100).toFixed(1)}%`);

@@ -38,16 +38,16 @@ export class MapRenderer {
         } else {
             throw new Error('地图管理器未初始化');
         }
-        
+
         if (!this.currentMap) {
             throw new Error('无法获取地图数据');
         }
-        
+
         // 解析地图数据
         if (this.currentMap.matrix && this.currentMap.buildingTypes) {
-            
+
             this.parseMatrixMap();
-            
+
         } else {
             console.warn('❌ 地图数据不完整:');
             console.warn('- matrix:', this.currentMap.matrix);
@@ -68,8 +68,6 @@ export class MapRenderer {
 
         // 检查矩阵数据
         const matrix = this.currentMap.matrix;
-        const sampleRows = Math.min(5, matrix.length);
-        const sampleCols = Math.min(5, matrix[0].length);
 
         // 初始化建筑物和可通行区域数组
         this.currentMap.buildings = [];
@@ -80,13 +78,11 @@ export class MapRenderer {
         const matrixRows = matrix.length;
         const matrixCols = matrix[0].length;
 
-
-
         // 遍历矩阵，解析建筑物和可通行区域
         for (let row = 0; row < matrixRows; row++) {
             for (let col = 0; col < matrixCols; col++) {
                 const cellValue = matrix[row][col];
-                
+
                 if (cellValue === 0) {
                     // 可通行区域
                     this.addWalkableArea(row, col, cellSize);
@@ -109,13 +105,9 @@ export class MapRenderer {
     addWalkableArea(row, col, cellSize) {
         const worldX = col * cellSize + cellSize / 2;
         const worldY = row * cellSize + cellSize / 2;
-        
+
         this.currentMap.walkableAreas.push({
-            x: worldX,
-            y: worldY,
-            width: cellSize,
-            height: cellSize,
-            bounds: {
+            x: worldX, y: worldY, width: cellSize, height: cellSize, bounds: {
                 left: worldX - cellSize / 2,
                 top: worldY - cellSize / 2,
                 right: worldX + cellSize / 2,
@@ -135,10 +127,10 @@ export class MapRenderer {
     addBuilding(row, col, buildingTypeId, buildingType, cellSize) {
         const worldX = col * cellSize + cellSize / 2;
         const worldY = row * cellSize + cellSize / 2;
-        
+
         const buildingWidth = buildingType.width || cellSize;
         const buildingHeight = buildingType.height || cellSize;
-        
+
         this.currentMap.buildings.push({
             x: worldX,
             y: worldY,
@@ -315,15 +307,6 @@ export class MapRenderer {
 
     }
 
-    /**
-     * 设置渲染配置
-     * @param {Object} config - 配置对象
-     */
-    setConfig(config) {
-        if (config.showGrid !== undefined) this.showGrid = config.showGrid;
-        if (config.showDebug !== undefined) this.showDebug = config.showDebug;
-        if (config.zoom !== undefined) this.zoom = config.zoom;
-    }
 
     /**
      * 获取当前地图数据
