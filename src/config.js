@@ -312,7 +312,11 @@ const GAME_CONFIG = {
             ACTIVE_UPDATE_INTERVAL: 1,   // 活跃状态更新间隔（帧数）
             RANDOM_WALK_PROBABILITY: 0.1, // 随机游荡概率
             RANDOM_WALK_DISTANCE: 150    // 随机游荡距离
-        }
+        },
+        
+        // 🔴 新增：目标锁定配置
+        TARGET_LOCK_DURATION: 1000,     // 目标锁定持续时间（毫秒）- 1秒
+        TARGET_SWITCH_COOLDOWN: 500     // 目标切换冷却时间（毫秒）- 0.5秒
     },
 
     // 对象尺寸配置

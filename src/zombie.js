@@ -52,6 +52,10 @@ var Zombie = function (type, x, y) {
     this.targetX = this.x;
     this.targetY = this.y;
     this.targetCharacter = null;
+    
+    // 🔴 新增：目标锁定相关属性
+    this.targetLockTime = null;
+    this.targetLockDuration = null;
 
     // 性能相关 - 从config.js获取
     this.isActive = false;
@@ -453,23 +457,27 @@ Zombie.prototype.takeDamage = function (damage) {
 
 // 寻找最近的敌人
 Zombie.prototype.findNearestEnemy = function () {
-    if (!window.characterManager) return;
+    // 🔴 新增：检查目标锁定缓存
+    if (this.isTargetLocked()) {
+        return;
+    }
 
-    var allCharacters = window.characterManager.getAllCharacters().filter(c => c.hp > 0);
-    if (allCharacters.length === 0) return;
+    var allTargets = this.getAllValidTargets();
+    if (allTargets.length === 0) return;
 
     var nearestEnemy = null;
     var nearestDistance = Infinity;
 
-    for (var i = 0; i < allCharacters.length; i++) {
-        var character = allCharacters[i];
-        var distance = this.getDistanceTo(character.x, character.y);
+    for (var i = 0; i < allTargets.length; i++) {
+        var target = allTargets[i];
+        var distance = this.getDistanceTo(target.x, target.y);
 
-        var priority = character.role === 1 ? 0 : 1;
+        // 🔴 新增：目标优先级计算
+        var priority = this.calculateTargetPriority(target, distance);
 
-        if (distance <= this.detectionRange && (distance < nearestDistance || (distance === nearestDistance && priority < (nearestEnemy ? (nearestEnemy.role === 1 ? 0 : 1) : 1)))) {
+        if (distance <= this.detectionRange && (distance < nearestDistance || (distance === nearestDistance && priority < (nearestEnemy ? this.calculateTargetPriority(nearestEnemy, nearestDistance) : Infinity)))) {
             nearestDistance = distance;
-            nearestEnemy = character;
+            nearestEnemy = target;
         }
     }
 
@@ -478,33 +486,138 @@ Zombie.prototype.findNearestEnemy = function () {
         if (this.targetCharacter) {
             this.targetX = this.targetCharacter.x;
             this.targetY = this.targetCharacter.y;
+            // 🔴 新增：锁定目标
+            this.lockTarget();
         }
     }
+};
+
+// 🔴 新增：获取所有有效目标（主人物 + 伙伴）
+Zombie.prototype.getAllValidTargets = function () {
+    var allTargets = [];
+
+    // 添加主人物
+    if (window.characterManager) {
+        var mainCharacters = window.characterManager.getAllCharacters().filter(c => c.hp > 0);
+        allTargets = allTargets.concat(mainCharacters);
+    }
+
+    // 添加伙伴（排除INIT状态的伙伴）
+    if (window.objectManager) {
+        var partners = window.objectManager.getAllPartners().filter(p => 
+            p.hp > 0 && 
+            p.status !== 'INIT' && 
+            !p.isInitialState
+        );
+        allTargets = allTargets.concat(partners);
+    }
+
+    return allTargets;
+};
+
+// 🔴 新增：计算目标优先级
+Zombie.prototype.calculateTargetPriority = function (target, distance) {
+    // 基础优先级：距离越近优先级越高
+    var basePriority = distance;
+    
+    // 类型优先级：主人物 > 伙伴
+    var typePriority = target.type === 'character' ? 0 : 100;
+    
+    // 血量优先级：血量越低优先级越高（更容易击杀）
+    var healthPriority = target.hp / target.maxHp * 50;
+    
+    return basePriority + typePriority + healthPriority;
+};
+
+// 🔴 新增：目标锁定机制
+Zombie.prototype.lockTarget = function () {
+    if (!this.targetCharacter) return;
+    
+    // 从配置获取锁定时间
+    var zombieConfig = ConfigManager.get('ZOMBIE');
+    var lockDuration = zombieConfig ? zombieConfig.TARGET_LOCK_DURATION : 1000; // 默认1秒
+    
+    this.targetLockTime = Date.now();
+    this.targetLockDuration = lockDuration;
+};
+
+// 🔴 新增：检查目标是否被锁定
+Zombie.prototype.isTargetLocked = function () {
+    if (!this.targetCharacter || !this.targetLockTime) {
+        return false;
+    }
+    
+    var currentTime = Date.now();
+    var lockElapsed = currentTime - this.targetLockTime;
+    
+    // 如果锁定时间未到，保持当前目标
+    if (lockElapsed < this.targetLockDuration) {
+        return true;
+    }
+    
+    // 锁定时间已到，清除锁定状态
+    this.targetLockTime = null;
+    this.targetLockDuration = null;
+    return false;
 };
 
 // 检查目标是否有效
 Zombie.prototype.isTargetValid = function () {
     if (!this.targetCharacter) return false;
 
+    // 🔴 新增：检查目标是否仍然存在
+    if (!this.isTargetStillExists()) {
+        this.clearTarget();
+        return false;
+    }
+
     if (this.targetCharacter.hp <= 0) {
-        this.targetCharacter = null;
-        this.targetX = this.x;
-        this.targetY = this.y;
+        this.clearTarget();
         return false;
     }
 
     var distance = this.getDistanceTo(this.targetCharacter.x, this.targetCharacter.y);
 
     if (distance > this.detectionRange) {
-        this.targetCharacter = null;
-        this.targetX = this.x;
-        this.targetY = this.y;
+        this.clearTarget();
         return false;
     }
 
     this.targetX = this.targetCharacter.x;
     this.targetY = this.targetCharacter.y;
     return true;
+};
+
+// 🔴 新增：检查目标是否仍然存在
+Zombie.prototype.isTargetStillExists = function () {
+    if (!this.targetCharacter) return false;
+    
+    // 检查主人物
+    if (this.targetCharacter.type === 'character' && window.characterManager) {
+        var characters = window.characterManager.getAllCharacters();
+        return characters.some(c => c.id === this.targetCharacter.id);
+    }
+    
+    // 检查伙伴（排除INIT状态的伙伴）
+    if (this.targetCharacter.type === 'partner' && window.objectManager) {
+        var partners = window.objectManager.getAllPartners();
+        return partners.some(p => 
+            p.id === this.targetCharacter.id && 
+            p.status !== 'INIT' && 
+            !p.isInitialState
+        );
+    }
+    
+    return false;
+};
+
+// 🔴 新增：清除目标
+Zombie.prototype.clearTarget = function () {
+    this.targetCharacter = null;
+    this.targetX = this.x;
+    this.targetY = this.y;
+    this.targetLockTime = null;
+    this.targetLockDuration = null;
 };
 
 // 更新活性状态
@@ -569,6 +682,10 @@ var ZombieManager = {
         zombie.lastAttackTime = 0;
         zombie.animationFrame = 0;
         zombie.direction = 0;
+        
+        // 🔴 新增：重置目标锁定相关属性
+        zombie.targetLockTime = null;
+        zombie.targetLockDuration = null;
 
         // 🔴 修复：重新设置移动速度，确保从对象池复用的僵尸有正确的速度
         var movementConfig = window.ConfigManager ? window.ConfigManager.get('MOVEMENT') : null;
