@@ -15,7 +15,8 @@ const MENU_STATE = {
     GAME_MENU: 'game_menu', // 游戏内菜单
     SETTINGS: 'settings',   // 设置菜单
     HELP: 'help',           // 帮助菜单
-    CREDITS: 'credits'      // 制作人员
+    CREDITS: 'credits',     // 制作人员
+    DEATH: 'death'          // 死亡界面
 };
 
 // 按钮类型枚举
@@ -266,6 +267,9 @@ class IndependentMenuSystem {
                 break;
             case MENU_STATE.CREDITS:
                 this.renderCreditsPage();
+                break;
+            case MENU_STATE.DEATH:
+                this.renderDeathPage();
                 break;
             default:
                 this.renderHomePage();
@@ -721,7 +725,15 @@ class IndependentMenuSystem {
      * 显示死亡消息
      */
     showDeathMessage() {
-        this.ctx.save();
+        this.setState(MENU_STATE.DEATH);
+    }
+
+    /**
+     * 渲染死亡页面
+     */
+    renderDeathPage() {
+        // 清空画布
+        this.clearCanvas();
 
         // 绘制死亡背景
         this.ctx.fillStyle = 'rgba(255, 0, 0, 0.8)';
@@ -764,8 +776,6 @@ class IndependentMenuSystem {
             restart: {x: restartX, y: buttonY, width: buttonWidth, height: buttonHeight},
             menu: {x: menuX, y: buttonY, width: buttonWidth, height: buttonHeight}
         };
-
-        this.ctx.restore();
     }
 
     /**

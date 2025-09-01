@@ -460,14 +460,8 @@ Character.prototype.onEnterDie = function (stateData) {
 Character.prototype.onUpdateDie = function (deltaTime, stateData) {
     this.deathAnimationTime += deltaTime;
 
-    var gameplayConfig = getConfig('GAMEPLAY', {DEATH: {MAIN_CHARACTER_DURATION: 3.0}});
-    var deathDuration = gameplayConfig.DEATH.MAIN_CHARACTER_DURATION;
-
-    if (this.deathAnimationTime >= deathDuration) {
-        if (typeof window.resetGame === 'function') {
-            window.resetGame();
-        }
-    }
+    // 死亡状态下只播放动画，不自动重置游戏
+    // 让死亡消息显示，等待玩家选择
 };
 
 Character.prototype.onExitDie = function (stateData) {
