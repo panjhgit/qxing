@@ -15,10 +15,11 @@ const ZOMBIE_TYPE = {
     SKINNY: 'skinny', FAT: 'fat', BOSS: 'boss', FAST: 'fast', TANK: 'tank'
 };
 
-// 僵尸状态枚举
-const ZOMBIE_STATE = {
-    IDLE: 'idle', WALKING: 'walking', ATTACKING: 'attacking', DEAD: 'dead', CHASING: 'chasing'
-};
+// 导入统一的状态枚举
+import { ZOMBIE_STATES } from './state-machine.js';
+
+// 使用统一的状态枚举，保持向后兼容
+const ZOMBIE_STATE = ZOMBIE_STATES;
 
 // 僵尸配置模板 - 完全从config.js获取
 const ZOMBIE_CONFIGS = {
@@ -129,8 +130,8 @@ Zombie.prototype.setupProperties = function () {
 Zombie.prototype.update = function (deltaTime, characters, currentFrame = 0) {
     // 检查死亡状态
     if (this.hp <= 0) {
-        if (this.state !== ZOMBIE_STATE.DEAD) {
-            this.state = ZOMBIE_STATE.DEAD;
+        if (this.state !== ZOMBIE_STATE.DIE) {
+            this.state = ZOMBIE_STATE.DIE;
             this.onEnterDead();
         }
         return false;
@@ -175,16 +176,16 @@ Zombie.prototype.update = function (deltaTime, characters, currentFrame = 0) {
         case ZOMBIE_STATE.CHASING:
             this.chaseTarget(deltaTime);
             break;
-        case ZOMBIE_STATE.ATTACKING:
+        case ZOMBIE_STATE.ATTACK:
             this.attackTarget(deltaTime);
             break;
-        case ZOMBIE_STATE.WALKING:
+        case ZOMBIE_STATE.CHASE:
             this.moveTowards(this.targetX, this.targetY, deltaTime);
             break;
         case ZOMBIE_STATE.IDLE:
             this.idleBehavior(deltaTime);
             break;
-        case ZOMBIE_STATE.DEAD:
+        case ZOMBIE_STATE.DIE:
             this.updateDead(deltaTime);
             break;
     }
@@ -274,7 +275,7 @@ Zombie.prototype.chaseTarget = function (deltaTime) {
     var effectiveAttackRange = this.attackRange + attackJudgmentConfig.RANGE_BUFFER;
 
     if (distance <= effectiveAttackRange) { // 使用带缓冲的攻击范围
-        this.state = ZOMBIE_STATE.ATTACKING;
+        this.state = ZOMBIE_STATE.ATTACK;
         return;
     }
 
@@ -319,7 +320,7 @@ Zombie.prototype.moveTowards = function (targetX, targetY, deltaTime) {
     var effectiveAttackRange = this.attackRange + attackJudgmentConfig.RANGE_BUFFER;
 
     if (distanceToTarget <= effectiveAttackRange) { // 使用带缓冲的攻击范围
-        this.state = ZOMBIE_STATE.ATTACKING;
+        this.state = ZOMBIE_STATE.ATTACK;
         return;
     }
 
@@ -343,7 +344,7 @@ Zombie.prototype.moveTowards = function (targetX, targetY, deltaTime) {
             window.collisionSystem.updateDynamicObjectPosition(this, oldX, oldY, this.x, this.y);
         }
 
-        this.state = ZOMBIE_STATE.WALKING;
+        this.state = ZOMBIE_STATE.CHASE;
     }
 };
 
@@ -409,13 +410,13 @@ Zombie.prototype.idleBehavior = function (deltaTime) {
             }
         }
 
-        this.state = ZOMBIE_STATE.WALKING;
+        this.state = ZOMBIE_STATE.CHASE;
     }
 };
 
 // 更新动画
 Zombie.prototype.updateAnimation = function (deltaTime) {
-    if (this.state === ZOMBIE_STATE.WALKING || this.state === ZOMBIE_STATE.CHASING) {
+    if (this.state === ZOMBIE_STATE.CHASE) {
         var animationConfig = ConfigManager.get('ANIMATION');
         this.animationFrame += this.animationSpeed * deltaTime;
         if (this.animationFrame >= animationConfig.MAX_ANIMATION_FRAMES) {
@@ -433,12 +434,12 @@ Zombie.prototype.takeDamage = function (damage) {
     if (this.hp < 0) this.hp = 0;
 
     if (this.hp <= 0) {
-        this.state = ZOMBIE_STATE.DEAD;
+        this.state = ZOMBIE_STATE.DIE;
         return this.hp;
     }
 
     // 受伤时短暂停止移动
-    if (this.state === ZOMBIE_STATE.WALKING || this.state === ZOMBIE_STATE.CHASING) {
+    if (this.state === ZOMBIE_STATE.CHASE) {
         this.state = ZOMBIE_STATE.IDLE;
 
         var gameplayConfig = window.ConfigManager ? window.ConfigManager.get('GAMEPLAY') : null;
@@ -446,8 +447,8 @@ Zombie.prototype.takeDamage = function (damage) {
         
         // 延迟恢复移动
         setTimeout(() => {
-            if (this.hp > 0 && this.state !== ZOMBIE_STATE.DEAD) {
-                this.state = ZOMBIE_STATE.CHASING;
+            if (this.hp > 0 && this.state !== ZOMBIE_STATE.DIE) {
+                this.state = ZOMBIE_STATE.CHASE;
             }
         }, resetDelay);
     }
@@ -673,7 +674,7 @@ var ZombieManager = {
 
         // 重置基础属性
         zombie.hp = zombie.maxHp || 30;
-        zombie.state = ZOMBIE_STATE.IDLE;
+        zombie.state = ZOMBIE_STATES.IDLE;
         zombie.targetX = zombie.x;
         zombie.y = zombie.y;
         zombie.targetCharacter = null;
@@ -856,7 +857,7 @@ var ZombieManager = {
             } else if (distance <= zombie.detectionRange) { // 使用从config.js获取的检测范围
                 zombie.state = ZOMBIE_STATE.CHASING;
             } else {
-                zombie.state = ZOMBIE_STATE.IDLE;
+                zombie.state = ZOMBIE_STATES.IDLE;
             }
         } else {
             var randomAngle = Math.random() * Math.PI * 2;
@@ -864,7 +865,7 @@ var ZombieManager = {
 
             zombie.targetX = zombie.x + Math.cos(randomAngle) * randomDistance;
             zombie.targetY = zombie.y + Math.sin(randomAngle) * randomDistance;
-            zombie.state = ZOMBIE_STATE.IDLE;
+            zombie.state = ZOMBIE_STATES.IDLE;
         }
     },
 
@@ -947,7 +948,7 @@ var ZombieManager = {
         // 🔴 核心：从内部存储获取僵尸列表
         var zombies = this.getAllZombies();
 
-        var activeZombies = zombies.filter(zombie => zombie && zombie.hp > 0 && zombie.state !== ZOMBIE_STATE.DEAD);
+        var activeZombies = zombies.filter(zombie => zombie && zombie.hp > 0 && zombie.state !== ZOMBIE_STATE.DIE);
 
         // 🔴 紧急修复：所有僵尸都更新，不再分批
         var zombiesToUpdate = activeZombies;
@@ -960,7 +961,7 @@ var ZombieManager = {
         });
 
         // 清理死亡僵尸
-        var deadZombies = zombies.filter(zombie => zombie.hp <= 0 || zombie.state === ZOMBIE_STATE.DEAD);
+        var deadZombies = zombies.filter(zombie => zombie.hp <= 0 || zombie.state === ZOMBIE_STATE.DIE);
         deadZombies.forEach(zombie => {
             // 🔴 协调对象池：优先使用对象池归还
             if (this.objectPool) {
@@ -988,7 +989,7 @@ var ZombieManager = {
     // 🔴 重构：从对象管理器获取批次信息
     getBatchInfo: function (currentFrame) {
         var allZombies = this.getAllZombies();
-        var activeZombies = allZombies.filter(zombie => zombie && zombie.hp > 0 && zombie.state !== ZOMBIE_STATE.DEAD);
+        var activeZombies = allZombies.filter(zombie => zombie && zombie.hp > 0 && zombie.state !== ZOMBIE_STATE.DIE);
 
         var currentBatch = currentFrame % 2;
 
@@ -1014,10 +1015,10 @@ var ZombieManager = {
 
         // 🔴 协调对象池：使用对象池管理对象生命周期
         if (this.objectPool) {
-            // 重置僵尸状态
-            zombie.hp = 0;
-            zombie.state = 'dead';
-            zombie.isActive = false;
+                    // 重置僵尸状态
+        zombie.hp = 0;
+        zombie.state = ZOMBIE_STATES.DIE;
+        zombie.isActive = false;
 
             // 归还到对象池
             this.objectPool.return(zombie);

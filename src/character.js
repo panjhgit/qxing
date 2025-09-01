@@ -40,14 +40,18 @@ const WEAPON = {
     KNIFE: 'KNIFE'       // 菜刀
 };
 
-// 状态枚举
+// 导入统一的状态枚举
+import { MAIN_CHARACTER_STATES, PARTNER_STATES } from './state-machine.js';
+
+// 使用统一的状态枚举，保持向后兼容
 const STATUS = {
     FOLLOW: 'FOLLOW',        // 跟随
-    IDLE: 'IDLE',            // 静止
-    MOVING: 'MOVING',        // 移动中
+    IDLE: MAIN_CHARACTER_STATES.IDLE,            // 静止
+    MOVING: MAIN_CHARACTER_STATES.MOVE,        // 移动中
     BLOCKED: 'BLOCKED',      // 被阻挡
-    ATTACKING: 'ATTACKING',  // 攻击中
-    AVOIDING: 'AVOIDING'     // 避障中
+    ATTACKING: MAIN_CHARACTER_STATES.ATTACK,  // 攻击中
+    AVOIDING: 'AVOIDING',     // 避障中
+    DIE: MAIN_CHARACTER_STATES.DIE             // 死亡
 };
 
 // 人物类
