@@ -74,9 +74,9 @@
 const GAME_CONFIG = {
     // 移动系统配置
     MOVEMENT: {
-        CHARACTER_MOVE_SPEED: 4,        // ✅ 恢复：人物移动速度 (像素/帧)
+        CHARACTER_MOVE_SPEED: 3,        // ✅ 恢复：人物移动速度 (像素/帧)
         ZOMBIE_MOVE_SPEED: 2,           // ✅ 恢复：僵尸移动速度 (像素/帧)
-        PARTNER_MOVE_SPEED: 4,          // ✅ 伙伴移动速度 (像素/帧)
+        PARTNER_MOVE_SPEED: 3,          // ✅ 伙伴移动速度 (像素/帧)
 
         // 贴着建筑物移动配置
         WALL_FOLLOWING: {
@@ -86,9 +86,20 @@ const GAME_CONFIG = {
             MIN_STEP_SIZE: 4,            // ✅ 恢复：最小步长（像素）- 从2恢复到4
             NEARBY_SEARCH_RADIUS: 0.5    // 附近搜索半径（相对于对象半径）
         }
-    },
-
-    // 动画系统配置
+    }, // 时间系统配置
+    TIME_SYSTEM: {
+        DAY_DURATION: 10,              // 一天的长度（秒）- 白天5秒，晚上5秒
+        DAY_PHASE_DURATION: 5,         // 白天/夜晚阶段长度（秒）
+        ZOMBIES_PER_DAY: 10,           // 每天刷新的僵尸数量
+        PARTNERS_PER_DAY: 1,          // 🔴 新增：每天刷新的伙伴数量
+        SPAWN_RANGE: {
+            MIN_DISTANCE: 500,         // 僵尸生成最小距离（px）
+            MAX_DISTANCE: 700          // 僵尸生成最大距离（px）
+        }, PARTNER_SPAWN_RANGE: {         // 🔴 新增：伙伴生成距离范围
+            MIN_DISTANCE: 200,         // 伙伴生成最小距离（px）
+            MAX_DISTANCE: 400          // 伙伴生成最大距离（px）
+        }
+    }, // 动画系统配置
     ANIMATION: {
         DEFAULT_FRAME_RATE: 0.2,        // 默认动画帧率 (每帧更新0.2)
         MAX_ANIMATION_FRAMES: 8,        // 最大动画帧数
@@ -140,14 +151,14 @@ const GAME_CONFIG = {
         MOVING_ATTACK_INTERVAL: 0.5,    // 移动攻击间隔0.5秒 (1秒攻击2下)
 
         // 角色攻击范围配置
-        POLICE_ATTACK_RANGE: 150,        // 🔴 修复：警察攻击范围增加到150px
-        DOCTOR_ATTACK_RANGE: 140,        // 🔴 修复：医生攻击范围增加到140px
-        NURSE_ATTACK_RANGE: 140,         // 🔴 修复：护士攻击范围增加到140px
-        CHEF_ATTACK_RANGE: 130,         // 🔴 修复：厨师攻击范围增加到130px
+        POLICE_ATTACK_RANGE: 100,        // 🔴 修复：警察攻击范围增加到150px
+        DOCTOR_ATTACK_RANGE: 100,        // 🔴 修复：医生攻击范围增加到140px
+        NURSE_ATTACK_RANGE: 100,         // 🔴 修复：护士攻击范围增加到140px
+        CHEF_ATTACK_RANGE: 100,         // 🔴 修复：厨师攻击范围增加到130px
 
         // 僵尸攻击配置
         ZOMBIE_ATTACK_RANGE: 80,        // 僵尸攻击范围（像素）
-        ZOMBIE_ATTACK_COOLDOWN: 1500,   // 僵尸攻击冷却时间（毫秒）- 1.5秒攻击一下
+        ZOMBIE_ATTACK_COOLDOWN: 500,   // 僵尸攻击冷却时间（毫秒）- 1.5秒攻击一下
 
         // 攻击判定配置
         ATTACK_JUDGMENT: {
@@ -244,20 +255,6 @@ const GAME_CONFIG = {
         }
     },
 
-    // 时间系统配置
-    TIME_SYSTEM: {
-        DAY_DURATION: 10,              // 一天的长度（秒）- 白天5秒，晚上5秒
-        DAY_PHASE_DURATION: 5,         // 白天/夜晚阶段长度（秒）
-        ZOMBIES_PER_DAY: 5,           // 每天刷新的僵尸数量
-        PARTNERS_PER_DAY: 2,          // 🔴 新增：每天刷新的伙伴数量
-        SPAWN_RANGE: {
-            MIN_DISTANCE: 500,         // 僵尸生成最小距离（px）
-            MAX_DISTANCE: 700          // 僵尸生成最大距离（px）
-        }, PARTNER_SPAWN_RANGE: {         // 🔴 新增：伙伴生成距离范围
-            MIN_DISTANCE: 200,         // 伙伴生成最小距离（px）
-            MAX_DISTANCE: 400          // 伙伴生成最大距离（px）
-        }
-    },
 
     // 僵尸配置
     ZOMBIE: {
@@ -336,9 +333,13 @@ const GAME_CONFIG = {
             ROLES: [2, 3, 4, 5, 6],      // 伙伴职业类型数组
             REGIONS: [                    // 生成区域配置
                 {name: 'NORTH', centerX: 5000, centerY: 2000}, {
-                    name: 'EAST', centerX: 8000, centerY: 5000
+                    name: 'EAST',
+                    centerX: 8000,
+                    centerY: 5000
                 }, {name: 'WEST', centerX: 2000, centerY: 5000}, {
-                    name: 'SOUTH', centerX: 5000, centerY: 8000
+                    name: 'SOUTH',
+                    centerX: 5000,
+                    centerY: 8000
                 }, {name: 'CENTER', centerX: 5000, centerY: 5000}]
         },
 
@@ -382,12 +383,7 @@ const GAME_CONFIG = {
         // 摇杆配置
         JOYSTICK: {
             DEAD_ZONE: 0.1,              // 摇杆死区
-            MOVE_SPEED: 4,               // 摇杆移动速度
-            DYNAMIC_POSITION: true,      // 是否使用动态位置（触摸点为中心）
-            AUTO_HIDE: false,            // 触摸结束后是否自动隐藏（改为false，让摇杆回到默认位置）
-            OUTER_RADIUS: 60,            // 外圈半径
-            INNER_RADIUS: 25,            // 内圈半径
-            TOUCH_THRESHOLD: 20          // 触摸检测阈值
+            MOVE_SPEED: 4                // 摇杆移动速度
         },
 
         // 卡住检测配置
@@ -500,10 +496,23 @@ const ConfigValidator = {
 const ConfigManager = {
     currentDifficulty: 'NORMAL',
 
+    // 获取当前配置
+    getConfig: function () {
+        return GAME_CONFIG;
+    },
 
     // 获取难度配置
     getDifficultyConfig: function () {
         return DIFFICULTY_CONFIG[this.currentDifficulty] || DIFFICULTY_CONFIG.NORMAL;
+    },
+
+    // 设置难度
+    setDifficulty: function (difficulty) {
+        if (DIFFICULTY_CONFIG[difficulty]) {
+            this.currentDifficulty = difficulty;
+        } else {
+            throw new Error('无效的难度级别: ' + difficulty);
+        }
     },
 
     // 获取特定配置项
@@ -520,6 +529,24 @@ const ConfigManager = {
         }
 
         return value;
+    },
+
+    // 应用难度修正
+    getWithDifficulty: function (path, baseValue) {
+        var config = this.get(path);
+        if (config === null) return baseValue;
+
+        var difficultyConfig = this.getDifficultyConfig();
+        var multiplier = 1.0;
+
+        // 根据路径确定使用哪个修正因子
+        if (path.includes('ZOMBIE_HP')) {
+            multiplier = difficultyConfig.ZOMBIE_HP_MULTIPLIER;
+        } else if (path.includes('ZOMBIE_ATTACK')) {
+            multiplier = difficultyConfig.ZOMBIE_ATTACK_MULTIPLIER;
+        }
+
+        return config * multiplier;
     }
 };
 
