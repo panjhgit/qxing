@@ -11,7 +11,7 @@ const MAIN_CHARACTER_STATES = {
     DIE: 'DIE'              // 死亡
 };
 
-// 伙伴状态枚举
+// 伙伴状态枚举 - 统一管理所有伙伴状态
 const PARTNER_STATES = {
     INIT: 'INIT',           // 初始状态
     IDLE: 'IDLE',           // 待机

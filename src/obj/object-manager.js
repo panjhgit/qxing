@@ -10,10 +10,7 @@
 
 import {objectPoolManager} from './object-pool.js';
 
-// 角色枚举（如果无法导入，则本地定义）
-const ROLE = {
-    MAIN: 1      // 主人物
-};
+
 
 // 对象类型枚举
 const OBJECT_TYPE = {
@@ -196,7 +193,7 @@ class ObjectManager {
 
     getMainCharacter() {
         const characters = this.getObjectsByType('character');
-        const mainChar = characters.find(char => char.role === ROLE.MAIN);
+        const mainChar = characters.find(char => char.role === 1); // 主人物角色ID
         return mainChar;
     }
 

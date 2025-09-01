@@ -6,6 +6,7 @@
  * - 消除硬编码的重复值
  * - 提供配置验证和默认值
  * - 支持不同难度级别的配置
+ * - 统一管理角色和状态枚举
  *
  * 配置说明：
  * ========================================
@@ -82,19 +83,37 @@
  * - 修改检测频率：影响僵尸的反应速度
  */
 
+// 角色枚举 - 统一管理所有角色类型
+const ROLE = {
+    MAIN: 1,      // 主人物
+    POLICE: 2,    // 警察
+    CIVILIAN: 3,  // 平民
+    DOCTOR: 4,    // 医生
+    NURSE: 5,     // 护士
+    CHEF: 6       // 厨师
+};
+
+// 武器枚举
+const WEAPON = {
+    NONE: 'NONE',        // 无
+    PISTOL: 'PISTOL',    // 手枪
+    BAT: 'BAT',          // 棒球棒
+    KNIFE: 'KNIFE'       // 菜刀
+};
+
 // 游戏基础配置
 const GAME_CONFIG = {
     // 移动系统配置
     MOVEMENT: {
-        CHARACTER_MOVE_SPEED: 3,        // 🔴 简化：人物移动速度 (像素/帧，60fps)
+        CHARACTER_MOVE_SPEED: 4,        // 🔴 简化：人物移动速度 (像素/帧，60fps)
         ZOMBIE_MOVE_SPEED: 2,           // 🔴 简化：僵尸移动速度 (像素/帧，60fps)
-        PARTNER_MOVE_SPEED: 3,          // 🔴 简化：伙伴移动速度 (像素/帧，60fps)
+        PARTNER_MOVE_SPEED: 4,          // 🔴 简化：伙伴移动速度 (像素/帧，60fps)
 
         // 贴着建筑物移动配置
         WALL_FOLLOWING: {
             ENABLED: true,               // 启用贴着建筑物移动
             DIAGONAL_FACTOR: 1.0,        // 对角线移动速度因子（1.0倍）- 保持匀速
-            SEARCH_STEPS: 4,             // 搜索步数
+            SEARCH_STEPS: 8,             // 搜索步数
             MIN_STEP_SIZE: 2,            // ✅ 恢复：最小步长（像素）- 从2恢复到4
             NEARBY_SEARCH_RADIUS: 0.5    // 附近搜索半径（相对于对象半径）
         }
@@ -574,5 +593,5 @@ const ConfigManager = {
 ConfigValidator.validateAll(GAME_CONFIG);
 
 // 导出配置
-export {GAME_CONFIG, DIFFICULTY_CONFIG, ConfigManager, ConfigValidator};
+export {GAME_CONFIG, DIFFICULTY_CONFIG, ConfigManager, ConfigValidator, ROLE, WEAPON};
 export default ConfigManager;

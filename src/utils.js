@@ -98,6 +98,92 @@ const PerformanceUtils = {
     }
 };
 
+// 🔴 新增：角色属性设置工具
+const RolePropertyUtils = {
+    // 设置角色属性
+    setupRoleProperties: function (character, role) {
+        var combatConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT') : null;
+        var difficultyConfig = window.ConfigManager ? window.ConfigManager.getDifficultyConfig() : null;
+
+        switch (role) {
+            case 1: // 主人物 (ROLE.MAIN)
+                character.hp = combatConfig ? combatConfig.DEFAULT_HP : 100;
+                character.maxHp = character.hp;
+                character.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20;
+                character.weapon = 'NONE';
+                character.attackRange = combatConfig ? combatConfig.MAIN_CHARACTER_ATTACK_RANGE : 100;
+                character.icon = '👤';
+                character.color = '#3498db';
+                break;
+
+            case 2: // 警察 (ROLE.POLICE)
+                character.hp = combatConfig ? combatConfig.DEFAULT_HP : 100;
+                character.maxHp = character.hp;
+                character.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20;
+                character.attackRange = combatConfig ? combatConfig.POLICE_ATTACK_RANGE : 100;
+                character.detectionRange = combatConfig ? combatConfig.MIN_ATTACK_RANGE : 100;
+                character.icon = '👮';
+                character.color = '#2c3e50';
+                character.initialColor = '#95a5a6';
+                break;
+
+            case 3: // 平民 (ROLE.CIVILIAN)
+                character.hp = combatConfig ? combatConfig.DEFAULT_HP : 100;
+                character.maxHp = character.hp;
+                character.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20;
+                character.attackRange = combatConfig ? combatConfig.POLICE_ATTACK_RANGE : 100;
+                character.detectionRange = combatConfig ? combatConfig.MIN_ATTACK_RANGE : 100;
+                character.icon = '👨';
+                character.color = '#95a5a6';
+                character.initialColor = '#95a5a6';
+                break;
+
+            case 4: // 医生 (ROLE.DOCTOR)
+                character.hp = combatConfig ? combatConfig.DEFAULT_HP : 100;
+                character.maxHp = character.hp;
+                character.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20;
+                character.attackRange = combatConfig ? combatConfig.DOCTOR_ATTACK_RANGE : 100;
+                character.detectionRange = combatConfig ? combatConfig.MIN_ATTACK_RANGE : 100;
+                character.icon = '👨‍⚕️';
+                character.color = '#e74c3c';
+                character.initialColor = '#95a5a6';
+                break;
+
+            case 5: // 护士 (ROLE.NURSE)
+                character.hp = combatConfig ? combatConfig.DEFAULT_HP : 100;
+                character.maxHp = character.hp;
+                character.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20;
+                character.attackRange = combatConfig ? combatConfig.NURSE_ATTACK_RANGE : 100;
+                character.detectionRange = combatConfig ? combatConfig.MIN_ATTACK_RANGE : 100;
+                character.icon = '👩‍⚕️';
+                character.color = '#e91e63';
+                character.initialColor = '#95a5a6';
+                break;
+
+            case 6: // 厨师 (ROLE.CHEF)
+                character.hp = combatConfig ? combatConfig.DEFAULT_HP : 100;
+                character.maxHp = character.hp;
+                character.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20;
+                character.attackRange = combatConfig ? combatConfig.CHEF_ATTACK_RANGE : 100;
+                character.detectionRange = combatConfig ? combatConfig.MIN_ATTACK_RANGE : 100;
+                character.icon = '👨‍🍳';
+                character.color = '#f39c12';
+                character.initialColor = '#95a5a6';
+                break;
+
+            default:
+                character.hp = combatConfig ? combatConfig.DEFAULT_HP : 100;
+                character.maxHp = character.hp;
+                character.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20;
+                character.attackRange = combatConfig ? combatConfig.POLICE_ATTACK_RANGE : 100;
+                character.detectionRange = combatConfig ? combatConfig.MIN_ATTACK_RANGE : 100;
+                character.icon = '❓';
+                character.color = '#95a5a6';
+                character.initialColor = '#95a5a6';
+        }
+    }
+};
+
 // 工具管理器
 const UtilsManager = {
     // 获取所有工具类
@@ -109,11 +195,19 @@ const UtilsManager = {
         return ValidationUtils;
     }, getPerformanceUtils: function () {
         return PerformanceUtils;
+    }, getRolePropertyUtils: function () {
+        return RolePropertyUtils;
     }
 };
 
-// 导出工具类
+// 导出工具管理器
 export {
-    MathUtils, AnimationUtils, ValidationUtils, PerformanceUtils, UtilsManager
+    ValidationUtils,
+    MathUtils,
+    AnimationUtils,
+    CollisionUtils,
+    PerformanceUtils,
+    RolePropertyUtils,
+    UtilsManager
 };
 export default UtilsManager;

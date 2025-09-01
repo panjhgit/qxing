@@ -9,27 +9,9 @@
  * - 职业特性
  */
 
-import ConfigManager from './config.js';
+import ConfigManager, {ROLE} from './config.js';
 import UtilsManager from './utils.js';
 import StateMachine, {PARTNER_STATES} from './state-machine.js';
-
-// 伙伴职业枚举
-const PARTNER_ROLE = {
-    POLICE: 2,    // 警察
-    CIVILIAN: 3,  // 平民
-    DOCTOR: 4,    // 医生
-    NURSE: 5,     // 护士
-    CHEF: 6       // 厨师
-};
-
-// 伙伴状态枚举（扩展）
-const PARTNER_STATE = {
-    INIT: 'INIT',           // 初始状态
-    IDLE: 'IDLE',           // 待机
-    FOLLOW: 'FOLLOW',       // 跟随
-    ATTACK: 'ATTACK',       // 攻击
-    DIE: 'DIE'              // 死亡
-};
 
 
 // 伙伴类
@@ -47,14 +29,14 @@ var Partner = function (role, x, y) {
 
     if (!validationUtils.validateRange(role, 2, 6, '伙伴职业类型')) {
         console.warn('无效的伙伴职业类型:', role);
-        role = PARTNER_ROLE.CIVILIAN;
+        role = ROLE.CIVILIAN;
     }
 
     // 基础属性
     this.role = role;
     this.x = x;
     this.y = y;
-    this.status = PARTNER_STATE.INIT;
+    this.status = PARTNER_STATES.INIT;
     this.type = 'partner';
     this.isInitialState = true; // 初始状态为灰色
 
@@ -99,82 +81,15 @@ var Partner = function (role, x, y) {
     this.initializeStateMachine();
 };
 
-// 设置职业属性
+// 设置职业属性 - 使用公共工具
 Partner.prototype.setupRoleProperties = function () {
-    var combatConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT') : null;
-    var difficultyConfig = window.ConfigManager ? window.ConfigManager.getDifficultyConfig() : null;
-
-    switch (this.role) {
-        case PARTNER_ROLE.POLICE:
-            this.hp = combatConfig ? combatConfig.DEFAULT_HP : 100; // 从config.js获取血量
-            this.maxHp = this.hp;
-            this.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取攻击力
-            this.attackRange = combatConfig ? combatConfig.POLICE_ATTACK_RANGE : 100; // 从config.js获取攻击范围
-            this.detectionRange = combatConfig ? combatConfig.MIN_ATTACK_RANGE : 100; // 从config.js获取检测范围
-            this.icon = '👮';
-            this.color = '#2c3e50';
-            this.initialColor = '#95a5a6'; // 初始状态为灰色
-            break;
-
-        case PARTNER_ROLE.CIVILIAN:
-            this.hp = combatConfig ? combatConfig.DEFAULT_HP : 100; // 从config.js获取血量
-            this.maxHp = this.hp;
-            this.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取攻击力
-            this.attackRange = combatConfig ? combatConfig.POLICE_ATTACK_RANGE : 100; // 从config.js获取攻击范围
-            this.detectionRange = combatConfig ? combatConfig.MIN_ATTACK_RANGE : 100; // 从config.js获取检测范围
-            this.icon = '👨';
-            this.color = '#95a5a6';
-            this.initialColor = '#95a5a6'; // 初始状态为灰色
-            break;
-
-        case PARTNER_ROLE.DOCTOR:
-            this.hp = combatConfig ? combatConfig.DEFAULT_HP : 100; // 从config.js获取血量
-            this.maxHp = this.hp;
-            this.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取攻击力
-            this.attackRange = combatConfig ? combatConfig.DOCTOR_ATTACK_RANGE : 100; // 从config.js获取攻击范围
-            this.detectionRange = combatConfig ? combatConfig.MIN_ATTACK_RANGE : 100; // 从config.js获取检测范围
-            this.icon = '👨‍⚕️';
-            this.color = '#e74c3c';
-            this.initialColor = '#95a5a6'; // 初始状态为灰色
-            break;
-
-        case PARTNER_ROLE.NURSE:
-            this.hp = combatConfig ? combatConfig.DEFAULT_HP : 100; // 从config.js获取血量
-            this.maxHp = this.hp;
-            this.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取攻击力
-            this.attackRange = combatConfig ? combatConfig.NURSE_ATTACK_RANGE : 100; // 从config.js获取攻击范围
-            this.detectionRange = combatConfig ? combatConfig.MIN_ATTACK_RANGE : 100; // 从config.js获取检测范围
-            this.icon = '👩‍⚕️';
-            this.color = '#e91e63';
-            this.initialColor = '#95a5a6'; // 初始状态为灰色
-            break;
-
-        case PARTNER_ROLE.CHEF:
-            this.hp = combatConfig ? combatConfig.DEFAULT_HP : 100; // 从config.js获取血量
-            this.maxHp = this.hp;
-            this.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取攻击力
-            this.attackRange = combatConfig ? combatConfig.CHEF_ATTACK_RANGE : 100; // 从config.js获取攻击范围
-            this.detectionRange = combatConfig ? combatConfig.MIN_ATTACK_RANGE : 100; // 从config.js获取检测范围
-            this.icon = '👨‍🍳';
-            this.color = '#f39c12';
-            this.initialColor = '#95a5a6'; // 初始状态为灰色
-            break;
-
-        default:
-            this.hp = combatConfig ? combatConfig.DEFAULT_HP : 100; // 从config.js获取血量
-            this.maxHp = this.hp;
-            this.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取攻击力
-            this.attackRange = combatConfig ? combatConfig.POLICE_ATTACK_RANGE : 100; // 从config.js获取攻击范围
-            this.detectionRange = combatConfig ? combatConfig.MIN_ATTACK_RANGE : 100; // 从config.js获取检测范围
-            this.icon = '❓';
-            this.color = '#95a5a6';
-            this.initialColor = '#95a5a6'; // 初始状态为灰色
-    }
+    var rolePropertyUtils = UtilsManager.getRolePropertyUtils();
+    rolePropertyUtils.setupRoleProperties(this, this.role);
 };
 
 // 初始化状态机
 Partner.prototype.initializeStateMachine = function () {
-    this.stateMachine = new StateMachine(this, PARTNER_STATE.INIT);
+    this.stateMachine = new StateMachine(this, PARTNER_STATES.INIT);
     this.setupPartnerStateMachine();
 };
 
@@ -183,7 +98,7 @@ Partner.prototype.setupPartnerStateMachine = function () {
     const sm = this.stateMachine;
 
     // INIT -> FOLLOW: 主人物靠近配置距离
-    sm.addTransition(PARTNER_STATE.INIT, PARTNER_STATE.FOLLOW, () => {
+    sm.addTransition(PARTNER_STATES.INIT, PARTNER_STATES.FOLLOW, () => {
         // 从配置获取伙伴激活距离
         var detectionConfig = window.ConfigManager ? window.ConfigManager.get('DETECTION') : null;
         var activationDistance = detectionConfig ? detectionConfig.SAFE_SPAWN_DISTANCE : 100;
@@ -191,69 +106,69 @@ Partner.prototype.setupPartnerStateMachine = function () {
     });
 
     // INIT -> DIE: 血量归零
-    sm.addTransition(PARTNER_STATE.INIT, PARTNER_STATE.DIE, () => {
+    sm.addTransition(PARTNER_STATES.INIT, PARTNER_STATES.DIE, () => {
         return this.hp <= 0;
     });
 
     // IDLE -> FOLLOW: 主人物移动
-    sm.addTransition(PARTNER_STATE.IDLE, PARTNER_STATE.FOLLOW, () => {
+    sm.addTransition(PARTNER_STATES.IDLE, PARTNER_STATES.FOLLOW, () => {
         return this.isMainCharacterMoving();
     });
 
     // IDLE -> ATTACK: 100px内有僵尸
-    sm.addTransition(PARTNER_STATE.IDLE, PARTNER_STATE.ATTACK, () => {
+    sm.addTransition(PARTNER_STATES.IDLE, PARTNER_STATES.ATTACK, () => {
         return this.hasZombieInRange(this.detectionRange);
     });
 
     // IDLE -> DIE: 血量归零
-    sm.addTransition(PARTNER_STATE.IDLE, PARTNER_STATE.DIE, () => {
+    sm.addTransition(PARTNER_STATES.IDLE, PARTNER_STATES.DIE, () => {
         return this.hp <= 0;
     });
 
     // FOLLOW -> IDLE: 主人物停止移动且无僵尸
-    sm.addTransition(PARTNER_STATE.FOLLOW, PARTNER_STATE.IDLE, () => {
+    sm.addTransition(PARTNER_STATES.FOLLOW, PARTNER_STATES.IDLE, () => {
         return !this.isMainCharacterMoving() && !this.hasZombieInRange(this.detectionRange);
     });
 
     // FOLLOW -> ATTACK: 主人物停止移动且有僵尸
-    sm.addTransition(PARTNER_STATE.FOLLOW, PARTNER_STATE.ATTACK, () => {
+    sm.addTransition(PARTNER_STATES.FOLLOW, PARTNER_STATES.ATTACK, () => {
         return !this.isMainCharacterMoving() && this.hasZombieInRange(this.detectionRange);
     });
 
 
     // FOLLOW -> DIE: 血量归零
-    sm.addTransition(PARTNER_STATE.FOLLOW, PARTNER_STATE.DIE, () => {
+    sm.addTransition(PARTNER_STATES.FOLLOW, PARTNER_STATES.DIE, () => {
         return this.hp <= 0;
     });
 
     // ATTACK -> FOLLOW: 主人物移动（打断攻击）
-    sm.addTransition(PARTNER_STATE.ATTACK, PARTNER_STATE.FOLLOW, () => {
+    sm.addTransition(PARTNER_STATES.ATTACK, PARTNER_STATES.FOLLOW, () => {
         return this.isMainCharacterMoving();
     });
 
     // ATTACK -> IDLE: 无僵尸
-    sm.addTransition(PARTNER_STATE.ATTACK, PARTNER_STATE.IDLE, () => {
+    sm.addTransition(PARTNER_STATES.ATTACK, PARTNER_STATES.IDLE, () => {
         return !this.hasZombieInRange(this.detectionRange);
     });
 
     // ATTACK -> DIE: 血量归零
-    sm.addTransition(PARTNER_STATE.ATTACK, PARTNER_STATE.DIE, () => {
+    sm.addTransition(PARTNER_STATES.ATTACK, PARTNER_STATES.DIE, () => {
         return this.hp <= 0;
     });
 
 
     // 添加状态行为
-    sm.addBehavior(PARTNER_STATE.INIT, this.onEnterInit.bind(this), this.onUpdateInit.bind(this), this.onExitInit.bind(this));
-    sm.addBehavior(PARTNER_STATE.IDLE, this.onEnterIdle.bind(this), this.onUpdateIdle.bind(this), this.onExitIdle.bind(this));
-    sm.addBehavior(PARTNER_STATE.FOLLOW, this.onEnterFollow.bind(this), this.onUpdateFollow.bind(this), this.onExitFollow.bind(this));
-    sm.addBehavior(PARTNER_STATE.ATTACK, this.onEnterAttack.bind(this), this.onUpdateAttack.bind(this), this.onExitAttack.bind(this));
-    sm.addBehavior(PARTNER_STATE.DIE, this.onEnterDie.bind(this), this.onUpdateDie.bind(this), this.onExitDie.bind(this));
+    sm.addBehavior(PARTNER_STATES.INIT, this.onEnterInit.bind(this), this.onUpdateInit.bind(this), this.onExitInit.bind(this));
+    sm.addBehavior(PARTNER_STATES.IDLE, this.onEnterIdle.bind(this), this.onUpdateIdle.bind(this), this.onExitIdle.bind(this));
+    sm.addBehavior(PARTNER_STATES.FOLLOW, this.onEnterFollow.bind(this), this.onUpdateFollow.bind(this), this.onExitFollow.bind(this));
+    sm.addBehavior(PARTNER_STATES.ATTACK, this.onEnterAttack.bind(this), this.onUpdateAttack.bind(this), this.onExitAttack.bind(this));
+    sm.addBehavior(PARTNER_STATES.DIE, this.onEnterDie.bind(this), this.onUpdateDie.bind(this), this.onExitDie.bind(this));
 };
 
 
 // INIT状态
 Partner.prototype.onEnterInit = function (stateData) {
-    this.status = PARTNER_STATE.INIT;
+    this.status = PARTNER_STATES.INIT;
     this.isMoving = false;
 };
 
@@ -271,7 +186,7 @@ Partner.prototype.onExitInit = function (stateData) {
 
 // IDLE状态
 Partner.prototype.onEnterIdle = function (stateData) {
-    this.status = PARTNER_STATE.IDLE;
+    this.status = PARTNER_STATES.IDLE;
     this.isMoving = false;
 };
 
@@ -286,7 +201,7 @@ Partner.prototype.onExitIdle = function (stateData) {
 
 // FOLLOW状态
 Partner.prototype.onEnterFollow = function (stateData) {
-    this.status = PARTNER_STATE.FOLLOW;
+    this.status = PARTNER_STATES.FOLLOW;
     this.isMoving = true;
 
 };
@@ -303,7 +218,7 @@ Partner.prototype.onExitFollow = function (stateData) {
 
 // ATTACK状态
 Partner.prototype.onEnterAttack = function (stateData) {
-    this.status = PARTNER_STATE.ATTACK;
+    this.status = PARTNER_STATES.ATTACK;
     this.isMoving = false;
     this.attackCooldown = 0;
     this.findAttackTarget();
@@ -322,7 +237,7 @@ Partner.prototype.onExitAttack = function (stateData) {
 
 // DIE状态
 Partner.prototype.onEnterDie = function (stateData) {
-    this.status = PARTNER_STATE.DIE;
+    this.status = PARTNER_STATES.DIE;
     this.isMoving = false;
     this.deathAnimationTime = 0;
     this.playDeathAnimation();
@@ -720,13 +635,13 @@ Partner.prototype.updateAnimation = function () {
     var stateSpeedMultipliers = animationConfig ? animationConfig.STATE_SPEED_MULTIPLIERS : {};
     
     switch (this.status) {
-        case PARTNER_STATE.FOLLOW:
+        case PARTNER_STATES.FOLLOW:
             adjustedSpeed = baseSpeed * (stateSpeedMultipliers.MOVING || 1.5);
             break;
-        case PARTNER_STATE.ATTACK:
+        case PARTNER_STATES.ATTACK:
             adjustedSpeed = baseSpeed * (stateSpeedMultipliers.ATTACKING || 2.0);
             break;
-        case PARTNER_STATE.DIE:
+        case PARTNER_STATES.DIE:
             adjustedSpeed = baseSpeed * (stateSpeedMultipliers.DIE || 0.5);
             break;
         default:
@@ -778,8 +693,8 @@ Partner.prototype.takeDamage = function (damage) {
 
     // 🔴 修复：受到伤害后立即检查血量，如果血量归零则触发死亡
     if (this.hp <= 0) {
-        if (this.stateMachine && this.stateMachine.currentState !== PARTNER_STATE.DIE) {
-            this.stateMachine.forceState(PARTNER_STATE.DIE);
+        if (this.stateMachine && this.stateMachine.currentState !== PARTNER_STATES.DIE) {
+            this.stateMachine.forceState(PARTNER_STATES.DIE);
         }
     }
 
@@ -821,9 +736,9 @@ Partner.prototype.handleCollisionWithMainCharacter = function (distance) {
     }
 
     // 🔴 核心：如果还在INIT状态，强制转换为跟随状态
-    if (this.status === PARTNER_STATE.INIT) {
+    if (this.status === PARTNER_STATES.INIT) {
         if (this.stateMachine) {
-            this.stateMachine.forceState(PARTNER_STATE.FOLLOW);
+            this.stateMachine.forceState(PARTNER_STATES.FOLLOW);
         }
     }
 
@@ -900,7 +815,7 @@ Partner.prototype.debugFollowStatus = function () {
 // 🔴 新增：强制跟随方法（用于测试）
 Partner.prototype.forceFollow = function () {
     if (this.stateMachine) {
-        this.stateMachine.forceState(PARTNER_STATE.FOLLOW);
+        this.stateMachine.forceState(PARTNER_STATES.FOLLOW);
     }
 };
 
@@ -919,7 +834,7 @@ var PartnerManager = {
 
         // 🔴 修复：使用recreatePool确保每次都是全新的对象池
         this.objectPool = window.objectPoolManager.recreatePool('partner', // 创建函数
-            () => new Partner(PARTNER_ROLE.CIVILIAN, 0, 0), // 重置函数
+            () => new Partner(ROLE.CIVILIAN, 0, 0), // 重置函数
             (partner) => this.resetPartner(partner));
 
         // 伙伴对象池初始化完成
@@ -931,7 +846,7 @@ var PartnerManager = {
 
         // 重置基础属性
         partner.hp = partner.maxHp || 50;
-        partner.status = PARTNER_STATE.IDLE;
+        partner.status = PARTNER_STATES.IDLE;
         partner.isMoving = false;
         partner.targetX = partner.x;
         partner.targetY = partner.y;
@@ -954,7 +869,7 @@ var PartnerManager = {
 
         // 重置状态机
         if (partner.stateMachine) {
-            partner.stateMachine.forceState(PARTNER_STATE.IDLE);
+            partner.stateMachine.forceState(PARTNER_STATES.IDLE);
         }
 
         // 🔴 修复：重置动画速度，防止动画速度累积
@@ -1029,8 +944,8 @@ var PartnerManager = {
 
         partners.forEach(partner => {
             // 🔴 修复：首先检查血量，如果血量小于等于0，立即切换到死亡状态
-            if (partner.hp <= 0 && partner.stateMachine.currentState !== PARTNER_STATE.DIE) {
-                partner.stateMachine.forceState(PARTNER_STATE.DIE);
+            if (partner.hp <= 0 && partner.stateMachine.currentState !== PARTNER_STATES.DIE) {
+                partner.stateMachine.forceState(PARTNER_STATES.DIE);
             }
 
             if (partner.stateMachine) {
@@ -1057,7 +972,7 @@ var PartnerManager = {
         if (this.objectPool) {
             // 重置伙伴状态
             partner.hp = 0;
-            partner.status = PARTNER_STATE.DIE;
+            partner.status = PARTNER_STATES.DIE;
             partner.isActive = false;
 
             // 归还到对象池
@@ -1090,7 +1005,7 @@ var PartnerManager = {
             }
 
             // 如果伙伴在INIT状态，尝试强制跟随
-            if (partner.status === PARTNER_STATE.INIT) {
+            if (partner.status === PARTNER_STATES.INIT) {
                 if (partner.forceFollow) {
                     partner.forceFollow();
                 }
@@ -1107,7 +1022,7 @@ var PartnerManager = {
 
         // 从配置获取伙伴生成信息
         var partnerConfig = window.ConfigManager ? window.ConfigManager.get('PARTNER') : null;
-        var partnerRoles = partnerConfig ? partnerConfig.SPAWN.ROLES : [PARTNER_ROLE.POLICE, PARTNER_ROLE.CIVILIAN, PARTNER_ROLE.DOCTOR, PARTNER_ROLE.NURSE, PARTNER_ROLE.CHEF];
+        var partnerRoles = partnerConfig ? partnerConfig.SPAWN.ROLES : [ROLE.POLICE, ROLE.CIVILIAN, ROLE.DOCTOR, ROLE.NURSE, ROLE.CHEF];
         var partnerCount = partnerConfig ? partnerConfig.SPAWN.COUNT : 5;
 
         for (var i = 0; i < partnerCount; i++) {
@@ -1156,6 +1071,5 @@ var PartnerManager = {
 };
 
 // 导出
-export {PARTNER_ROLE, PARTNER_STATE};
 export {PartnerManager};
 export default Partner;

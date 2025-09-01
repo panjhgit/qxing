@@ -8,19 +8,9 @@
  * - 提高代码复用性和维护性
  */
 
-import ConfigManager from './config.js';
+import ConfigManager, {ROLE} from './config.js';
 import UtilsManager from './utils.js';
-import StateMachine, {MAIN_CHARACTER_STATES, PARTNER_STATES} from './state-machine.js';
-
-// 角色枚举
-const ROLE = {
-    MAIN: 1,      // 主人物
-    POLICE: 2,    // 警察
-    CIVILIAN: 3,  // 平民
-    DOCTOR: 4,    // 医生
-    NURSE: 5,     // 护士
-    CHEF: 6       // 厨师
-};
+import StateMachine, {MAIN_CHARACTER_STATES} from './state-machine.js';
 
 // 角色ID枚举
 const CHARACTER_ID = {
@@ -30,14 +20,6 @@ const CHARACTER_ID = {
     PARTNER_3: 1004,  // 伙伴3
     PARTNER_4: 1005,  // 伙伴4
     PARTNER_5: 1006   // 伙伴5
-};
-
-// 武器枚举
-const WEAPON = {
-    NONE: 'NONE',        // 无
-    PISTOL: 'PISTOL',    // 手枪
-    BAT: 'BAT',          // 棒球棒
-    KNIFE: 'KNIFE'       // 菜刀
 };
 
 // 状态枚举
@@ -156,88 +138,18 @@ Character.prototype.reset = function () {
 
 };
 
-// 设置角色属性
+// 设置角色属性 - 使用公共工具
 Character.prototype.setupRoleProperties = function () {
-    var combatConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT') : null;
-    var difficultyConfig = window.ConfigManager ? window.ConfigManager.getDifficultyConfig() : null;
-
-    switch (this.role) {
-        case ROLE.MAIN: // 主人物
-            this.hp = combatConfig ? combatConfig.DEFAULT_HP : 100; // 从config.js获取血量
-            this.maxHp = this.hp;
-            this.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取攻击力
-            this.weapon = WEAPON.NONE;
-            this.attackRange = combatConfig ? combatConfig.MAIN_CHARACTER_ATTACK_RANGE : 100; // 从config.js获取攻击范围
-            this.icon = '👤';
-            break;
-
-        case ROLE.POLICE: // 警察
-            this.hp = combatConfig ? combatConfig.DEFAULT_HP : 100; // 从config.js获取血量
-            this.maxHp = this.hp;
-            this.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取攻击力
-            this.weapon = WEAPON.NONE;
-            this.attackRange = combatConfig ? combatConfig.POLICE_ATTACK_RANGE : 100; // 从config.js获取攻击范围
-            this.icon = '👮';
-            break;
-
-        case ROLE.CIVILIAN: // 平民
-            this.hp = combatConfig ? combatConfig.DEFAULT_HP : 100; // 从config.js获取血量
-            this.maxHp = this.hp;
-            this.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取攻击力
-            this.weapon = WEAPON.NONE;
-            this.attackRange = combatConfig ? combatConfig.POLICE_ATTACK_RANGE : 100; // 从config.js获取攻击范围
-            this.icon = '👨';
-            break;
-
-        case ROLE.DOCTOR: // 医生
-            this.hp = combatConfig ? combatConfig.DEFAULT_HP : 100; // 从config.js获取血量
-            this.maxHp = this.hp;
-            this.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取攻击力
-            this.weapon = WEAPON.NONE;
-            this.attackRange = combatConfig ? combatConfig.DOCTOR_ATTACK_RANGE : 100; // 从config.js获取攻击范围
-            this.icon = '👨‍⚕️';
-            break;
-
-        case ROLE.NURSE: // 护士
-            this.hp = combatConfig ? combatConfig.DEFAULT_HP : 100; // 从config.js获取血量
-            this.maxHp = this.hp;
-            this.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取攻击力
-            this.weapon = WEAPON.NONE;
-            this.attackRange = combatConfig ? combatConfig.NURSE_ATTACK_RANGE : 100; // 从config.js获取攻击范围
-            this.icon = '👩‍⚕️';
-            break;
-
-        case ROLE.CHEF: // 厨师
-            this.hp = combatConfig ? combatConfig.DEFAULT_HP : 100; // 从config.js获取血量
-            this.maxHp = this.hp;
-            this.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取攻击力
-            this.weapon = WEAPON.NONE;
-            this.attackRange = combatConfig ? combatConfig.CHEF_ATTACK_RANGE : 100; // 从config.js获取攻击范围
-            this.icon = '👨‍🍳';
-            break;
-
-        default:
-            this.hp = combatConfig ? combatConfig.DEFAULT_HP : 100; // 从config.js获取血量
-            this.maxHp = this.hp;
-            this.attack = combatConfig ? combatConfig.DEFAULT_ATTACK : 20; // 从config.js获取攻击力
-            this.weapon = WEAPON.NONE;
-            this.attackRange = combatConfig ? combatConfig.POLICE_ATTACK_RANGE : 100; // 从config.js获取攻击范围
-            this.icon = '❓';
-    }
+    var rolePropertyUtils = UtilsManager.getRolePropertyUtils();
+    rolePropertyUtils.setupRoleProperties(this, this.role);
 };
 
 
-// 初始化状态机
+// 初始化状态机 - 只处理主人物
 Character.prototype.initializeStateMachine = function () {
-    if (this.role === ROLE.MAIN) {
-        // 主人物状态机
-        this.stateMachine = new StateMachine(this, MAIN_CHARACTER_STATES.IDLE);
-        this.setupMainCharacterStateMachine();
-    } else {
-        // 伙伴状态机
-        this.stateMachine = new StateMachine(this, PARTNER_STATES.INIT);
-        this.setupPartnerStateMachine();
-    }
+    // 主人物状态机
+    this.stateMachine = new StateMachine(this, MAIN_CHARACTER_STATES.IDLE);
+    this.setupMainCharacterStateMachine();
 };
 
 // 设置主人物状态机
@@ -326,50 +238,7 @@ Character.prototype.setupMainCharacterStateMachine = function () {
     );
 };
 
-// 设置伙伴状态机
-Character.prototype.setupPartnerStateMachine = function () {
-    const sm = this.stateMachine;
 
-    // 简化的伙伴状态机：只保留必要的状态
-    sm.addTransition(PARTNER_STATES.INIT, PARTNER_STATES.FOLLOW, () => {
-        // 从配置获取伙伴激活距离
-        var detectionConfig = window.ConfigManager ? window.ConfigManager.get('DETECTION') : null;
-        var activationDistance = detectionConfig ? detectionConfig.SAFE_SPAWN_DISTANCE : 100;
-        return this.isMainCharacterNearby(activationDistance);
-    });
-
-    sm.addTransition(PARTNER_STATES.FOLLOW, PARTNER_STATES.IDLE, () => {
-        return !this.isMainCharacterMoving();
-    });
-
-    sm.addTransition(PARTNER_STATES.IDLE, PARTNER_STATES.FOLLOW, () => {
-        return this.isMainCharacterMoving();
-    });
-
-    // 添加死亡状态转换
-    sm.addTransition(PARTNER_STATES.INIT, PARTNER_STATES.DIE, () => {
-        return this.hp <= 0;
-    });
-
-    sm.addTransition(PARTNER_STATES.FOLLOW, PARTNER_STATES.DIE, () => {
-        return this.hp <= 0;
-    });
-
-    sm.addTransition(PARTNER_STATES.IDLE, PARTNER_STATES.DIE, () => {
-        return this.hp <= 0;
-    });
-
-    // 简化的状态行为
-    sm.addBehavior(PARTNER_STATES.INIT, this.onEnterIdle.bind(this),      // 复用待机行为
-        this.onUpdateIdle.bind(this), this.onExitIdle.bind(this));
-
-    sm.addBehavior(PARTNER_STATES.IDLE, this.onEnterIdle.bind(this), this.onUpdateIdle.bind(this), this.onExitIdle.bind(this));
-
-    sm.addBehavior(PARTNER_STATES.FOLLOW, this.onEnterMove.bind(this),      // 复用移动行为
-        this.onUpdateMove.bind(this), this.onExitMove.bind(this));
-
-    sm.addBehavior(PARTNER_STATES.DIE, this.onEnterDie.bind(this), this.onUpdateDie.bind(this), this.onExitDie.bind(this));
-};
 
 // 受到攻击
 Character.prototype.takeDamage = function (damage) {
@@ -1228,7 +1097,7 @@ var CharacterManager = {
 };
 
 // 导出枚举
-export {ROLE, WEAPON, STATUS, CHARACTER_ID};
+export {STATUS, CHARACTER_ID};
 
 // 导出角色管理器和角色类
 export {CharacterManager};
