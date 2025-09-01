@@ -236,12 +236,7 @@ var GameEngine = function (canvas, ctx) {
 
     // 计时系统
     this.timeSystem = {
-        day: 1,
-        isDay: true,
-        dayTime: 0,
-        currentTime: 0,
-        dayDuration: 0,
-        food: 5
+        day: 1, isDay: true, dayTime: 0, currentTime: 0, dayDuration: 0, food: 5
     };
 
     // 帧计数器
@@ -250,12 +245,7 @@ var GameEngine = function (canvas, ctx) {
 
     // 性能监控
     this.performanceMonitor = {
-        frameCount: 0,
-        lastFPS: 60,
-        fpsHistory: [],
-        lastOptimizationTime: 0,
-        targetFPS: 60,
-        minFPS: 30,
+        frameCount: 0, lastFPS: 60, fpsHistory: [], lastOptimizationTime: 0, targetFPS: 60, minFPS: 30,
 
         updateFPS: function (deltaTime) {
             this.frameCount++;
@@ -294,7 +284,7 @@ var GameEngine = function (canvas, ctx) {
             if (zombies.length > 35) {
                 var excessZombies = zombies.length - 28;
                 var mainChar = window.characterManager ? window.characterManager.getMainCharacter() : null;
-                
+
                 if (mainChar) {
                     zombies.sort((a, b) => {
                         var distA = Math.sqrt(Math.pow(a.x - mainChar.x, 2) + Math.pow(a.y - mainChar.y, 2));
@@ -534,21 +524,28 @@ GameEngine.prototype.initDynamicObstacleManager = function () {
 GameEngine.prototype.addSampleDynamicObstacles = function () {
     if (!this.dynamicObstacleManager) return;
 
-    const cars = [
-        {id: 'car_1', x: 2000, y: 2000, width: 80, height: 120, type: 'car'},
-        {id: 'car_2', x: 4000, y: 3000, width: 80, height: 120, type: 'car'},
-        {id: 'car_3', x: 6000, y: 5000, width: 80, height: 120, type: 'car'}
-    ];
+    const cars = [{id: 'car_1', x: 2000, y: 2000, width: 80, height: 120, type: 'car'}, {
+        id: 'car_2',
+        x: 4000,
+        y: 3000,
+        width: 80,
+        height: 120,
+        type: 'car'
+    }, {id: 'car_3', x: 6000, y: 5000, width: 80, height: 120, type: 'car'}];
 
     cars.forEach(carData => {
         const car = new DynamicObstacle(carData.id, carData.x, carData.y, carData.width, carData.height, carData.type);
         this.dynamicObstacleManager.addObstacle(car);
     });
 
-    const barriers = [
-        {id: 'barrier_1', x: 1500, y: 1500, width: 40, height: 40, type: 'barrier'},
-        {id: 'barrier_2', x: 3500, y: 2500, width: 40, height: 40, type: 'barrier'}
-    ];
+    const barriers = [{id: 'barrier_1', x: 1500, y: 1500, width: 40, height: 40, type: 'barrier'}, {
+        id: 'barrier_2',
+        x: 3500,
+        y: 2500,
+        width: 40,
+        height: 40,
+        type: 'barrier'
+    }];
 
     barriers.forEach(barrierData => {
         const barrier = new DynamicObstacle(barrierData.id, barrierData.x, barrierData.y, barrierData.width, barrierData.height, barrierData.type);
