@@ -1,8 +1,10 @@
 /**
  * 僵尸模块 - 优化版本 (zombie.js)
+ * 🔴 优化：使用统一移动控制器和动画系统
  */
 
 import ConfigManager from './config.js';
+import UtilsManager from './utils.js';
 
 // 僵尸类型枚举
 const ZOMBIE_TYPE = {
@@ -26,6 +28,10 @@ const ZOMBIE_CONFIGS = {
 
 // 基础僵尸类
 var Zombie = function (type, x, y) {
+    // 获取工具类
+    var movementController = UtilsManager.getMovementController();
+    var animationSystem = UtilsManager.getAnimationSystem();
+
     // 验证参数
     var validTypes = [ZOMBIE_TYPE.SKINNY, ZOMBIE_TYPE.FAT, ZOMBIE_TYPE.BOSS, ZOMBIE_TYPE.FAST, ZOMBIE_TYPE.TANK];
     if (!validTypes.includes(type)) {
@@ -62,16 +68,18 @@ var Zombie = function (type, x, y) {
     var combatConfig = ConfigManager.get('COMBAT');
     this.attackCooldown = combatConfig.ZOMBIE_ATTACK_COOLDOWN || 500;
 
-    // 动画属性
-    var animationConfig = ConfigManager.get('ANIMATION');
+    // 🔴 优化：使用统一动画系统初始化动画属性
     this.animationFrame = 0;
-    this.animationSpeed = animationConfig.DEFAULT_FRAME_RATE;
+    animationSystem.setAnimationSpeed(this, 'default');
     this.direction = 0;
 };
 
-// 🔴 新增：僵尸重置方法（供对象池调用）
+// 🔴 优化：僵尸重置方法（使用统一控制器）
 Zombie.prototype.reset = function () {
     console.log('🔄 僵尸对象重置开始...');
+
+    var movementController = UtilsManager.getMovementController();
+    var animationSystem = UtilsManager.getAnimationSystem();
 
     // 重置基础属性
     this.hp = this.maxHp || 30;
@@ -87,40 +95,12 @@ Zombie.prototype.reset = function () {
     this.targetLockTime = null;
     this.targetLockDuration = null;
 
-    // 🔴 强制重新设置移动速度，确保从对象池复用的僵尸有正确的速度
-    var movementConfig = window.ConfigManager ? window.ConfigManager.get('MOVEMENT') : null;
-    var zombieConfig = window.ConfigManager ? window.ConfigManager.get('ZOMBIE') : null;
-    var expectedSpeed = 0;
+    // 🔴 优化：使用统一移动控制器重置移动速度
+    movementController.resetMoveSpeed(this, 'zombie', this.zombieType);
 
-    if (movementConfig && zombieConfig && zombieConfig.TYPES && this.zombieType) {
-        var zombieTypeConfig = zombieConfig.TYPES[this.zombieType.toUpperCase()];
-        if (zombieTypeConfig) {
-            expectedSpeed = movementConfig.ZOMBIE_MOVE_SPEED * zombieTypeConfig.SPEED_MULTIPLIER;
-        } else {
-            expectedSpeed = movementConfig.ZOMBIE_MOVE_SPEED;
-        }
-    }
-
-    // 🔴 强制重置移动速度，防止累积
-    this.moveSpeed = expectedSpeed;
-
-    // 🔴 强制重置动画速度，防止动画速度累积
-    var animationConfig = window.ConfigManager ? window.ConfigManager.get('ANIMATION') : null;
-    this.animationSpeed = animationConfig ? animationConfig.DEFAULT_FRAME_RATE : 0.2;
+    // 🔴 优化：使用统一动画系统重置动画速度
+    animationSystem.resetAnimationSpeed(this);
     this.animationFrame = 0;
-
-    // 🔴 验证移动速度，确保重置成功
-    if (this.moveSpeed !== expectedSpeed) {
-        console.warn('⚠️ 僵尸移动速度重置失败:', this.moveSpeed, 'vs', expectedSpeed);
-        this.moveSpeed = expectedSpeed;
-    }
-
-    // 🔴 验证动画速度，确保重置成功
-    var expectedAnimationSpeed = animationConfig ? animationConfig.DEFAULT_FRAME_RATE : 0.2;
-    if (this.animationSpeed !== expectedAnimationSpeed) {
-        console.warn('⚠️ 僵尸动画速度重置失败:', this.animationSpeed, 'vs', expectedAnimationSpeed);
-        this.animationSpeed = expectedAnimationSpeed;
-    }
 
     this._updateFrame = 0;
     this._destroyed = false;
@@ -152,9 +132,9 @@ Zombie.prototype.setupProperties = function () {
     this.color = zombieTypeConfig.COLOR;
     this.icon = '🧟‍♂️';
 
-    // 移动速度
-    var movementConfig = ConfigManager.get('MOVEMENT');
-    this.moveSpeed = movementConfig.ZOMBIE_MOVE_SPEED * zombieTypeConfig.SPEED_MULTIPLIER;
+    // 🔴 优化：使用统一移动控制器设置移动速度
+    var movementController = UtilsManager.getMovementController();
+    movementController.setMoveSpeed(this, 'zombie', this.zombieType);
 
     // 攻击范围
     var combatConfig = ConfigManager.get('COMBAT');
@@ -202,7 +182,7 @@ Zombie.prototype.update = function (characters, currentFrame = 0) {
     if (!this._updateFrame) this._updateFrame = 0;
     this._updateFrame++;
 
-    // 更新动画
+    // 🔴 优化：使用统一动画系统更新动画
     this.updateAnimation();
 
     // 寻找目标
@@ -344,8 +324,9 @@ Zombie.prototype.attackTarget = function () {
     }
 };
 
-// 向目标移动
+// 🔴 优化：向目标移动 - 使用统一移动控制器
 Zombie.prototype.moveTowards = function (targetX, targetY) {
+    var movementController = UtilsManager.getMovementController();
     var distanceToTarget = this.getDistanceTo(targetX, targetY);
     var attackJudgmentConfig = ConfigManager.get('COMBAT.ATTACK_JUDGMENT');
     var effectiveAttackRange = this.attackRange + attackJudgmentConfig.RANGE_BUFFER;
@@ -357,32 +338,16 @@ Zombie.prototype.moveTowards = function (targetX, targetY) {
 
     this.direction = Math.atan2(targetY - this.y, targetX - this.x);
 
-    // 🔴 修复：确保移动速度在合理范围内，防止异常累积
-    var moveSpeed = this.moveSpeed || 0;
-    var maxSpeed = 4; // 最大移动速度限制
-    if (moveSpeed > maxSpeed) {
-        console.warn('⚠️ 僵尸移动速度异常:', moveSpeed, '已限制为:', maxSpeed);
-        moveSpeed = maxSpeed;
-        this.moveSpeed = moveSpeed;
-    }
+    // 计算移动方向
+    var direction = {
+        x: Math.cos(this.direction),
+        y: Math.sin(this.direction)
+    };
 
-    // 🔴 简化：直接使用每帧移动距离，无需deltaTime计算
-    var moveDistance = moveSpeed; // 直接使用像素/帧
-    var newX = this.x + Math.cos(this.direction) * moveDistance;
-    var newY = this.y + Math.sin(this.direction) * moveDistance;
-
-    // 检查碰撞
-    var finalPosition = this.checkCollision(this.x, this.y, newX, newY);
-    if (finalPosition) {
-        var oldX = this.x, oldY = this.y;
-        this.x = finalPosition.x;
-        this.y = finalPosition.y;
-
-        // 更新四叉树位置
-        if (window.collisionSystem && window.collisionSystem.updateDynamicObjectPosition) {
-            window.collisionSystem.updateDynamicObjectPosition(this, oldX, oldY, this.x, this.y);
-        }
-
+    // 🔴 优化：使用统一移动控制器执行移动
+    var moveSuccess = movementController.executeMove(this, direction, this.moveSpeed);
+    
+    if (moveSuccess) {
         this.state = ZOMBIE_STATE.CHASE;
     }
 };
@@ -456,27 +421,23 @@ Zombie.prototype.idleBehavior = function () {
     }
 };
 
-// 更新动画
+// 🔴 优化：更新动画 - 使用统一动画系统
 Zombie.prototype.updateAnimation = function () {
-    if (this.state === ZOMBIE_STATE.CHASE) {
-        var animationConfig = ConfigManager.get('ANIMATION');
+    var animationSystem = UtilsManager.getAnimationSystem();
+    var deltaTime = 1 / 60; // 固定60fps
 
-        // 🔴 修复：确保动画速度不会累积，每次都从配置重新获取
-        var baseSpeed = animationConfig ? animationConfig.DEFAULT_FRAME_RATE : 0.2;
-
-        // 🔴 修复：确保动画速度在合理范围内，防止异常累积
-        var maxSpeed = baseSpeed * 3; // 最大速度不超过基础速度的3倍
-        var currentSpeed = this.animationSpeed;
-        if (currentSpeed > maxSpeed) {
-            currentSpeed = maxSpeed;
-            this.animationSpeed = currentSpeed;
-        }
-
-        this.animationFrame += currentSpeed * (1 / 60); // 固定60fps
-        if (this.animationFrame >= animationConfig.MAX_ANIMATION_FRAMES) {
-            this.animationFrame = 0;
-        }
+    // 根据状态调整动画类型
+    var animationType = 'default';
+    if (this.state === ZOMBIE_STATE.CHASE || this.state === ZOMBIE_STATE.CHASING) {
+        animationType = 'moving';
+    } else if (this.state === ZOMBIE_STATE.ATTACK) {
+        animationType = 'attacking';
+    } else if (this.state === ZOMBIE_STATE.DIE) {
+        animationType = 'death';
     }
+
+    // 使用统一动画系统更新动画帧
+    this.animationFrame = animationSystem.updateAnimationFrame(this, deltaTime);
 };
 
 // 受到伤害
@@ -666,7 +627,8 @@ Zombie.prototype.getDistanceTo = function (targetX, targetY) {
 
 // 僵尸管理器
 var ZombieManager = {
-    maxZombies: ConfigManager.get('PERFORMANCE.MAX_ZOMBIES'), objectPool: null,
+    maxZombies: ConfigManager.get('PERFORMANCE.MAX_ZOMBIES'), 
+    objectPool: null,
 
     // 初始化对象池
     initObjectPool: function () {
@@ -678,9 +640,12 @@ var ZombieManager = {
         this.objectPool = window.objectPoolManager.recreatePool('zombie', () => new Zombie('skinny', 0, 0), (zombie) => this.resetZombie(zombie));
     },
 
-    // 重置僵尸状态
+    // 🔴 优化：重置僵尸状态（使用统一控制器）
     resetZombie: function (zombie) {
         if (!zombie) return;
+
+        var movementController = UtilsManager.getMovementController();
+        var animationSystem = UtilsManager.getAnimationSystem();
 
         zombie.hp = zombie.maxHp || 30;
         zombie.state = ZOMBIE_STATES.IDLE;
@@ -695,25 +660,11 @@ var ZombieManager = {
         zombie.targetLockTime = null;
         zombie.targetLockDuration = null;
 
-        // 重新设置移动速度
-        var movementConfig = window.ConfigManager ? window.ConfigManager.get('MOVEMENT') : null;
-        var zombieConfig = window.ConfigManager ? window.ConfigManager.get('ZOMBIE') : null;
-        var expectedSpeed = 0;
+        // 🔴 优化：使用统一移动控制器重置移动速度
+        movementController.resetMoveSpeed(zombie, 'zombie', zombie.zombieType);
 
-        if (movementConfig && zombieConfig && zombieConfig.TYPES && zombie.zombieType) {
-            var zombieTypeConfig = zombieConfig.TYPES[zombie.zombieType.toUpperCase()];
-            if (zombieTypeConfig) {
-                expectedSpeed = movementConfig.ZOMBIE_MOVE_SPEED * zombieTypeConfig.SPEED_MULTIPLIER;
-            } else {
-                expectedSpeed = movementConfig.ZOMBIE_MOVE_SPEED;
-            }
-        }
-
-        zombie.moveSpeed = expectedSpeed;
-
-        // 🔴 修复：重置动画速度，防止动画速度累积
-        var animationConfig = window.ConfigManager ? window.ConfigManager.get('ANIMATION') : null;
-        zombie.animationSpeed = animationConfig ? animationConfig.DEFAULT_FRAME_RATE : 0.2;
+        // 🔴 优化：使用统一动画系统重置动画速度
+        animationSystem.resetAnimationSpeed(zombie);
         zombie.animationFrame = 0;
 
         zombie._updateFrame = 0;
@@ -966,7 +917,6 @@ var ZombieManager = {
 
         return window.objectManager.getAllZombies();
     },
-
 
     // 销毁僵尸
     destroyZombie: function (zombie) {

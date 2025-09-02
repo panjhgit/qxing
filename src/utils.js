@@ -6,6 +6,8 @@
  * - 消除重复的距离计算、碰撞检测等逻辑
  * - 提供统一的工具函数接口
  * - 优化性能，减少重复计算
+ * - 🔴 新增：统一移动控制器
+ * - 🔴 新增：统一动画系统
  */
 
 // 数学工具类
@@ -22,13 +24,168 @@ const MathUtils = {
         return Math.atan2(toY - fromY, toX - fromX);
     },
 
-
     // 检查数值是否有效
     isValidNumber: function (value) {
         return typeof value === 'number' && !isNaN(value) && isFinite(value);
     }
 };
 
+// 🔴 新增：统一移动控制器
+const MovementController = {
+    // 获取移动速度（统一入口）
+    getMoveSpeed: function (entityType, entityRole = null) {
+        var movementConfig = window.ConfigManager ? window.ConfigManager.get('MOVEMENT') : null;
+        if (!movementConfig) return 0;
+
+        switch (entityType) {
+            case 'character':
+                return movementConfig.CHARACTER_MOVE_SPEED || 3;
+            case 'partner':
+                return movementConfig.PARTNER_MOVE_SPEED || 3;
+            case 'zombie':
+                return movementConfig.ZOMBIE_MOVE_SPEED || 2;
+            default:
+                return movementConfig.CHARACTER_MOVE_SPEED || 3;
+        }
+    },
+
+    // 设置实体移动速度（统一入口）
+    setMoveSpeed: function (entity, entityType, entityRole = null) {
+        var speed = this.getMoveSpeed(entityType, entityRole);
+        entity.moveSpeed = speed;
+        return speed;
+    },
+
+    // 重置移动速度（统一入口）
+    resetMoveSpeed: function (entity, entityType, entityRole = null) {
+        return this.setMoveSpeed(entity, entityType, entityRole);
+    },
+
+    // 检查摇杆输入（统一入口）
+    hasJoystickInput: function () {
+        if (!window.gameEngine || !window.gameEngine.joystick) {
+            return false;
+        }
+
+        var joystick = window.gameEngine.joystick;
+        if (!joystick.isVisible || !joystick.isActive) {
+            return false;
+        }
+
+        var direction = joystick.getMoveDirection();
+        var deadZone = 0.1;
+        return Math.abs(direction.x) > deadZone || Math.abs(direction.y) > deadZone;
+    },
+
+    // 获取摇杆方向（统一入口）
+    getJoystickDirection: function () {
+        if (!window.gameEngine || !window.gameEngine.joystick) {
+            return {x: 0, y: 0};
+        }
+
+        var joystick = window.gameEngine.joystick;
+        return joystick.getMoveDirection();
+    },
+
+    // 执行移动（统一入口）
+    executeMove: function (entity, direction, moveSpeed) {
+        if (!direction || !moveSpeed) return false;
+
+        var newX = entity.x + direction.x * moveSpeed;
+        var newY = entity.y + direction.y * moveSpeed;
+
+        // 检查碰撞
+        if (window.collisionSystem && window.collisionSystem.isPositionWalkable) {
+            if (window.collisionSystem.isPositionWalkable(newX, newY)) {
+                entity.x = newX;
+                entity.y = newY;
+                return true;
+            } else {
+                // 贴着建筑物移动
+                if (window.collisionSystem.getWallFollowingPosition) {
+                    var safePosition = window.collisionSystem.getWallFollowingPosition(
+                        entity.x, entity.y, newX, newY, entity.radius || 16, moveSpeed
+                    );
+                    if (safePosition) {
+                        entity.x = safePosition.x;
+                        entity.y = safePosition.y;
+                        return true;
+                    }
+                }
+            }
+        } else {
+            // 没有碰撞系统，直接移动
+            entity.x = newX;
+            entity.y = newY;
+            return true;
+        }
+
+        return false;
+    }
+};
+
+// 🔴 新增：统一动画系统
+const AnimationSystem = {
+    // 获取动画速度（统一入口）
+    getAnimationSpeed: function (entityType, animationType = 'default') {
+        var animationConfig = window.ConfigManager ? window.ConfigManager.get('ANIMATION') : null;
+        if (!animationConfig) return 0.2;
+
+        var baseSpeed = animationConfig.DEFAULT_FRAME_RATE || 0.2;
+
+        switch (animationType) {
+            case 'attack':
+                return animationConfig.ATTACK_ANIMATION_SPEED || baseSpeed * 1.5;
+            case 'death':
+                return animationConfig.DEATH_ANIMATION_SPEED || baseSpeed * 0.5;
+            case 'moving':
+                return baseSpeed * (animationConfig.STATE_SPEED_MULTIPLIERS?.MOVING || 1.5);
+            case 'attacking':
+                return baseSpeed * (animationConfig.STATE_SPEED_MULTIPLIERS?.ATTACKING || 2.0);
+            case 'avoiding':
+                return baseSpeed * (animationConfig.STATE_SPEED_MULTIPLIERS?.AVOIDING || 1.8);
+            case 'die':
+                return baseSpeed * (animationConfig.STATE_SPEED_MULTIPLIERS?.DIE || 0.5);
+            default:
+                return baseSpeed;
+        }
+    },
+
+    // 设置实体动画速度（统一入口）
+    setAnimationSpeed: function (entity, animationType = 'default') {
+        var speed = this.getAnimationSpeed(entity.type || 'character', animationType);
+        entity.animationSpeed = speed;
+        return speed;
+    },
+
+    // 重置动画速度（统一入口）
+    resetAnimationSpeed: function (entity) {
+        return this.setAnimationSpeed(entity, 'default');
+    },
+
+    // 更新动画帧（统一入口）
+    updateAnimationFrame: function (entity, deltaTime = 1/60) {
+        var animationConfig = window.ConfigManager ? window.ConfigManager.get('ANIMATION') : null;
+        var maxFrames = animationConfig ? animationConfig.MAX_ANIMATION_FRAMES : 8;
+
+        if (!entity.animationFrame) entity.animationFrame = 0;
+        if (!entity.animationSpeed) entity.animationSpeed = this.getAnimationSpeed(entity.type || 'character');
+
+        entity.animationFrame += entity.animationSpeed * deltaTime;
+
+        if (entity.animationFrame >= maxFrames) {
+            entity.animationFrame = 0;
+        }
+
+        return entity.animationFrame;
+    },
+
+    // 播放特定动画（统一入口）
+    playAnimation: function (entity, animationType) {
+        entity.animationFrame = 0;
+        this.setAnimationSpeed(entity, animationType);
+    }
+};
 
 // 动画工具类
 const AnimationUtils = {
@@ -181,6 +338,9 @@ const RolePropertyUtils = {
                 character.color = '#95a5a6';
                 character.initialColor = '#95a5a6';
         }
+
+        // 🔴 新增：使用统一移动控制器设置移动速度
+        MovementController.setMoveSpeed(character, 'character', role);
     }
 };
 
@@ -189,14 +349,26 @@ const UtilsManager = {
     // 获取所有工具类
     getMathUtils: function () {
         return MathUtils;
-    }, getAnimationUtils: function () {
+    }, 
+    getAnimationUtils: function () {
         return AnimationUtils;
-    }, getValidationUtils: function () {
+    }, 
+    getValidationUtils: function () {
         return ValidationUtils;
-    }, getPerformanceUtils: function () {
+    }, 
+    getPerformanceUtils: function () {
         return PerformanceUtils;
-    }, getRolePropertyUtils: function () {
+    }, 
+    getRolePropertyUtils: function () {
         return RolePropertyUtils;
+    },
+    // 🔴 新增：获取统一移动控制器
+    getMovementController: function () {
+        return MovementController;
+    },
+    // 🔴 新增：获取统一动画系统
+    getAnimationSystem: function () {
+        return AnimationSystem;
     }
 };
 
@@ -205,9 +377,10 @@ export {
     ValidationUtils,
     MathUtils,
     AnimationUtils,
-    CollisionUtils,
     PerformanceUtils,
     RolePropertyUtils,
+    MovementController,
+    AnimationSystem,
     UtilsManager
 };
 export default UtilsManager;

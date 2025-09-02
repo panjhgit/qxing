@@ -6,6 +6,8 @@
  * - 使用UtilsManager提供工具函数
  * - 消除硬编码的重复值
  * - 提高代码复用性和维护性
+ * - 🔴 优化：使用统一移动控制器
+ * - 🔴 优化：使用统一动画系统
  */
 
 import ConfigManager, {ROLE} from './config.js';
@@ -37,6 +39,8 @@ var Character = function (role, x, y) {
     // 获取工具类
     var validationUtils = UtilsManager.getValidationUtils();
     var mathUtils = UtilsManager.getMathUtils();
+    var movementController = UtilsManager.getMovementController();
+    var animationSystem = UtilsManager.getAnimationSystem();
 
     // 验证参数
     if (!validationUtils.validatePosition(x, y)) {
@@ -55,6 +59,7 @@ var Character = function (role, x, y) {
     this.x = x;              // X坐标
     this.y = y;              // Y坐标
     this.status = STATUS.IDLE; // 状态：跟随/静止
+    this.type = 'character';  // 实体类型
 
     // 根据角色类型分配固定ID
     switch (role) {
@@ -89,16 +94,13 @@ var Character = function (role, x, y) {
     // 添加半径属性，用于圆形碰撞检测
     this.radius = this.width / 2;          // 碰撞半径（宽度的一半）
 
-    // 从配置获取动画属性
-    var animationConfig = window.ConfigManager ? window.ConfigManager.get('ANIMATION') : null;
-    this.animationFrame = 0;                // 动画帧
-    this.animationSpeed = animationConfig ? animationConfig.DEFAULT_FRAME_RATE : 60; // 动画速度
+    // 🔴 优化：使用统一动画系统初始化动画属性
+    this.animationFrame = 0;
+    animationSystem.setAnimationSpeed(this, 'default');
 
-    // 从配置获取移动属性
-    var movementConfig = window.ConfigManager ? window.ConfigManager.get('MOVEMENT') : null;
+    // 🔴 优化：使用统一移动控制器初始化移动属性
     this.isMoving = false;                  // 是否在移动
-    // 🔴 修复：设置移动速度，从配置获取
-    this.moveSpeed = movementConfig ? movementConfig.CHARACTER_MOVE_SPEED : 0;
+    movementController.setMoveSpeed(this, 'character', role);
     this.targetX = x;                       // 目标X坐标
     this.targetY = y;                       // 目标Y坐标
 
@@ -109,8 +111,11 @@ var Character = function (role, x, y) {
     this.initializeStateMachine();
 };
 
-// 🔴 新增：角色重置方法（供对象池调用）
+// 🔴 优化：角色重置方法（使用统一控制器）
 Character.prototype.reset = function () {
+    var movementController = UtilsManager.getMovementController();
+    var animationSystem = UtilsManager.getAnimationSystem();
+
     // 重置基础属性
     this.hp = this.maxHp || 100;
     this.status = STATUS.IDLE;
@@ -122,14 +127,11 @@ Character.prototype.reset = function () {
     this.stuckTime = 0;
     this.lastPosition = null;
 
-    // 🔴 强制重置移动速度，确保从对象池复用的角色有正确的速度
-    var movementConfig = window.ConfigManager ? window.ConfigManager.get('MOVEMENT') : null;
-    var expectedSpeed = movementConfig ? movementConfig.CHARACTER_MOVE_SPEED : 0;
-    this.moveSpeed = expectedSpeed;
+    // 🔴 优化：使用统一移动控制器重置移动速度
+    movementController.resetMoveSpeed(this, 'character', this.role);
 
-    // 🔴 强制重置动画速度，防止动画速度累积
-    var animationConfig = window.ConfigManager ? window.ConfigManager.get('ANIMATION') : null;
-    this.animationSpeed = animationConfig ? animationConfig.DEFAULT_FRAME_RATE : 0.2;
+    // 🔴 优化：使用统一动画系统重置动画速度
+    animationSystem.resetAnimationSpeed(this);
     this.animationFrame = 0;
     this.frameCount = 0;
 };
@@ -139,7 +141,6 @@ Character.prototype.setupRoleProperties = function () {
     var rolePropertyUtils = UtilsManager.getRolePropertyUtils();
     rolePropertyUtils.setupRoleProperties(this, this.role);
 };
-
 
 // 初始化状态机 - 只处理主人物
 Character.prototype.initializeStateMachine = function () {
@@ -223,7 +224,6 @@ Character.prototype.setupMainCharacterStateMachine = function () {
     );
 };
 
-
 // 受到攻击
 Character.prototype.takeDamage = function (damage) {
     var validationUtils = UtilsManager.getValidationUtils();
@@ -248,26 +248,10 @@ Character.prototype.takeDamage = function (damage) {
 
 // ==================== 状态机辅助方法 ====================
 
-// 检查是否有摇杆输入
+// 🔴 优化：使用统一移动控制器检查摇杆输入
 Character.prototype.hasJoystickInput = function () {
-    // 检查游戏引擎和摇杆系统是否可用
-    if (!window.gameEngine || !window.gameEngine.joystick) {
-        return false;
-    }
-
-    var joystick = window.gameEngine.joystick;
-
-    // 检查摇杆是否可见且激活
-    if (!joystick.isVisible || !joystick.isActive) {
-        return false;
-    }
-
-    // 检查是否有移动方向
-    var direction = joystick.getMoveDirection();
-    var deadZone = 0.1;
-    var hasInput = Math.abs(direction.x) > deadZone || Math.abs(direction.y) > deadZone;
-
-    return hasInput;
+    var movementController = UtilsManager.getMovementController();
+    return movementController.hasJoystickInput();
 };
 
 // 检查指定范围内是否有僵尸
@@ -282,7 +266,6 @@ Character.prototype.hasZombieInRange = function (range) {
         return distance <= range;
     });
 };
-
 
 // ==================== 状态行为方法 ====================
 
@@ -373,7 +356,6 @@ Character.prototype.onUpdateDie = function (stateData) {
     if (this.deathAnimationTime >= deathDuration) {
         // 动画播放完成，但保持死亡状态，等待用户选择
         console.log('💀 死亡动画播放完成，等待用户选择操作');
-
     }
 };
 
@@ -502,7 +484,6 @@ Character.prototype.performAttack = function () {
     this.playAttackAnimation();
 };
 
-
 // 游戏结束处理
 Character.prototype.handleGameOver = function () {
     // 🔴 修复：立即暂停游戏循环，防止继续执行导致错误
@@ -532,7 +513,6 @@ Character.prototype.handleGameOver = function () {
 
 // 显示游戏结束界面
 Character.prototype.showGameOverScreen = function () {
-
     // 在画布上显示游戏结束文字
     if (window.gameEngine && window.gameEngine.ctx) {
         var canvas = window.gameEngine.canvas;
@@ -571,16 +551,11 @@ Character.prototype.addGameOverClickListener = function (canvas) {
     canvas.addEventListener('touchstart', this.gameOverClickListener, {passive: true});
 };
 
-// 获取摇杆移动方向
+// 🔴 优化：使用统一移动控制器获取摇杆移动方向
 Character.prototype.getJoystickDirection = function () {
-    if (!window.gameEngine || !window.gameEngine.joystick) {
-        return {x: 0, y: 0};
-    }
-
-    var joystick = window.gameEngine.joystick;
-    return joystick.getMoveDirection();
+    var movementController = UtilsManager.getMovementController();
+    return movementController.getJoystickDirection();
 };
-
 
 // 🔴 新增：检查人物是否卡住
 Character.prototype.isStuck = function () {
@@ -632,33 +607,25 @@ Character.prototype.resetMovementState = function () {
     if (this.stateMachine) {
         this.stateMachine.forceState(MAIN_CHARACTER_STATES.IDLE);
     }
-
 };
 
-// 播放攻击动画
+// 🔴 优化：使用统一动画系统播放攻击动画
 Character.prototype.playAttackAnimation = function () {
-    // 设置攻击动画帧
-    this.animationFrame = 0;
-    var animationConfig = window.ConfigManager ? window.ConfigManager.get('ANIMATION') : null;
-    this.animationSpeed = animationConfig ? (animationConfig.ATTACK_ANIMATION_SPEED || 0.3) : 0.3; // 从配置读取攻击动画速度
+    var animationSystem = UtilsManager.getAnimationSystem();
+    animationSystem.playAnimation(this, 'attack');
 };
 
-// 🔴 修复：添加缺失的移动攻击动画方法
+// 🔴 优化：使用统一动画系统播放移动攻击动画
 Character.prototype.playAttackAnimationWhileMoving = function () {
-    // 移动时播放攻击动画
-    this.animationFrame = 0;
-    var animationConfig = window.ConfigManager ? window.ConfigManager.get('ANIMATION') : null;
-    this.animationSpeed = animationConfig ? (animationConfig.ATTACK_ANIMATION_SPEED || 0.3) : 0.3;
+    var animationSystem = UtilsManager.getAnimationSystem();
+    animationSystem.playAnimation(this, 'attack');
 };
 
-// 播放死亡动画
+// 🔴 优化：使用统一动画系统播放死亡动画
 Character.prototype.playDeathAnimation = function () {
-    // 设置死亡动画帧
-    this.animationFrame = 0;
-    var animationConfig = window.ConfigManager ? window.ConfigManager.get('ANIMATION') : null;
-    this.animationSpeed = animationConfig ? (animationConfig.DEATH_ANIMATION_SPEED || 0.1) : 0.1; // 从配置读取死亡动画速度
+    var animationSystem = UtilsManager.getAnimationSystem();
+    animationSystem.playAnimation(this, 'death');
 };
-
 
 // 设置移动目标 - 使用工具类
 Character.prototype.setMoveTarget = function (targetX, targetY) {
@@ -695,10 +662,11 @@ Character.prototype.stopMovement = function () {
     this.targetY = this.y;
 };
 
-// 更新移动 - 只处理动画更新，实际移动由checkJoystickInput处理
+// 🔴 优化：更新移动 - 使用统一移动控制器
 Character.prototype.updateMovement = function () {
-    // 🔴 简化：使用固定帧时间
+    var movementController = UtilsManager.getMovementController();
     var deltaTime = 1 / 60; // 固定60fps
+    
     if (!this.isMoving) {
         return;
     }
@@ -716,53 +684,37 @@ Character.prototype.updateMovement = function () {
     this.lastPosition.x = this.x;
     this.lastPosition.y = this.y;
 
-    // 更新动画
-    var animationUtils = UtilsManager.getAnimationUtils();
-    if (this.animationFrame !== undefined) {
-        var animationConfig = window.ConfigManager ? window.ConfigManager.get('ANIMATION') : null;
-        this.animationFrame = animationUtils.updateFrame(this.animationFrame, this.animationSpeed * (1 / 60), animationConfig ? animationConfig.MAX_ANIMATION_FRAMES : 8);
-    }
+    // 🔴 优化：使用统一动画系统更新动画
+    this.updateAnimation();
 };
 
-
-// 更新动画 - 使用工具类
+// 🔴 优化：更新动画 - 使用统一动画系统
 Character.prototype.updateAnimation = function () {
-    var animationUtils = UtilsManager.getAnimationUtils();
-    var animationConfig = window.ConfigManager ? window.ConfigManager.get('ANIMATION') : null;
+    var animationSystem = UtilsManager.getAnimationSystem();
+    var deltaTime = 1 / 60; // 固定60fps
 
-    // 从配置获取动画状态速度倍数
-    var stateSpeedMultipliers = animationConfig ? animationConfig.STATE_SPEED_MULTIPLIERS : {};
-
-    // 根据状态调整动画速度
-    var baseSpeed = this.animationSpeed;
-    var adjustedSpeed = baseSpeed;
-
+    // 根据状态调整动画类型
+    var animationType = 'default';
     switch (this.status) {
         case STATUS.MOVING:
         case STATUS.FOLLOW:
-            adjustedSpeed = baseSpeed * (stateSpeedMultipliers.MOVING || 1.5); // 从配置获取移动状态倍数
+            animationType = 'moving';
             break;
         case STATUS.ATTACKING:
-            adjustedSpeed = baseSpeed * (stateSpeedMultipliers.ATTACKING || 2.0); // 从配置获取攻击状态倍数
+            animationType = 'attacking';
             break;
         case STATUS.AVOIDING:
-            adjustedSpeed = baseSpeed * (stateSpeedMultipliers.AVOIDING || 1.8); // 从配置获取避障状态倍数
+            animationType = 'avoiding';
             break;
         case STATUS.DIE:
-            adjustedSpeed = baseSpeed * (stateSpeedMultipliers.DIE || 0.5); // 从配置获取死亡状态倍数
+            animationType = 'die';
             break;
         default:
-            adjustedSpeed = baseSpeed; // 待机状态正常速度
+            animationType = 'default';
     }
 
-    // 更新动画帧（固定60fps）
-    this.animationFrame = animationUtils.updateFrame(this.animationFrame, adjustedSpeed * (1 / 60), animationConfig ? animationConfig.MAX_ANIMATION_FRAMES : 8);
-
-    // 检查动画是否应该重置
-    if (animationUtils.shouldResetAnimation(this.animationFrame, animationConfig ? animationConfig.MAX_ANIMATION_FRAMES : 8)) {
-        this.animationFrame = 0;
-    }
-
+    // 使用统一动画系统更新动画帧
+    this.animationFrame = animationSystem.updateAnimationFrame(this, deltaTime);
 
     this.frameCount = (this.frameCount || 0) + 1;
 };
@@ -792,7 +744,6 @@ Character.prototype.getHeadColor = function () {
     return '#fdbcb4'; // 肤色
 };
 
-
 // 角色管理器 - 重构版本：使用对象池优化内存管理
 var CharacterManager = {
     // 对象池引用
@@ -808,12 +759,14 @@ var CharacterManager = {
         this.objectPool = window.objectPoolManager.recreatePool('character', // 创建函数
             () => new Character(ROLE.MAIN, 0, 0), // 重置函数
             (character) => this.resetCharacter(character));
-
     },
 
-    // 重置角色状态（对象池复用）
+    // 🔴 优化：重置角色状态（使用统一控制器）
     resetCharacter: function (character) {
         if (!character) return;
+
+        var movementController = UtilsManager.getMovementController();
+        var animationSystem = UtilsManager.getAnimationSystem();
 
         // 重置基础属性
         character.hp = character.maxHp || 50;
@@ -826,38 +779,18 @@ var CharacterManager = {
         character.stuckTime = 0;
         character.lastPosition = null;
 
-        // 🔴 修复：重新设置移动速度，确保从对象池复用的角色有正确的速度
-        var movementConfig = window.ConfigManager ? window.ConfigManager.get('MOVEMENT') : null;
-        var expectedSpeed = movementConfig ? movementConfig.CHARACTER_MOVE_SPEED : 0;
+        // 🔴 优化：使用统一移动控制器重置移动速度
+        movementController.resetMoveSpeed(character, 'character', character.role);
 
-        if (character.role === ROLE.MAIN) {
-            // 主人物移动速度
-            character.moveSpeed = expectedSpeed;
-        } else {
-            // 其他角色移动速度（如果有不同设置）
-            character.moveSpeed = expectedSpeed;
-        }
-
-        // 🔴 修复：重置动画速度，防止动画速度累积
-        var animationConfig = window.ConfigManager ? window.ConfigManager.get('ANIMATION') : null;
-        character.animationSpeed = animationConfig ? animationConfig.DEFAULT_FRAME_RATE : 0.2;
+        // 🔴 优化：使用统一动画系统重置动画速度
+        animationSystem.resetAnimationSpeed(character);
         character.animationFrame = 0;
         character.frameCount = 0;
-
-        // 🔴 新增：验证移动速度
-        if (character.moveSpeed !== expectedSpeed) {
-            console.warn('⚠️ 角色移动速度不一致:', character.moveSpeed, 'vs', expectedSpeed);
-            character.moveSpeed = expectedSpeed;
-        }
 
         // 重置状态机
         if (character.stateMachine) {
             character.stateMachine.forceState(MAIN_CHARACTER_STATES.IDLE);
         }
-
-        // 重置动画
-        character.animationFrame = 0;
-        character.frameCount = 0;
 
         // 角色状态重置完成
     },
@@ -1038,54 +971,31 @@ Character.prototype.updateMainCharacter = function () {
     }
 };
 
-// 检查摇杆输入并直接移动
+// 🔴 优化：检查摇杆输入并直接移动 - 使用统一移动控制器
 Character.prototype.checkJoystickInput = function () {
-    if (!this.hasJoystickInput()) {
+    var movementController = UtilsManager.getMovementController();
+    
+    if (!movementController.hasJoystickInput()) {
         return;
     }
 
-    var direction = this.getJoystickDirection();
+    var direction = movementController.getJoystickDirection();
     var gameplayConfig = window.ConfigManager ? window.ConfigManager.get('GAMEPLAY') : null;
     var deadZone = gameplayConfig ? gameplayConfig.JOYSTICK.DEAD_ZONE : 0.1;
-    // 🔴 修复：使用角色的移动速度，而不是摇杆配置的速度
-    var moveSpeed = this.moveSpeed || 0;
 
     // 检查是否超过死区
     if (Math.abs(direction.x) > deadZone || Math.abs(direction.y) > deadZone) {
+        // 🔴 优化：使用统一移动控制器执行移动
+        var moveSuccess = movementController.executeMove(this, direction, this.moveSpeed);
+        
+        if (moveSuccess) {
+            this.isMoving = true;
+            this.status = STATUS.MOVING;
 
-        // 🔴 核心：直接移动，不使用目标移动
-        var moveDistance = moveSpeed; // 直接使用像素/帧
-
-        var newX = this.x + direction.x * moveDistance;
-        var newY = this.y + direction.y * moveDistance;
-
-        // 检查碰撞并移动
-        if (window.collisionSystem && window.collisionSystem.isPositionWalkable) {
-            if (window.collisionSystem.isPositionWalkable(newX, newY)) {
-                this.x = newX;
-                this.y = newY;
-            } else {
-                // 如果目标位置不可行走，尝试贴着建筑物移动
-                if (window.collisionSystem.getWallFollowingPosition) {
-                    var safePosition = window.collisionSystem.getWallFollowingPosition(this.x, this.y, newX, newY, this.radius || 16, moveSpeed);
-                    if (safePosition) {
-                        this.x = safePosition.x;
-                        this.y = safePosition.y;
-                    }
-                }
+            // 🔴 核心：强制状态机进入移动状态，打断任何其他状态（包括攻击状态）
+            if (this.stateMachine && this.stateMachine.currentState !== MAIN_CHARACTER_STATES.MOVE) {
+                this.stateMachine.forceState(MAIN_CHARACTER_STATES.MOVE);
             }
-        } else {
-            // 没有碰撞系统，直接移动
-            this.x = newX;
-            this.y = newY;
-        }
-
-        this.isMoving = true;
-        this.status = STATUS.MOVING;
-
-        // 🔴 核心：强制状态机进入移动状态，打断任何其他状态（包括攻击状态）
-        if (this.stateMachine && this.stateMachine.currentState !== MAIN_CHARACTER_STATES.MOVE) {
-            this.stateMachine.forceState(MAIN_CHARACTER_STATES.MOVE);
         }
     }
 };

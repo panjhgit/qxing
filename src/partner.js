@@ -1,5 +1,6 @@
 /**
  * 伙伴模块 - 独立的状态机驱动系统
+ * 🔴 优化：使用统一移动控制器和动画系统
  *
  * 功能描述：
  * - 独立的状态机管理伙伴行为
@@ -13,12 +14,13 @@ import ConfigManager, {ROLE} from './config.js';
 import UtilsManager from './utils.js';
 import StateMachine, {PARTNER_STATES} from './state-machine.js';
 
-
 // 伙伴类
 var Partner = function (role, x, y) {
     // 获取工具类
     var validationUtils = UtilsManager.getValidationUtils();
     var mathUtils = UtilsManager.getMathUtils();
+    var movementController = UtilsManager.getMovementController();
+    var animationSystem = UtilsManager.getAnimationSystem();
 
     // 验证参数
     if (!validationUtils.validatePosition(x, y)) {
@@ -49,20 +51,18 @@ var Partner = function (role, x, y) {
     this.height = objectSizes ? objectSizes.HEIGHT : 48;
     this.radius = this.width / 2;
 
-    // 动画属性
-    var animationConfig = window.ConfigManager ? window.ConfigManager.get('ANIMATION') : null;
+    // 🔴 优化：使用统一动画系统初始化动画属性
     this.animationFrame = 0;
-    this.animationSpeed = animationConfig ? animationConfig.DEFAULT_FRAME_RATE : 60;
+    animationSystem.setAnimationSpeed(this, 'default');
 
-    // 从配置获取移动属性
-    var movementConfig = window.ConfigManager ? window.ConfigManager.get('MOVEMENT') : null;
-    var partnerConfig = window.ConfigManager ? window.ConfigManager.get('PARTNER') : null; // 🔴 修复：添加partnerConfig定义
+    // 🔴 优化：使用统一移动控制器初始化移动属性
     this.isMoving = false;                  // 是否在移动
-    this.moveSpeed = movementConfig ? movementConfig.PARTNER_MOVE_SPEED : 3; // 🔴 修复：使用正确的移动速度，默认为3
+    movementController.setMoveSpeed(this, 'partner', role);
     this.targetX = x;                       // 目标X坐标
     this.targetY = y;                       // 目标Y坐标
+
     // 伙伴移动速度 - 从配置获取
-    // this.moveSpeed = movementConfig ? movementConfig.PARTNER_MOVE_SPEED : 4.5; // 从config.js获取跟随距离
+    var partnerConfig = window.ConfigManager ? window.ConfigManager.get('PARTNER') : null;
     this.followDistance = partnerConfig ? partnerConfig.FOLLOW.FOLLOW_DISTANCE : 80; // 从config.js获取跟随距离
     this.followAngle = partnerConfig ? partnerConfig.FOLLOW.FOLLOW_ANGLE : Math.PI; // 从config.js获取跟随角度
     this.followPoint = {x: x, y: y};     // 跟随点
@@ -73,12 +73,46 @@ var Partner = function (role, x, y) {
     this.attackCooldown = 0;
     this.lastAttackTime = 0;
 
-
     // 设置职业属性
     this.setupRoleProperties();
 
     // 初始化状态机
     this.initializeStateMachine();
+};
+
+// 🔴 新增：伙伴重置方法（使用统一控制器）
+Partner.prototype.reset = function () {
+    var movementController = UtilsManager.getMovementController();
+    var animationSystem = UtilsManager.getAnimationSystem();
+
+    // 重置基础属性
+    this.hp = this.maxHp || 50;
+    this.status = PARTNER_STATES.IDLE;
+    this.isMoving = false;
+    this.targetX = this.x;
+    this.targetY = this.y;
+    this.attackCooldown = 0;
+    this.attackTarget = null;
+    this.stuckTime = 0;
+    this.lastPosition = null;
+
+    // 🔴 优化：使用统一移动控制器重置移动速度
+    movementController.resetMoveSpeed(this, 'partner', this.role);
+
+    // 🔴 优化：使用统一动画系统重置动画速度
+    animationSystem.resetAnimationSpeed(this);
+    this.animationFrame = 0;
+    this.frameCount = 0;
+
+    // 重置跟随相关属性
+    this.followPoint = {x: this.x, y: this.y};
+    this.lastMainCharPosition = {x: 0, y: 0};
+    this.isInitialState = true;
+
+    // 重置状态机
+    if (this.stateMachine) {
+        this.stateMachine.forceState(PARTNER_STATES.IDLE);
+    }
 };
 
 // 设置职业属性 - 使用公共工具
@@ -135,7 +169,6 @@ Partner.prototype.setupPartnerStateMachine = function () {
         return !this.isMainCharacterMoving() && this.hasZombieInRange(this.detectionRange);
     });
 
-
     // FOLLOW -> DIE: 血量归零
     sm.addTransition(PARTNER_STATES.FOLLOW, PARTNER_STATES.DIE, () => {
         return this.hp <= 0;
@@ -156,7 +189,6 @@ Partner.prototype.setupPartnerStateMachine = function () {
         return this.hp <= 0;
     });
 
-
     // 添加状态行为
     sm.addBehavior(PARTNER_STATES.INIT, this.onEnterInit.bind(this), this.onUpdateInit.bind(this), this.onExitInit.bind(this));
     sm.addBehavior(PARTNER_STATES.IDLE, this.onEnterIdle.bind(this), this.onUpdateIdle.bind(this), this.onExitIdle.bind(this));
@@ -164,7 +196,6 @@ Partner.prototype.setupPartnerStateMachine = function () {
     sm.addBehavior(PARTNER_STATES.ATTACK, this.onEnterAttack.bind(this), this.onUpdateAttack.bind(this), this.onExitAttack.bind(this));
     sm.addBehavior(PARTNER_STATES.DIE, this.onEnterDie.bind(this), this.onUpdateDie.bind(this), this.onExitDie.bind(this));
 };
-
 
 // INIT状态
 Partner.prototype.onEnterInit = function (stateData) {
@@ -203,7 +234,6 @@ Partner.prototype.onExitIdle = function (stateData) {
 Partner.prototype.onEnterFollow = function (stateData) {
     this.status = PARTNER_STATES.FOLLOW;
     this.isMoving = true;
-
 };
 
 Partner.prototype.onUpdateFollow = function (stateData) {
@@ -234,7 +264,6 @@ Partner.prototype.onExitAttack = function (stateData) {
     this.attackTarget = null;
 };
 
-
 // DIE状态
 Partner.prototype.onEnterDie = function (stateData) {
     this.status = PARTNER_STATES.DIE;
@@ -258,9 +287,10 @@ Partner.prototype.onExitDie = function (stateData) {
     // 退出死亡状态
 };
 
-
-// 更新跟随移动
+// 🔴 优化：更新跟随移动 - 使用统一移动控制器
 Partner.prototype.updateFollowMovement = function () {
+    var movementController = UtilsManager.getMovementController();
+
     // 计算跟随点
     this.calculateFollowPoint();
 
@@ -271,20 +301,19 @@ Partner.prototype.updateFollowMovement = function () {
 
     if (distance > moveThreshold) { // 从配置获取移动阈值
         var angle = Math.atan2(this.followPoint.y - this.y, this.followPoint.x - this.x);
-        // 🔴 修复：由于游戏引擎已固定deltaTime为1/60，直接使用移动速度
-        var moveDistance = this.moveSpeed;
         
-        // 🔴 新增：打印伙伴移动速度
-        console.log('👥 伙伴移动 - 速度:', this.moveSpeed, '移动距离:', moveDistance, '伙伴ID:', this.id, '伙伴类型:', this.role);
+        // 计算移动方向
+        var direction = {
+            x: Math.cos(angle),
+            y: Math.sin(angle)
+        };
 
-        var newX = this.x + Math.cos(angle) * moveDistance;
-        var newY = this.y + Math.sin(angle) * moveDistance;
-
-        // 检查碰撞
-        var finalPosition = this.checkCollision(this.x, this.y, newX, newY);
-        if (finalPosition) {
-            this.x = finalPosition.x;
-            this.y = finalPosition.y;
+        // 🔴 优化：使用统一移动控制器执行移动
+        var moveSuccess = movementController.executeMove(this, direction, this.moveSpeed);
+        
+        if (moveSuccess) {
+            // 🔴 新增：打印伙伴移动速度
+            console.log('👥 伙伴移动 - 速度:', this.moveSpeed, '移动距离:', this.moveSpeed, '伙伴ID:', this.id, '伙伴类型:', this.role);
         }
     }
 };
@@ -475,10 +504,11 @@ Partner.prototype.findAttackTarget = function () {
     }
 };
 
-// 移动到攻击范围
+// 🔴 优化：移动到攻击范围 - 使用统一移动控制器
 Partner.prototype.moveToAttackRange = function () {
     if (!this.attackTarget || this.attackTarget.hp <= 0) return;
 
+    var movementController = UtilsManager.getMovementController();
     var distance = this.getDistanceTo(this.attackTarget.x, this.attackTarget.y);
     var attackJudgmentConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT.ATTACK_JUDGMENT') : {RANGE_BUFFER: 5};
     var effectiveAttackRange = this.attackRange + attackJudgmentConfig.RANGE_BUFFER; // 有效攻击范围（攻击范围加上缓冲）
@@ -486,20 +516,15 @@ Partner.prototype.moveToAttackRange = function () {
 
     if (distance > targetDistance) {
         var angle = Math.atan2(this.attackTarget.y - this.y, this.attackTarget.x - this.x);
-        var targetX = this.attackTarget.x + Math.cos(angle + Math.PI) * targetDistance;
-        var targetY = this.attackTarget.y + Math.sin(angle + Math.PI) * targetDistance;
+        
+        // 计算移动方向
+        var direction = {
+            x: Math.cos(angle),
+            y: Math.sin(angle)
+        };
 
-        // 🔴 简化：直接使用每帧移动距离，无需deltaTime计算
-        var moveDistance = this.moveSpeed; // 直接使用像素/帧
-        var newX = this.x + Math.cos(angle) * moveDistance;
-        var newY = this.y + Math.sin(angle) * moveDistance;
-
-        // 检查碰撞
-        var finalPosition = this.checkCollision(this.x, this.y, newX, newY);
-        if (finalPosition) {
-            this.x = finalPosition.x;
-            this.y = finalPosition.y;
-        }
+        // 🔴 优化：使用统一移动控制器执行移动
+        movementController.executeMove(this, direction, this.moveSpeed);
     }
 };
 
@@ -514,16 +539,13 @@ Partner.prototype.performAttack = function () {
     this.playAttackAnimation();
 };
 
-
 // 检查碰撞
 Partner.prototype.checkCollision = function (fromX, fromY, toX, toY) {
     if (!window.collisionSystem) {
         return {x: toX, y: toY};
     }
 
-    // 使用贴着建筑物移动算法
     if (window.collisionSystem.getWallFollowingPosition) {
-        // 🔴 修复：使用移动距离而不是移动速度
         // 🔴 简化：直接使用每帧移动距离
         var moveDistance = this.moveSpeed; // 直接使用像素/帧
         var safePos = window.collisionSystem.getWallFollowingPosition(fromX, fromY, toX, toY, this.radius || 16, moveDistance);
@@ -614,7 +636,6 @@ Partner.prototype.hasZombieInRange = function (range) {
     });
 };
 
-
 // 计算距离
 Partner.prototype.getDistanceTo = function (targetX, targetY) {
     var dx = this.x - targetX;
@@ -622,58 +643,48 @@ Partner.prototype.getDistanceTo = function (targetX, targetY) {
     return Math.sqrt(dx * dx + dy * dy);
 };
 
-// 更新动画
+// 🔴 优化：更新动画 - 使用统一动画系统
 Partner.prototype.updateAnimation = function () {
-    var animationUtils = UtilsManager.getAnimationUtils();
-    var animationConfig = window.ConfigManager ? window.ConfigManager.get('ANIMATION') : null;
+    var animationSystem = UtilsManager.getAnimationSystem();
+    var deltaTime = 1/60; // 固定60fps
 
-    // 根据状态调整动画速度
-    var baseSpeed = this.animationSpeed;
-    var adjustedSpeed = baseSpeed;
-
-    // 从配置获取状态速度倍数
-    var stateSpeedMultipliers = animationConfig ? animationConfig.STATE_SPEED_MULTIPLIERS : {};
-    
+    // 根据状态调整动画类型
+    var animationType = 'default';
     switch (this.status) {
         case PARTNER_STATES.FOLLOW:
-            adjustedSpeed = baseSpeed * (stateSpeedMultipliers.MOVING || 1.5);
+            animationType = 'moving';
             break;
         case PARTNER_STATES.ATTACK:
-            adjustedSpeed = baseSpeed * (stateSpeedMultipliers.ATTACKING || 2.0);
+            animationType = 'attacking';
             break;
         case PARTNER_STATES.DIE:
-            adjustedSpeed = baseSpeed * (stateSpeedMultipliers.DIE || 0.5);
+            animationType = 'death';
             break;
         default:
-            adjustedSpeed = baseSpeed;
+            animationType = 'default';
     }
 
-    // 更新动画帧（固定60fps）
-    this.animationFrame = animationUtils.updateFrame(this.animationFrame, adjustedSpeed * (1/60), animationConfig ? animationConfig.MAX_ANIMATION_FRAMES : 8);
+    // 使用统一动画系统更新动画帧
+    this.animationFrame = animationSystem.updateAnimationFrame(this, deltaTime);
 };
 
-// 播放攻击动画
+// 🔴 优化：使用统一动画系统播放攻击动画
 Partner.prototype.playAttackAnimation = function () {
-    this.animationFrame = 0;
-    var animationConfig = window.ConfigManager ? window.ConfigManager.get('ANIMATION') : null;
-    this.animationSpeed = animationConfig ? (animationConfig.ATTACK_ANIMATION_SPEED || 0.3) : 0.3;
+    var animationSystem = UtilsManager.getAnimationSystem();
+    animationSystem.playAnimation(this, 'attack');
 };
 
-// 🔴 修复：添加缺失的移动攻击动画方法（抖音小游戏环境兼容）
+// 🔴 优化：使用统一动画系统播放移动攻击动画
 Partner.prototype.playAttackAnimationWhileMoving = function () {
-    // 移动时播放攻击动画
-    this.animationFrame = 0;
-    var animationConfig = window.ConfigManager ? window.ConfigManager.get('ANIMATION') : null;
-    this.animationSpeed = animationConfig ? (animationConfig.ATTACK_ANIMATION_SPEED || 0.3) : 0.3;
+    var animationSystem = UtilsManager.getAnimationSystem();
+    animationSystem.playAnimation(this, 'attack');
 };
 
-// 播放死亡动画
+// 🔴 优化：使用统一动画系统播放死亡动画
 Partner.prototype.playDeathAnimation = function () {
-    this.animationFrame = 0;
-    var animationConfig = window.ConfigManager ? window.ConfigManager.get('ANIMATION') : null;
-    this.animationSpeed = animationConfig ? (animationConfig.DEATH_ANIMATION_SPEED || 0.1) : 0.1;
+    var animationSystem = UtilsManager.getAnimationSystem();
+    animationSystem.playAnimation(this, 'death');
 };
-
 
 // 受到伤害
 Partner.prototype.takeDamage = function (damage) {
@@ -821,7 +832,8 @@ Partner.prototype.forceFollow = function () {
 
 // 伙伴管理器
 var PartnerManager = {
-    partners: [], maxPartners: 9999, // 🔴 修改：直接设置为9999，移除伙伴数量限制
+    partners: [], 
+    maxPartners: 9999, // 🔴 修改：直接设置为9999，移除伙伴数量限制
 
     // 对象池引用
     objectPool: null,
@@ -840,9 +852,12 @@ var PartnerManager = {
         // 伙伴对象池初始化完成
     },
 
-    // 重置伙伴状态（对象池复用）
+    // 🔴 优化：重置伙伴状态（使用统一控制器）
     resetPartner: function (partner) {
         if (!partner) return;
+
+        var movementController = UtilsManager.getMovementController();
+        var animationSystem = UtilsManager.getAnimationSystem();
 
         // 重置基础属性
         partner.hp = partner.maxHp || 50;
@@ -855,28 +870,18 @@ var PartnerManager = {
         partner.stuckTime = 0;
         partner.lastPosition = null;
 
-        // 🔴 修复：重新设置移动速度，确保从对象池复用的伙伴有正确的速度
-        var movementConfig = window.ConfigManager ? window.ConfigManager.get('MOVEMENT') : null;
-        var expectedSpeed = movementConfig ? movementConfig.PARTNER_MOVE_SPEED : 3; // 🔴 修复：使用正确的移动速度，默认为3
+        // 🔴 优化：使用统一移动控制器重置移动速度
+        movementController.resetMoveSpeed(partner, 'partner', partner.role);
 
-        partner.moveSpeed = expectedSpeed;
-
-        // 🔴 新增：验证移动速度
-        if (partner.moveSpeed !== expectedSpeed) {
-            console.warn('⚠️ 伙伴移动速度不一致:', partner.moveSpeed, 'vs', expectedSpeed, '角色:', partner.role);
-            partner.moveSpeed = expectedSpeed;
-        }
+        // 🔴 优化：使用统一动画系统重置动画速度
+        animationSystem.resetAnimationSpeed(partner);
+        partner.animationFrame = 0;
+        partner.frameCount = 0;
 
         // 重置状态机
         if (partner.stateMachine) {
             partner.stateMachine.forceState(PARTNER_STATES.IDLE);
         }
-
-        // 🔴 修复：重置动画速度，防止动画速度累积
-        var animationConfig = window.ConfigManager ? window.ConfigManager.get('ANIMATION') : null;
-        partner.animationSpeed = animationConfig ? animationConfig.DEFAULT_FRAME_RATE : 0.2;
-        partner.animationFrame = 0;
-        partner.frameCount = 0;
 
         // 伙伴状态重置完成
     },
@@ -1066,7 +1071,6 @@ var PartnerManager = {
                 console.warn(`❌ 伙伴${i + 1}创建失败`);
             }
         }
-
     }
 };
 
