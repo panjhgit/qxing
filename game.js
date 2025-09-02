@@ -30,7 +30,7 @@ ctx.msImageSmoothingEnabled = false;
 // 测试配置路径
 if (window.ConfigManager && window.ConfigManager.get) {
     try {
-        const zoomValue = window.ConfigManager.get('PERFORMANCE.OPTIMIZATION.CAMERA.ZOOM');
+        const zoomValue = window.ConfigManager.get('PERFORMANCE.CAMERA.ZOOM');
         console.log('✅ 配置路径测试成功，ZOOM值:', zoomValue);
     } catch (error) {
         console.error('❌ 配置路径测试失败:', error.message);

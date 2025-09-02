@@ -323,7 +323,7 @@ export class MapRenderer {
     getConfigZoom() {
         if (window.ConfigManager && window.ConfigManager.get) {
             try {
-                return window.ConfigManager.get('PERFORMANCE.OPTIMIZATION.CAMERA.ZOOM');
+                return window.ConfigManager.get('PERFORMANCE.CAMERA.ZOOM');
             } catch (error) {
                 console.warn('无法从配置获取ZOOM值，使用默认值:', error.message);
                 return 0.7;

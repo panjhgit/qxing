@@ -93,14 +93,6 @@ const ROLE = {
     CHEF: 6       // 厨师
 };
 
-// 武器枚举
-const WEAPON = {
-    NONE: 'NONE',        // 无
-    PISTOL: 'PISTOL',    // 手枪
-    BAT: 'BAT',          // 棒球棒
-    KNIFE: 'KNIFE'       // 菜刀
-};
-
 // 游戏基础配置
 const GAME_CONFIG = {
     // 移动系统配置
@@ -117,7 +109,7 @@ const GAME_CONFIG = {
             MIN_STEP_SIZE: 2,            // ✅ 恢复：最小步长（像素）- 从2恢复到4
             NEARBY_SEARCH_RADIUS: 0.5    // 附近搜索半径（相对于对象半径）
         }
-    }, // 时间系统配置
+    },     // 时间系统配置
     TIME_SYSTEM: {
         DAY_DURATION: 10,              // 一天的长度（秒）- 白天5秒，晚上5秒
         DAY_PHASE_DURATION: 5,         // 白天/夜晚阶段长度（秒）
@@ -126,17 +118,17 @@ const GAME_CONFIG = {
         SPAWN_RANGE: {
             MIN_DISTANCE: 500,         // 僵尸生成最小距离（px）
             MAX_DISTANCE: 700          // 僵尸生成最大距离（px）
-        }, PARTNER_SPAWN_RANGE: {         // 🔴 新增：伙伴生成距离范围
+        },
+        PARTNER_SPAWN_RANGE: {         // 🔴 新增：伙伴生成距离范围
             MIN_DISTANCE: 200,         // 伙伴生成最小距离（px）
             MAX_DISTANCE: 400          // 伙伴生成最大距离（px）
         }
-    }, // 动画系统配置
+    }, 
+
+    // 动画系统配置
     ANIMATION: {
         DEFAULT_FRAME_RATE: 0.2,        // 默认动画帧率 (每帧更新0.2)
         MAX_ANIMATION_FRAMES: 8,        // 最大动画帧数
-        ANIMATION_RESET_THRESHOLD: 8,   // 动画重置阈值
-
-        // 角色动画速度配置
         ATTACK_ANIMATION_SPEED: 0.3,    // 攻击动画速度
         DEATH_ANIMATION_SPEED: 0.1,     // 死亡动画速度
 
@@ -146,11 +138,7 @@ const GAME_CONFIG = {
             ATTACKING: 2.0,             // 攻击状态动画速度倍数
             AVOIDING: 1.8,              // 避障状态动画速度倍数
             DIE: 0.5                    // 死亡状态动画速度倍数
-        },
-
-        // 僵尸动画速度配置
-        ZOMBIE_ATTACK_ANIMATION_SPEED: 0.4,  // 僵尸攻击动画速度
-        DEATH_ANIMATION_DURATION: 2.0        // 死亡动画持续时间（秒）
+        }
     },
 
     // 碰撞检测配置
@@ -160,44 +148,6 @@ const GAME_CONFIG = {
         OBJECT_OVERLAP_MARGIN: 20,      // 对象重叠边距
         PATH_VALIDATION_STEPS: 10,      // 路径验证步数
         MIN_MOVE_DISTANCE: 1,           // 最小移动距离
-
-        // 碰撞间距配置
-        COLLISION_MARGINS: {
-            BUILDING: 1.1,              // 建筑物碰撞：1.1倍半径（额外10%空间）
-            CHARACTER_TO_CHARACTER: 1.3  // 角色间重叠：1.3倍半径（30%额外空间）
-        }
-    },
-
-    // 攻击系统配置
-    COMBAT: {
-        DEFAULT_ATTACK_COOLDOWN: 500,   // 攻击冷却时间500ms (1秒攻击2下)
-        MIN_ATTACK_RANGE: 100,           // 最小攻击距离10px
-        MAX_ATTACK_RANGE: 100,           // 最大攻击距离10px
-        DAMAGE_REDUCTION_FACTOR: 0.8,   // 伤害衰减因子
-
-        // 角色基础属性配置
-        DEFAULT_HP: 100,                // 默认血量100
-        DEFAULT_ATTACK: 20,             // 默认攻击力20
-        DEFAULT_ATTACK_INTERVAL: 0.5,   // 默认攻击间隔0.5秒 (1秒攻击2下)
-        MOVING_ATTACK_INTERVAL: 0.5,    // 移动攻击间隔0.5秒 (1秒攻击2下)
-
-        // 角色攻击范围配置
-        MAIN_CHARACTER_ATTACK_RANGE: 100, // 主人物攻击范围
-        POLICE_ATTACK_RANGE: 100,        // 🔴 修复：警察攻击范围增加到150px
-        DOCTOR_ATTACK_RANGE: 100,        // 🔴 修复：医生攻击范围增加到140px
-        NURSE_ATTACK_RANGE: 100,         // 🔴 修复：护士攻击范围增加到140px
-        CHEF_ATTACK_RANGE: 100,         // 🔴 修复：厨师攻击范围增加到130px
-
-        // 僵尸攻击配置
-        ZOMBIE_ATTACK_RANGE: 80,        // 僵尸攻击范围（像素）
-        ZOMBIE_ATTACK_COOLDOWN: 500,   // 僵尸攻击冷却时间（毫秒）- 1.5秒攻击一下
-
-        // 攻击判定配置
-        ATTACK_JUDGMENT: {
-            RANGE_BUFFER: 5,            // 攻击范围缓冲（像素）- 让攻击更流畅
-            DISTANCE_TOLERANCE: 2,       // 距离计算容差（像素）- 避免精度问题
-            MIN_ATTACK_DISTANCE: 3       // 最小攻击距离（像素）- 防止贴脸攻击
-        }
     },
 
     // 检测范围配置
@@ -207,85 +157,37 @@ const GAME_CONFIG = {
         MAIN_CHARACTER_DETECTION: 1000, // 主人物检测范围
         SAFE_SPAWN_DISTANCE: 100,       // 安全生成距离
         MAX_SPAWN_SEARCH_RADIUS: 300,   // 最大生成搜索半径
+    },
 
-        // 僵尸各类型检测范围配置
-        ZOMBIE_TYPES: {
-            // 瘦僵尸：轻量级，基础检测能力
-            SKINNY: {
-                DETECTION_RANGE: 1000,    // 检测范围：1000px
-                ATTACK_RANGE: 80,        // 攻击范围：10px
-                PRIORITY: 'normal'       // 优先级：普通
-            },
+    // 攻击系统配置
+    COMBAT: {
+        // 角色基础属性配置
+        DEFAULT_HP: 100,                // 默认血量100
+        DEFAULT_ATTACK: 20,             // 默认攻击力20
+        DEFAULT_ATTACK_INTERVAL: 0.5,   // 默认攻击间隔0.5秒 (1秒攻击2下)
 
-            // 胖僵尸：中等重量，基础检测能力
-            FAT: {
-                DETECTION_RANGE: 1000,    // 检测范围：1000px
-                ATTACK_RANGE: 80,        // 攻击范围：10px
-                PRIORITY: 'normal'       // 优先级：普通
-            },
+        // 攻击范围配置
+        MIN_ATTACK_RANGE: 100,           // 最小攻击距离
+        MAIN_CHARACTER_ATTACK_RANGE: 100, // 主人物攻击范围
+        POLICE_ATTACK_RANGE: 100,        // 警察攻击范围
+        CIVILIAN_ATTACK_RANGE: 100,      // 平民攻击范围
+        DOCTOR_ATTACK_RANGE: 100,        // 医生攻击范围
+        NURSE_ATTACK_RANGE: 100,         // 护士攻击范围
+        CHEF_ATTACK_RANGE: 100,         // 厨师攻击范围
 
-            // Boss僵尸：重量级，增强检测能力
-            BOSS: {
-                DETECTION_RANGE: 1000,    // 检测范围：1000px
-                ATTACK_RANGE: 80,        // 攻击范围：10px
-                PRIORITY: 'normal'       // 优先级：普通
-            },
+        // 僵尸攻击配置
+        ZOMBIE_ATTACK_COOLDOWN: 500,   // 僵尸攻击冷却时间（毫秒）- 1.5秒攻击一下
+        ZOMBIE_ATTACK_RANGE: 80,        // 僵尸攻击范围（像素）
 
-            // 快速僵尸：轻量级，增强检测能力
-            FAST: {
-                DETECTION_RANGE: 1000,    // 检测范围：1000px
-                ATTACK_RANGE: 80,        // 攻击范围：10px
-                PRIORITY: 'normal'       // 优先级：普通
-            },
-
-            // 坦克僵尸：重量级，减少检测能力
-            TANK: {
-                DETECTION_RANGE: 1000,    // 检测范围：1000px
-                ATTACK_RANGE: 80,        // 攻击范围：10px
-                PRIORITY: 'normal'       // 优先级：普通
-            },
-
-            // 默认僵尸：标准配置
-            DEFAULT: {
-                DETECTION_RANGE: 1000,    // 检测范围：1000px
-                ATTACK_RANGE: 80,        // 攻击范围：10px
-                PRIORITY: 'normal'       // 优先级：普通
-            }
-        },
-
-        // 特殊检测范围配置
-        SPECIAL_DETECTION: {
-            // 主人物优先检测范围（最高优先级）
-            MAIN_CHARACTER_PRIORITY_RANGE: 1000,  // 700px范围内优先检测主人物
-
-        },
-
-        // 检测行为配置
-        BEHAVIOR: {
-            // 检测频率（每帧检测概率）
-            DETECTION_FREQUENCY: 0.005,         // 0.5%概率每帧检测
-
-            // 目标切换延迟
-            TARGET_SWITCH_DELAY: 1000,          // 1000ms后允许切换目标
-
-            // 检测范围衰减
-            RANGE_DECAY_FACTOR: 0.95,           // 检测范围随时间衰减因子
-
-            // 多目标选择策略
-            MULTI_TARGET_STRATEGY: 'nearest',   // 选择最近的目标
+        // 攻击判定配置
+        ATTACK_JUDGMENT: {
+            RANGE_BUFFER: 5,            // 攻击范围缓冲（像素）- 让攻击更流畅
+            DISTANCE_TOLERANCE: 2,       // 距离计算容差（像素）- 避免精度问题
+            MIN_ATTACK_DISTANCE: 3       // 最小攻击距离（像素）- 防止贴脸攻击
         }
     },
 
-    // 地图配置
-    MAP: {
-        DEFAULT_BUILDING_SIZE: 750,     // 默认建筑物大小
-        DEFAULT_STREET_WIDTH: 500,      // 默认街道宽度
-        GRID_SIZE: 1250,                // 网格大小 (750 + 500)
-        MAP_DIMENSIONS: {
-            WIDTH: 10000,               // 地图宽度
-            HEIGHT: 10000               // 地图高度
-        }
-    },
+
 
 
     // 僵尸配置
@@ -340,20 +242,12 @@ const GAME_CONFIG = {
 
         // 🔴 新增：目标锁定配置
         TARGET_LOCK_DURATION: 1000,     // 目标锁定持续时间（毫秒）- 1秒
-        TARGET_SWITCH_COOLDOWN: 200     // 目标切换冷却时间（毫秒）- 0.5秒
     },
 
     // 对象尺寸配置
     OBJECT_SIZES: {
         CHARACTER: {
             WIDTH: 32, HEIGHT: 48
-        }, ZOMBIE: {
-            DEFAULT: {WIDTH: 32, HEIGHT: 32},
-            SKINNY: {WIDTH: 24, HEIGHT: 24},
-            FAT: {WIDTH: 32, HEIGHT: 32},
-            BOSS: {WIDTH: 48, HEIGHT: 48},
-            FAST: {WIDTH: 20, HEIGHT: 20},
-            TANK: {WIDTH: 40, HEIGHT: 40}
         }
     },
 
@@ -383,8 +277,6 @@ const GAME_CONFIG = {
             FOLLOW_DISTANCE: 80,         // 跟随距离
             FOLLOW_ANGLE: Math.PI,       // 跟随角度（后方）
             MOVE_THRESHOLD: 5,           // 移动阈值
-
-            // 🔴 新增：伙伴跟随分散配置
             SPREAD: {
                 ANGLE_RANGE: Math.PI / 3,  // 分散角度范围（60度）
                 MAX_PARTNERS: 5,           // 最大伙伴数量
@@ -399,7 +291,7 @@ const GAME_CONFIG = {
             TARGET_DISTANCE: 40          // 目标距离
         },
 
-        // 🔴 新增：伙伴检测范围配置
+        // 伙伴检测范围配置
         DETECTION: {
             POLICE_RANGE: 300,           // 警察检测范围
             CIVILIAN_RANGE: 250,         // 平民检测范围
@@ -427,12 +319,6 @@ const GAME_CONFIG = {
             MIN_MOVE_DISTANCE: 5,        // 最小移动距离
             STUCK_THRESHOLD: 30,         // 卡住阈值（帧数）
             RESET_DELAY: 0.5             // 重置延迟（秒）
-        },
-
-        // 死亡动画配置
-        DEATH: {
-            ANIMATION_DURATION: 2.0,     // 死亡动画持续时间
-            MAIN_CHARACTER_DURATION: 3.0 // 主人物死亡动画持续时间
         }
     },
 
@@ -446,42 +332,14 @@ const GAME_CONFIG = {
         },
         
         MAX_ZOMBIES: 2000,              // 最大僵尸数量
-        MAX_CHARACTERS: 2000,           // 最大人物数量
         MAX_PARTNERS: 2000,             // 最大伙伴数量
-        QUADTREE_MAX_OBJECTS: 8,        // 四叉树最大对象数
-        QUADTREE_MAX_DEPTH: 6,          // 四叉树最大深度
-        CACHE_CLEANUP_THRESHOLD: 1000,  // 缓存清理阈值
 
-        // 性能优化配置
-        OPTIMIZATION: {
-            // 检测范围限制（防止性能问题）
-            MAX_DETECTION_RANGE: 500,    // 最大检测范围限制
-            MIN_DETECTION_RANGE: 100,    // 最小检测范围限制
-
-            // 更新频率控制
-            ZOMBIE_UPDATE_INTERVAL: 2,   // 僵尸每2帧更新一次（减少CPU负载）
-            CHARACTER_UPDATE_INTERVAL: 1, // 角色每帧更新一次
-
-            // 碰撞检测优化
-            COLLISION_CHECK_INTERVAL: 3, // 碰撞检测每3帧检查一次
-            DISTANCE_CALC_CACHE: true,   // 启用距离计算缓存
-
-            // 内存管理
-            MAX_ACTIVE_OBJECTS: 2000,    // 最大活跃对象数
-            GARBAGE_COLLECTION_INTERVAL: 300, // 垃圾回收间隔（帧数）
-
-            // 渲染优化
-            RENDER_DISTANCE: 1500,       // 渲染距离限制
-            CULLING_ENABLED: true,       // 启用视锥剔除
-            LOD_ENABLED: true,           // 启用细节层次
-
-            // 摄像机配置
-            CAMERA: {
-                ZOOM: 0.7,               // 摄像机缩放比例
-                FOLLOW_SPEED: 0.1,       // 跟随速度
-                MIN_ZOOM: 0.3,           // 最小缩放
-                MAX_ZOOM: 1.2            // 最大缩放
-            }
+        // 摄像机配置
+        CAMERA: {
+            ZOOM: 0.7,               // 摄像机缩放比例
+            FOLLOW_SPEED: 0.1,       // 跟随速度
+            MIN_ZOOM: 0.3,           // 最小缩放
+            MAX_ZOOM: 1.2            // 最大缩放
         }
     }
 };
@@ -567,5 +425,5 @@ const ConfigManager = {
 ConfigValidator.validateAll(GAME_CONFIG);
 
 // 导出配置
-export {GAME_CONFIG, DIFFICULTY_CONFIG, ConfigManager, ConfigValidator, ROLE, WEAPON};
+export {GAME_CONFIG, DIFFICULTY_CONFIG, ConfigManager, ConfigValidator, ROLE};
 export default ConfigManager;
