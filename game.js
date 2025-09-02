@@ -188,6 +188,13 @@ function resetGameEnvironment() {
     // 第一步：暂停系统更新
     pauseSystemUpdates();
     
+    // 🔴 修复：停止当前游戏循环，防止FPS叠加
+    if (window.gameLoopId) {
+        console.log('⏹️ 停止当前游戏循环...');
+        cancelAnimationFrame(window.gameLoopId);
+        window.gameLoopId = null;
+    }
+    
     // 🔴 新增：重置游戏循环标志，确保重启时使用正确的帧率
     window.shouldStopGameLoop = false;
     
@@ -1130,6 +1137,13 @@ function performInitialRendering() {
 function startGameLoop() {
     console.log('🔄 启动游戏循环...');
     
+    // 🔴 修复：确保停止之前的游戏循环，防止FPS叠加
+    if (window.gameLoopId) {
+        console.log('⏹️ 停止之前的游戏循环...');
+        cancelAnimationFrame(window.gameLoopId);
+        window.gameLoopId = null;
+    }
+    
     // 重置停止标志
     window.shouldStopGameLoop = false;
     
@@ -1264,7 +1278,7 @@ function startGameLoop() {
     }
 
     // 启动游戏循环
-    requestAnimationFrame(gameLoop);
+    window.gameLoopId = requestAnimationFrame(gameLoop);
     console.log('✅ 游戏循环已启动' + (enableFPSLimit ? `（${targetFPS}fps限制）` : '（无帧率限制）'));
 }
 
