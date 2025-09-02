@@ -539,24 +539,12 @@ const ConfigValidator = {
 const ConfigManager = {
     currentDifficulty: 'NORMAL',
 
-    // 获取当前配置
-    getConfig: function () {
-        return GAME_CONFIG;
-    },
 
     // 获取难度配置
     getDifficultyConfig: function () {
         return DIFFICULTY_CONFIG[this.currentDifficulty] || DIFFICULTY_CONFIG.NORMAL;
     },
 
-    // 设置难度
-    setDifficulty: function (difficulty) {
-        if (DIFFICULTY_CONFIG[difficulty]) {
-            this.currentDifficulty = difficulty;
-        } else {
-            throw new Error('无效的难度级别: ' + difficulty);
-        }
-    },
 
     // 获取特定配置项
     get: function (path) {
@@ -572,24 +560,6 @@ const ConfigManager = {
         }
 
         return value;
-    },
-
-    // 应用难度修正
-    getWithDifficulty: function (path, baseValue) {
-        var config = this.get(path);
-        if (config === null) return baseValue;
-
-        var difficultyConfig = this.getDifficultyConfig();
-        var multiplier = 1.0;
-
-        // 根据路径确定使用哪个修正因子
-        if (path.includes('ZOMBIE_HP')) {
-            multiplier = difficultyConfig.ZOMBIE_HP_MULTIPLIER;
-        } else if (path.includes('ZOMBIE_ATTACK')) {
-            multiplier = difficultyConfig.ZOMBIE_ATTACK_MULTIPLIER;
-        }
-
-        return config * multiplier;
     }
 };
 
