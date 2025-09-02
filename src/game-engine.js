@@ -235,17 +235,17 @@ TouchJoystick.prototype.showDefault = function () {
     this.resetJoystick();
     this.centerX = this.defaultCenterX;
     this.centerY = this.defaultCenterY;
+    // 🔴 新增：确保摇杆位置更新到最新
+    this.updateDefaultPosition();
 };
 
 // 回到默认位置
 TouchJoystick.prototype.returnToDefaultPosition = function () {
-    if (this.autoHide) {
-        this.hide();
-    } else {
-        this.centerX = this.defaultCenterX;
-        this.centerY = this.defaultCenterY;
-        this.isVisible = true;
-    }
+    // 🔴 修复：始终回到默认位置并保持显示，不自动隐藏
+    this.centerX = this.defaultCenterX;
+    this.centerY = this.defaultCenterY;
+    this.isVisible = true;
+    this.isActive = false;
 };
 
 // 显示摇杆
@@ -439,6 +439,9 @@ GameEngine.prototype.setGameState = function (newState) {
     // 在游戏开始时显示默认摇杆
     if (this.joystick) {
         if (newState === 'playing') {
+            this.joystick.showDefault();
+        } else if (newState === 'home') {
+            // 🔴 修复：主菜单时也显示摇杆，但设置为非活跃状态
             this.joystick.showDefault();
         } else {
             this.joystick.hide();
@@ -995,7 +998,8 @@ GameEngine.prototype.stopUpdate = function () {
 
     if (this.joystick) {
         this.joystick.isActive = false;
-        this.joystick.isVisible = false;
+        // 🔴 修复：停止时保持摇杆显示，只是设为非活跃状态
+        this.joystick.showDefault();
     }
 
     if (this.characterManager && this.characterManager.stopUpdate) {
@@ -1023,6 +1027,10 @@ GameEngine.prototype.render = function () {
     if (this.gameState === 'home') {
         if (this.menuSystem && this.menuSystem.renderHomePage) {
             this.menuSystem.renderHomePage();
+        }
+        // 🔴 新增：主菜单时也渲染摇杆
+        if (this.joystick && this.viewSystem) {
+            this.viewSystem.renderJoystick(this.joystick);
         }
     } else if (this.gameState === 'playing') {
         if (this.viewSystem) {
