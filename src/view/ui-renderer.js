@@ -105,12 +105,6 @@ export class UIRenderer {
         this.ctx.lineWidth = 1;
         this.ctx.stroke();
 
-        // 绘制中心点
-        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-        this.ctx.beginPath();
-        this.ctx.arc(joystick.centerX, joystick.centerY, 3, 0, Math.PI * 2);
-        this.ctx.fill();
-
         return true;
     }
 

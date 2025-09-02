@@ -220,12 +220,6 @@ TouchJoystick.prototype.render = function (ctx) {
     renderCtx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
     renderCtx.lineWidth = 1;
     renderCtx.stroke();
-
-    // 绘制中心点
-    renderCtx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-    renderCtx.beginPath();
-    renderCtx.arc(this.centerX, this.centerY, 3, 0, Math.PI * 2);
-    renderCtx.fill();
 };
 
 // 显示默认摇杆
