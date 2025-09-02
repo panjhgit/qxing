@@ -63,15 +63,9 @@ export class ViewSystem {
         // 恢复变换
         this.renderManager.restoreTransform();
 
-        // 渲染UI元素（不受摄像机变换影响）
-        this.renderUI();
+
     }
 
-    // 渲染UI元素
-    renderUI() {
-        // 这里可以渲染UI元素，如触摸摇杆、血条等
-        // 这些元素不受摄像机变换影响
-    }
 
     // 渲染地图背景
     renderMapBackground(mapSystem) {

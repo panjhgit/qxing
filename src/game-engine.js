@@ -11,11 +11,7 @@ var TouchJoystick = function (canvas, ctx) {
 
     // 从配置获取摇杆设置
     var joystickConfig = window.ConfigManager ? window.ConfigManager.get('GAMEPLAY.JOYSTICK') : {
-        DYNAMIC_POSITION: true,
-        AUTO_HIDE: false,
-        OUTER_RADIUS: 60,
-        INNER_RADIUS: 25,
-        TOUCH_THRESHOLD: 20
+        DYNAMIC_POSITION: true, AUTO_HIDE: false, OUTER_RADIUS: 60, INNER_RADIUS: 25, TOUCH_THRESHOLD: 20
     };
 
     // 摇杆位置和大小
@@ -29,7 +25,6 @@ var TouchJoystick = function (canvas, ctx) {
 
     // 摇杆行为设置
     this.isDynamicPosition = joystickConfig.DYNAMIC_POSITION !== false;
-    this.autoHide = joystickConfig.AUTO_HIDE !== false;
 
     // 触摸状态
     this.touchId = null;
@@ -251,7 +246,7 @@ TouchJoystick.prototype.show = function () {
 TouchJoystick.prototype.updateDefaultPosition = function () {
     this.defaultCenterX = this.canvas.width / 2;
     this.defaultCenterY = this.canvas.height - 120;
-    
+
     if (this.centerX === this.defaultCenterX && this.centerY === this.defaultCenterY) {
         this.centerX = this.defaultCenterX;
         this.centerY = this.defaultCenterY;
@@ -301,16 +296,14 @@ var GameEngine = function (canvas, ctx) {
     this.frameCount = 0;
     // 🔴 修复：确保lastUpdateTime在构造函数中正确初始化
     this.lastUpdateTime = performance.now();
-    
+
     // 🔴 新增：重新开始标记，用于确保第一帧deltaTime一致
     this.isRestarting = false;
 
     // 性能监控
     this.performanceMonitor = {
-        frameCount: 0, lastFPS: 60, fpsHistory: [], lastOptimizationTime: 0, 
-        // 🔴 修复：从配置获取目标帧率
-        targetFPS: window.ConfigManager ? window.ConfigManager.get('PERFORMANCE.GAME_LOOP.TARGET_FPS') : 60, 
-        minFPS: 30,
+        frameCount: 0, lastFPS: 60, fpsHistory: [], lastOptimizationTime: 0, // 🔴 修复：从配置获取目标帧率
+        targetFPS: window.ConfigManager ? window.ConfigManager.get('PERFORMANCE.GAME_LOOP.TARGET_FPS') : 60, minFPS: 30,
 
         updateFPS: function () {
             this.frameCount++;
@@ -447,19 +440,19 @@ GameEngine.prototype.setGameState = function (newState) {
     }
 
     this.frameCount = 0;
-    
+
     // 🔴 修复：重置时立即设置lastUpdateTime，避免第一帧deltaTime异常
     this.lastUpdateTime = performance.now();
-    
+
     // 🔴 修复：如果是重新开始游戏，重置时间系统
     if (newState === 'playing') {
         this.timeSystem.currentTime = 0;
         this.timeSystem.day = 1;
         this.timeSystem.isDay = true;
-        
+
         // 🔴 新增：标记这是重新开始，第一帧使用标准deltaTime
         this.isRestarting = true;
-        
+
         // 🔴 新增：重置性能监控器
         if (this.performanceMonitor) {
             this.performanceMonitor.frameCount = 0;
@@ -619,12 +612,7 @@ GameEngine.prototype.addSampleDynamicObstacles = function () {
     if (!this.dynamicObstacleManager) return;
 
     const cars = [{id: 'car_1', x: 2000, y: 2000, width: 80, height: 120, type: 'car'}, {
-        id: 'car_2',
-        x: 4000,
-        y: 3000,
-        width: 80,
-        height: 120,
-        type: 'car'
+        id: 'car_2', x: 4000, y: 3000, width: 80, height: 120, type: 'car'
     }, {id: 'car_3', x: 6000, y: 5000, width: 80, height: 120, type: 'car'}];
 
     cars.forEach(carData => {
@@ -633,12 +621,7 @@ GameEngine.prototype.addSampleDynamicObstacles = function () {
     });
 
     const barriers = [{id: 'barrier_1', x: 1500, y: 1500, width: 40, height: 40, type: 'barrier'}, {
-        id: 'barrier_2',
-        x: 3500,
-        y: 2500,
-        width: 40,
-        height: 40,
-        type: 'barrier'
+        id: 'barrier_2', x: 3500, y: 2500, width: 40, height: 40, type: 'barrier'
     }];
 
     barriers.forEach(barrierData => {
@@ -657,11 +640,6 @@ GameEngine.prototype.calculateDistance = function (x1, y1, x2, y2) {
     return Math.sqrt(Math.pow(x1 - x2, 2) + Math.pow(y1 - y2, 2));
 };
 
-// 获取增量时间（固定60fps）
-GameEngine.prototype.getDeltaTime = function () {
-    // 🔴 简化：固定60fps，直接返回固定帧时间
-    return 1 / 60; // 固定60fps的帧时间
-};
 
 // 更新计时系统
 GameEngine.prototype.updateTimeSystem = function () {
@@ -867,11 +845,11 @@ GameEngine.prototype.update = function () {
         if (this.performanceMonitor) {
             this.performanceMonitor.updateFPS();
         }
-        
+
         if (this.viewSystem) {
             this.viewSystem.update();
         }
-        
+
         // 死亡状态下不更新其他游戏系统，避免找不到主人物等错误
         return;
     }
@@ -914,14 +892,6 @@ GameEngine.prototype.update = function () {
         window.objectPoolManager.update();
     }
 
-    if (window.objectManager) {
-        // 🔴 修复：从配置获取目标帧率
-        var targetFPS = window.ConfigManager ? window.ConfigManager.get('PERFORMANCE.GAME_LOOP.TARGET_FPS') : 60;
-        if (this.frameCount % targetFPS === 0) {
-            const cleanedCount = window.objectManager.cleanupDeadObjects();
-        }
-    }
-
     if (window.memoryMonitor) {
         window.memoryMonitor.checkMemoryUsage();
     }
@@ -932,56 +902,8 @@ GameEngine.prototype.update = function () {
             console.warn('🚨 对象管理系统健康状态严重:', healthStatus);
         }
     }
-
     if (this.viewSystem) {
         this.viewSystem.update();
-    }
-
-    if (this.frameCount % 300 === 0) {
-        this.logSystemStatus();
-    }
-};
-
-// 记录系统状态
-GameEngine.prototype.logSystemStatus = function () {
-    if (this.performanceMonitor && this.performanceMonitor.getStats) {
-        var perfStats = this.performanceMonitor.getStats();
-    }
-
-    if (this.characterManager) {
-        var characters = this.characterManager.getAllCharacters();
-    }
-
-    if (this.zombieManager) {
-        var zombies = this.zombieManager.getAllZombies();
-        var activeZombies = zombies.filter(z => z.hp > 0);
-
-        if (this.zombieManager.getBatchInfo && typeof this.zombieManager.getBatchInfo === 'function') {
-            var batchInfo = this.zombieManager.getBatchInfo(this.frameCount);
-        }
-
-        if (this.zombieManager.logPerformanceReport) {
-            this.zombieManager.logPerformanceReport(this.frameCount);
-        }
-    }
-
-    if (this.navigationSystem) {
-    }
-
-    if (this.dynamicObstacleManager) {
-        var obstacleStats = this.dynamicObstacleManager.getStats();
-    }
-
-    if (window.objectPoolManager) {
-        var poolStats = window.objectPoolManager.getPerformanceStats();
-    }
-
-    if (window.objectManager) {
-        var objectStats = window.objectManager.getStats();
-    }
-
-    if (window.objectHealthChecker) {
-        var healthReport = window.objectHealthChecker.getHealthReport();
     }
 };
 
@@ -1081,32 +1003,32 @@ GameEngine.prototype.renderJoystick = function () {
 // 🔴 新增：备用死亡界面渲染方法
 GameEngine.prototype.renderDeathScreen = function () {
     if (!this.canvas || !this.ctx) return;
-    
+
     const ctx = this.ctx;
     const canvas = this.canvas;
-    
+
     // 清空画布
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
+
     // 绘制死亡背景
     ctx.fillStyle = 'rgba(255, 0, 0, 0.8)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
+
     // 绘制死亡文字
     ctx.fillStyle = '#FFFFFF';
     ctx.font = 'bold 32px Arial';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('💀 主人物已死亡', canvas.width / 2, canvas.height / 2 - 60);
-    
+
     ctx.fillStyle = '#FFEB3B';
     ctx.font = '20px Arial';
     ctx.fillText('点击屏幕重新开始游戏', canvas.width / 2, canvas.height / 2 - 20);
-    
+
     ctx.fillStyle = '#FFFFFF';
     ctx.font = '16px Arial';
     ctx.fillText('或返回主菜单', canvas.width / 2, canvas.height / 2 + 20);
-    
+
     // 添加点击事件监听器（如果还没有的话）
     if (!this.deathClickListener) {
         this.deathClickListener = (event) => {
@@ -1114,13 +1036,13 @@ GameEngine.prototype.renderDeathScreen = function () {
             // 移除事件监听器
             canvas.removeEventListener('touchstart', this.deathClickListener);
             this.deathClickListener = null;
-            
+
             // 重新开始游戏
             if (typeof window.restartGame === 'function') {
                 window.restartGame();
             }
         };
-        
+
         canvas.addEventListener('touchstart', this.deathClickListener, {passive: true});
     }
 };
@@ -1128,24 +1050,19 @@ GameEngine.prototype.renderDeathScreen = function () {
 // 🔴 新增：游戏引擎销毁方法
 GameEngine.prototype.destroy = function () {
     console.log('🗑️ 销毁游戏引擎...');
-    
+
     // 停止更新
     this.stopUpdate();
-    
+
     // 重置时间相关属性
     this.frameCount = 0;
     this.lastUpdateTime = performance.now();
-    
+
     // 重置时间系统
     this.timeSystem = {
-        day: 1, 
-        isDay: true, 
-        dayTime: 0, 
-        currentTime: 0, 
-        dayDuration: 0, 
-        food: 5
+        day: 1, isDay: true, dayTime: 0, currentTime: 0, dayDuration: 0, food: 5
     };
-    
+
     // 重置性能监控
     if (this.performanceMonitor) {
         this.performanceMonitor.frameCount = 0;
@@ -1155,7 +1072,7 @@ GameEngine.prototype.destroy = function () {
         this.performanceMonitor.fpsHistory = [];
         this.performanceMonitor.lastOptimizationTime = 0;
     }
-    
+
     // 清理系统引用
     this.mapSystem = null;
     this.characterManager = null;
@@ -1164,18 +1081,18 @@ GameEngine.prototype.destroy = function () {
     this.zombieManager = null;
     this.navigationSystem = null;
     this.dynamicObstacleManager = null;
-    
+
     // 重置摇杆
     if (this.joystick) {
         this.joystick.resetJoystick();
         this.joystick.hide();
     }
-    
+
     // 重置视图系统
     if (this.viewSystem) {
         this.viewSystem = null;
     }
-    
+
     console.log('✅ 游戏引擎已销毁');
 };
 

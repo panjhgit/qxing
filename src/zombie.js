@@ -10,7 +10,7 @@ const ZOMBIE_TYPE = {
 };
 
 // 导入统一的状态枚举
-import { ZOMBIE_STATES } from './state-machine.js';
+import {ZOMBIE_STATES} from './state-machine.js';
 
 // 使用统一的状态枚举，保持向后兼容
 const ZOMBIE_STATE = ZOMBIE_STATES;
@@ -47,7 +47,7 @@ var Zombie = function (type, x, y) {
     this.targetX = this.x;
     this.targetY = this.y;
     this.targetCharacter = null;
-    
+
     // 目标锁定相关属性
     this.targetLockTime = null;
     this.targetLockDuration = null;
@@ -72,7 +72,7 @@ var Zombie = function (type, x, y) {
 // 🔴 新增：僵尸重置方法（供对象池调用）
 Zombie.prototype.reset = function () {
     console.log('🔄 僵尸对象重置开始...');
-    
+
     // 重置基础属性
     this.hp = this.maxHp || 30;
     this.state = ZOMBIE_STATES.IDLE;
@@ -240,10 +240,10 @@ Zombie.prototype.onEnterDead = function () {
 
 // 更新死亡状态
 Zombie.prototype.updateDead = function () {
-    this.deathAnimationTime += 1/60; // 固定60fps
+    this.deathAnimationTime += 1 / 60; // 固定60fps
     var gameplayConfig = window.ConfigManager ? window.ConfigManager.get('GAMEPLAY') : null;
     var deathDuration = gameplayConfig ? gameplayConfig.DEATH.ANIMATION_DURATION : 2.0;
-    
+
     if (this.deathAnimationTime >= deathDuration) {
         this.destroy();
     }
@@ -359,7 +359,7 @@ Zombie.prototype.moveTowards = function (targetX, targetY) {
 
     // 🔴 修复：确保移动速度在合理范围内，防止异常累积
     var moveSpeed = this.moveSpeed || 0;
-    var maxSpeed = 8; // 最大移动速度限制
+    var maxSpeed = 4; // 最大移动速度限制
     if (moveSpeed > maxSpeed) {
         console.warn('⚠️ 僵尸移动速度异常:', moveSpeed, '已限制为:', maxSpeed);
         moveSpeed = maxSpeed;
@@ -394,7 +394,6 @@ Zombie.prototype.checkCollision = function (fromX, fromY, toX, toY) {
     }
 
     if (window.collisionSystem.getWallFollowingPosition) {
-        // 🔴 修复：使用移动距离而不是移动速度
         // 🔴 简化：直接使用每帧移动距离
         var moveDistance = this.moveSpeed; // 直接使用像素/帧
         var safePos = window.collisionSystem.getWallFollowingPosition(fromX, fromY, toX, toY, this.radius || 16, moveDistance);
@@ -421,7 +420,7 @@ Zombie.prototype.idleBehavior = function () {
         for (var i = 0; i < allTargets.length; i++) {
             var target = allTargets[i];
             var distance = this.getDistanceTo(target.x, target.y);
-            
+
             if (distance <= this.detectionRange && distance < nearestDistance) {
                 nearestDistance = distance;
                 nearestTarget = target;
@@ -461,10 +460,10 @@ Zombie.prototype.idleBehavior = function () {
 Zombie.prototype.updateAnimation = function () {
     if (this.state === ZOMBIE_STATE.CHASE) {
         var animationConfig = ConfigManager.get('ANIMATION');
-        
+
         // 🔴 修复：确保动画速度不会累积，每次都从配置重新获取
         var baseSpeed = animationConfig ? animationConfig.DEFAULT_FRAME_RATE : 0.2;
-        
+
         // 🔴 修复：确保动画速度在合理范围内，防止异常累积
         var maxSpeed = baseSpeed * 3; // 最大速度不超过基础速度的3倍
         var currentSpeed = this.animationSpeed;
@@ -472,8 +471,8 @@ Zombie.prototype.updateAnimation = function () {
             currentSpeed = maxSpeed;
             this.animationSpeed = currentSpeed;
         }
-        
-        this.animationFrame += currentSpeed * (1/60); // 固定60fps
+
+        this.animationFrame += currentSpeed * (1 / 60); // 固定60fps
         if (this.animationFrame >= animationConfig.MAX_ANIMATION_FRAMES) {
             this.animationFrame = 0;
         }
@@ -498,7 +497,7 @@ Zombie.prototype.takeDamage = function (damage) {
 
         var gameplayConfig = window.ConfigManager ? window.ConfigManager.get('GAMEPLAY') : null;
         var resetDelay = gameplayConfig ? gameplayConfig.STUCK_DETECTION.RESET_DELAY * 1000 : 500;
-        
+
         setTimeout(() => {
             if (this.hp > 0 && this.state !== ZOMBIE_STATE.DIE) {
                 this.state = ZOMBIE_STATE.CHASE;
@@ -552,33 +551,20 @@ Zombie.prototype.getAllValidTargets = function () {
     }
 
     if (window.objectManager) {
-        var partners = window.objectManager.getAllPartners().filter(p => 
-            p.hp > 0 && 
-            p.status !== 'INIT' && 
-            !p.isInitialState
-        );
+        var partners = window.objectManager.getAllPartners().filter(p => p.hp > 0 && p.status !== 'INIT' && !p.isInitialState);
         allTargets = allTargets.concat(partners);
     }
 
     return allTargets;
 };
 
-// 移除优先级计算方法，不再使用
-// Zombie.prototype.calculateTargetPriority = function (target, distance) {
-//     var basePriority = distance;
-//     var typePriority = target.type === 'character' ? 0 : 100;
-//     var healthPriority = target.hp / target.maxHp * 50;
-//     
-//     return basePriority + typePriority + healthPriority;
-// };
-
 // 目标锁定机制
 Zombie.prototype.lockTarget = function () {
     if (!this.targetCharacter) return;
-    
+
     var zombieConfig = ConfigManager.get('ZOMBIE');
     var lockDuration = zombieConfig ? zombieConfig.TARGET_LOCK_DURATION : 1000;
-    
+
     this.targetLockTime = Date.now();
     this.targetLockDuration = lockDuration;
 };
@@ -588,14 +574,14 @@ Zombie.prototype.isTargetLocked = function () {
     if (!this.targetCharacter || !this.targetLockTime) {
         return false;
     }
-    
+
     var currentTime = Date.now();
     var lockElapsed = currentTime - this.targetLockTime;
-    
+
     if (lockElapsed < this.targetLockDuration) {
         return true;
     }
-    
+
     this.targetLockTime = null;
     this.targetLockDuration = null;
     return false;
@@ -630,21 +616,17 @@ Zombie.prototype.isTargetValid = function () {
 // 检查目标是否仍然存在
 Zombie.prototype.isTargetStillExists = function () {
     if (!this.targetCharacter) return false;
-    
+
     if (this.targetCharacter.type === 'character' && window.characterManager) {
         var characters = window.characterManager.getAllCharacters();
         return characters.some(c => c.id === this.targetCharacter.id);
     }
-    
+
     if (this.targetCharacter.type === 'partner' && window.objectManager) {
         var partners = window.objectManager.getAllPartners();
-        return partners.some(p => 
-            p.id === this.targetCharacter.id && 
-            p.status !== 'INIT' && 
-            !p.isInitialState
-        );
+        return partners.some(p => p.id === this.targetCharacter.id && p.status !== 'INIT' && !p.isInitialState);
     }
-    
+
     return false;
 };
 
@@ -684,8 +666,7 @@ Zombie.prototype.getDistanceTo = function (targetX, targetY) {
 
 // 僵尸管理器
 var ZombieManager = {
-    maxZombies: ConfigManager.get('PERFORMANCE.MAX_ZOMBIES'),
-    objectPool: null,
+    maxZombies: ConfigManager.get('PERFORMANCE.MAX_ZOMBIES'), objectPool: null,
 
     // 初始化对象池
     initObjectPool: function () {
@@ -694,9 +675,7 @@ var ZombieManager = {
         }
 
         // 🔴 修复：使用recreatePool确保每次都是全新的对象池
-        this.objectPool = window.objectPoolManager.recreatePool('zombie',
-            () => new Zombie('skinny', 0, 0),
-            (zombie) => this.resetZombie(zombie));
+        this.objectPool = window.objectPoolManager.recreatePool('zombie', () => new Zombie('skinny', 0, 0), (zombie) => this.resetZombie(zombie));
     },
 
     // 重置僵尸状态
@@ -851,7 +830,7 @@ var ZombieManager = {
         for (var i = 0; i < allTargets.length; i++) {
             var target = allTargets[i];
             var distance = zombie.getDistanceTo(target.x, target.y);
-            
+
             if (distance <= zombie.detectionRange && distance < nearestDistance) {
                 nearestDistance = distance;
                 nearestTarget = target;
@@ -988,20 +967,6 @@ var ZombieManager = {
         return window.objectManager.getAllZombies();
     },
 
-    // 获取批次信息
-    getBatchInfo: function (currentFrame) {
-        var allZombies = this.getAllZombies();
-        var activeZombies = allZombies.filter(zombie => zombie && zombie.hp > 0 && zombie.state !== ZOMBIE_STATE.DIE);
-
-        var currentBatch = currentFrame % 2;
-
-        return {
-            totalActive: activeZombies.length,
-            currentBatch: currentBatch,
-            nextBatch: (currentBatch + 1) % 2,
-            batchSize: 2
-        };
-    },
 
     // 销毁僵尸
     destroyZombie: function (zombie) {

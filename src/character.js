@@ -284,17 +284,6 @@ Character.prototype.hasZombieInRange = function (range) {
 };
 
 
-// 检查主人物是否在移动
-Character.prototype.isMainCharacterMoving = function () {
-    if (!window.characterManager) return false;
-
-    const mainChar = window.characterManager.getMainCharacter();
-    if (!mainChar) return false;
-
-    return mainChar.stateMachine && mainChar.stateMachine.isInState(MAIN_CHARACTER_STATES.MOVE);
-};
-
-
 // ==================== 状态行为方法 ====================
 
 // 主人物状态行为
@@ -307,10 +296,6 @@ Character.prototype.onEnterIdle = function (stateData) {
 Character.prototype.onUpdateIdle = function (stateData) {
     // 待机状态下的行为：渲染待机动画
     this.updateAnimation();
-
-    // 检查是否有僵尸需要攻击
-    var attackJudgmentConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT.ATTACK_JUDGMENT') : {RANGE_BUFFER: 5};
-    var effectiveAttackRange = this.attackRange + attackJudgmentConfig.RANGE_BUFFER;
 };
 
 Character.prototype.onExitIdle = function (stateData) {
@@ -494,8 +479,6 @@ Character.prototype.moveToAttackRange = function () {
 
     var mathUtils = UtilsManager.getMathUtils();
     var distance = mathUtils.distance(this.x, this.y, this.attackTarget.x, this.attackTarget.y);
-    var attackJudgmentConfig = window.ConfigManager ? window.ConfigManager.get('COMBAT.ATTACK_JUDGMENT') : {RANGE_BUFFER: 5};
-    var effectiveAttackRange = this.attackRange + attackJudgmentConfig.RANGE_BUFFER; // 有效攻击范围（攻击范围加上缓冲）
     var targetDistance = this.attackRange; // 目标距离等于基础攻击范围（不使用缓冲）
 
     if (distance > targetDistance) {
@@ -553,14 +536,6 @@ Character.prototype.showGameOverScreen = function () {
     // 在画布上显示游戏结束文字
     if (window.gameEngine && window.gameEngine.ctx) {
         var canvas = window.gameEngine.canvas;
-
-        // 使用统一渲染管理器渲染游戏结束UI
-        if (window.viewSystem && window.viewSystem.getRenderManager) {
-            const renderManager = window.viewSystem.getRenderManager();
-            renderManager.renderUI('gameOver', {canvas: canvas, message: '游戏结束'});
-        } else {
-            console.warn('统一渲染管理器不可用，无法渲染游戏结束界面');
-        }
 
         // 添加点击事件监听器
         this.addGameOverClickListener(canvas);
