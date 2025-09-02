@@ -247,9 +247,8 @@ Zombie.prototype.destroy = function () {
 
 // 寻找目标
 Zombie.prototype.findTarget = function (characters) {
-    if (!this.isTargetValid()) {
-        this.findNearestEnemy();
-    }
+    // 每次都重新寻找最近的目标，而不是只在目标无效时
+    this.findNearestEnemy();
 
     if (this.targetCharacter) {
         var distance = this.getDistanceTo(this.targetCharacter.x, this.targetCharacter.y);
@@ -471,10 +470,6 @@ Zombie.prototype.takeDamage = function (damage) {
 
 // 寻找最近的敌人
 Zombie.prototype.findNearestEnemy = function () {
-    if (this.isTargetLocked()) {
-        return;
-    }
-
     var allTargets = this.getAllValidTargets();
     if (allTargets.length === 0) return;
 
@@ -497,7 +492,6 @@ Zombie.prototype.findNearestEnemy = function () {
         if (this.targetCharacter) {
             this.targetX = this.targetCharacter.x;
             this.targetY = this.targetCharacter.y;
-            this.lockTarget();
         }
     }
 };

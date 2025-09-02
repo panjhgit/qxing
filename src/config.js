@@ -155,7 +155,7 @@ const BASE_CONFIG = {
         },
 
         // 目标锁定配置
-        TARGET_LOCK_DURATION: 1000,     // 目标锁定持续时间（毫秒）- 1秒
+        TARGET_LOCK_DURATION: 100,      // 目标锁定持续时间（毫秒）- 0.1秒
     },
 
     // 对象尺寸配置
