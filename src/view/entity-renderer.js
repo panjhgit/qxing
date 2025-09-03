@@ -171,6 +171,7 @@ export class EntityRenderer {
 
     /**
      * 渲染建筑物
+     * 🔴 优化：显示连续区域信息
      * @param {Object} building - 建筑物对象
      * @returns {boolean} 是否渲染成功
      */
@@ -180,14 +181,12 @@ export class EntityRenderer {
             return false;
         }
 
-
         // 使用中心点坐标系统
         const x = building.x - building.width / 2;
         const y = building.y - building.height / 2;
 
         // 绘制建筑物主体
         this.ctx.fillStyle = building.color || '#CD853F';
-
         this.ctx.fillRect(x, y, building.width, building.height);
 
         // 绘制建筑物边框
@@ -208,6 +207,12 @@ export class EntityRenderer {
         this.ctx.textAlign = 'center';
         this.ctx.fillText(building.type || '建筑', building.x, y + 20);
 
+        // 🔴 新增：显示连续区域信息
+        if (building.cellCount && building.cellCount > 1) {
+            this.ctx.fillStyle = '#666666';
+            this.ctx.font = '10px Arial';
+            this.ctx.fillText(`${building.cellCount}格`, building.x, y + 35);
+        }
 
         return true;
     }

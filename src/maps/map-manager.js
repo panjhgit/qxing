@@ -147,6 +147,7 @@ export const MapManager = {
 
     /**
      * 生成地图数据（建筑物和可通行区域）
+     * 🔴 优化：使用连续区域识别算法
      */
     generateMapData: function () {
         if (!this.currentMap || !this.currentMap.matrix || !this.currentMap.buildingTypes) {
@@ -154,32 +155,164 @@ export const MapManager = {
             return;
         }
 
-
         const matrix = this.currentMap.matrix;
         const buildingTypes = this.currentMap.buildingTypes;
         const cellSize = this.currentMap.config.cellSize || 50;
+        const matrixRows = matrix.length;
+        const matrixCols = matrix[0].length;
 
         // 初始化建筑物和可通行区域数组
         this.currentMap.buildings = [];
         this.currentMap.walkableAreas = [];
 
+        // 🔴 新增：使用访问标记数组，避免重复处理
+        const visited = Array(matrixRows).fill().map(() => Array(matrixCols).fill(false));
+
+        console.log('🔍 开始解析地图矩阵，使用连续区域识别算法...');
+        console.log(`矩阵大小: ${matrixRows}×${matrixCols}`);
 
         // 遍历矩阵，解析建筑物和可通行区域
-        for (let row = 0; row < matrix.length; row++) {
-            for (let col = 0; col < matrix[row].length; col++) {
+        for (let row = 0; row < matrixRows; row++) {
+            for (let col = 0; col < matrixCols; col++) {
+                if (visited[row][col]) continue; // 跳过已访问的格子
+
                 const cellValue = matrix[row][col];
 
                 if (cellValue === 0) {
                     // 可通行区域
                     this.addWalkableArea(row, col, cellSize);
+                    visited[row][col] = true;
                 } else if (buildingTypes[cellValue]) {
-                    // 建筑物
-                    this.addBuilding(row, col, cellValue, buildingTypes[cellValue], cellSize);
+                    // 🔴 优化：识别连续建筑区域
+                    const connectedRegion = this.findConnectedRegion(matrix, visited, row, col, cellValue);
+                    if (connectedRegion.length > 0) {
+                        console.log(`🏠 发现连续建筑区域: ${buildingTypes[cellValue].name} (${connectedRegion.length}格)`);
+                        this.addConnectedBuilding(connectedRegion, cellValue, buildingTypes[cellValue], cellSize);
+                    }
                 }
             }
         }
 
+        console.log(`✅ 地图解析完成:`);
+        console.log(`- 可通行区域: ${this.currentMap.walkableAreas.length}个`);
+        console.log(`- 建筑区域: ${this.currentMap.buildings.length}个`);
+        
+        // 显示建筑统计
+        const buildingStats = {};
+        this.currentMap.buildings.forEach(building => {
+            if (!buildingStats[building.type]) {
+                buildingStats[building.type] = { count: 0, totalCells: 0 };
+            }
+            buildingStats[building.type].count++;
+            buildingStats[building.type].totalCells += building.cellCount;
+        });
+        
+        console.log('📊 建筑统计:');
+        Object.entries(buildingStats).forEach(([type, stats]) => {
+            console.log(`  ${type}: ${stats.count}个建筑，共${stats.totalCells}格`);
+        });
+    },
 
+    /**
+     * 🔴 新增：查找连续区域算法
+     * 使用深度优先搜索找到所有相连的相同数字格子
+     * @param {Array} matrix - 地图矩阵
+     * @param {Array} visited - 访问标记数组
+     * @param {number} startRow - 起始行
+     * @param {number} startCol - 起始列
+     * @param {number} targetValue - 目标值
+     * @returns {Array} 连续区域的格子坐标数组
+     */
+    findConnectedRegion: function (matrix, visited, startRow, startCol, targetValue) {
+        const region = [];
+        const stack = [{row: startRow, col: startCol}];
+        
+        while (stack.length > 0) {
+            const {row, col} = stack.pop();
+            
+            // 检查边界和访问状态
+            if (row < 0 || row >= matrix.length || 
+                col < 0 || col >= matrix[0].length || 
+                visited[row][col] || 
+                matrix[row][col] !== targetValue) {
+                continue;
+            }
+            
+            // 标记为已访问并添加到区域
+            visited[row][col] = true;
+            region.push({row, col});
+            
+            // 检查四个方向的相邻格子
+            const directions = [
+                {row: row - 1, col: col}, // 上
+                {row: row + 1, col: col}, // 下
+                {row: row, col: col - 1}, // 左
+                {row: row, col: col + 1}  // 右
+            ];
+            
+            for (const dir of directions) {
+                stack.push(dir);
+            }
+        }
+        
+        return region;
+    },
+
+    /**
+     * 🔴 新增：添加连续建筑
+     * 将连续区域合并为一个建筑
+     * @param {Array} region - 连续区域坐标数组
+     * @param {number} buildingTypeId - 建筑类型ID
+     * @param {Object} buildingType - 建筑类型配置
+     * @param {number} cellSize - 单元格大小
+     */
+    addConnectedBuilding: function (region, buildingTypeId, buildingType, cellSize) {
+        if (region.length === 0) return;
+
+        // 计算连续区域的边界
+        let minRow = region[0].row, maxRow = region[0].row;
+        let minCol = region[0].col, maxCol = region[0].col;
+
+        for (const {row, col} of region) {
+            minRow = Math.min(minRow, row);
+            maxRow = Math.max(maxRow, row);
+            minCol = Math.min(minCol, col);
+            maxCol = Math.max(maxCol, col);
+        }
+
+        // 计算建筑的世界坐标和尺寸
+        const worldX = (minCol + (maxCol - minCol + 1) / 2) * cellSize;
+        const worldY = (minRow + (maxRow - minRow + 1) / 2) * cellSize;
+        const buildingWidth = (maxCol - minCol + 1) * cellSize;
+        const buildingHeight = (maxRow - minRow + 1) * cellSize;
+
+        // 创建建筑对象
+        const building = {
+            x: worldX,
+            y: worldY,
+            width: buildingWidth,
+            height: buildingHeight,
+            type: buildingType.name || '未知建筑',
+            color: buildingType.color || '#8B4513',
+            icon: buildingType.icon || '🏠',
+            size: buildingType.size || cellSize,
+            walkable: buildingType.walkable || false,
+            hasDoor: buildingType.hasDoor || false,
+            bounds: {
+                left: worldX - buildingWidth / 2,
+                top: worldY - buildingHeight / 2,
+                right: worldX + buildingWidth / 2,
+                bottom: worldY + buildingHeight / 2
+            },
+            // 🔴 新增：记录连续区域信息
+            region: region,
+            cellCount: region.length,
+            gridBounds: {
+                minRow, maxRow, minCol, maxCol
+            }
+        };
+
+        this.currentMap.buildings.push(building);
     },
 
     /**
@@ -202,37 +335,7 @@ export const MapManager = {
         });
     },
 
-    /**
-     * 添加建筑物
-     * @param {number} row - 矩阵行
-     * @param {number} col - 矩阵列
-     * @param {number} buildingTypeId - 建筑类型ID
-     * @param {Object} buildingType - 建筑类型配置
-     * @param {number} cellSize - 单元格大小
-     */
-    addBuilding: function (row, col, buildingTypeId, buildingType, cellSize) {
-        const worldX = col * cellSize + cellSize / 2;
-        const worldY = row * cellSize + cellSize / 2;
 
-        const buildingWidth = buildingType.width || cellSize;
-        const buildingHeight = buildingType.height || cellSize;
-
-        this.currentMap.buildings.push({
-            x: worldX,
-            y: worldY,
-            width: buildingWidth,
-            height: buildingHeight,
-            type: buildingType.name || '未知建筑',
-            color: buildingType.color || '#8B4513',
-            icon: buildingType.icon || '🏠',
-            bounds: {
-                left: worldX - buildingWidth / 2,
-                top: worldY - buildingHeight / 2,
-                right: worldX + buildingWidth / 2,
-                bottom: worldY + buildingHeight / 2
-            }
-        });
-    }
 };
 
 export default MapManager;

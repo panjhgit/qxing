@@ -22,7 +22,7 @@ export class ViewSystem {
         // 渲染设置
         this.renderDistance = 1000; // 渲染距离
         this.showDebugInfo = false; // 不显示调试信息
-        
+
         // 🔴 新增：排序渲染设置
         this.useSortingRendering = true; // 启用排序渲染
     }
@@ -52,16 +52,15 @@ export class ViewSystem {
         // 应用摄像机变换
         this.renderManager.applyCameraTransform();
 
-        // 检查是否是MapRenderer实例
+        // 🔴 修复：统一使用MapRenderer，避免重复渲染
         if (mapSystem.render && typeof mapSystem.render === 'function') {
-            // 使用MapRenderer
+            // 使用MapRenderer渲染地图背景和可通行区域
             mapSystem.render(this.ctx);
         } else {
-            // 使用MapManager数据，通过RenderManager渲染
+            // 回退方案：只渲染地图背景和可通行区域，建筑物在renderAllGameEntities中处理
             this.renderMapBackground(mapSystem);
             this.renderStreets(mapSystem);
             this.renderMapBoundaries(mapSystem);
-            // 🔴 修复：移除建筑物渲染，避免重复渲染
         }
 
         // 恢复变换
