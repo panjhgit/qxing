@@ -248,6 +248,32 @@ const BASE_CONFIG = {
         MAX_ZOMBIES: 2000,              // 最大僵尸数量
         MAX_PARTNERS: 2000,             // 最大伙伴数量
 
+        // 🔴 新增：渲染系统配置
+        RENDERING: {
+            // 渲染距离配置
+            MAX_RENDER_DISTANCE: 1500,   // 最大渲染距离
+            FRUSTUM_CULLING: true,       // 启用视锥剔除
+            BATCH_RENDERING: true,      // 启用批量渲染
+            
+            // 🔴 新增：渲染排序配置
+            SORTING: {
+                ENABLED: true,           // 启用Y坐标排序
+                LAYER_OFFSETS: {
+                    BACKGROUND: 0,      // 背景层
+                    BUILDING: 50,        // 🔴 修复：建筑物层（降低层级，确保在最底层）
+                    ENTITY: 200,         // 实体层（角色、僵尸、伙伴）
+                    EFFECT: 300,         // 特效层
+                    UI: 400             // UI层
+                },
+                // 排序优化配置
+                OPTIMIZATION: {
+                    SORT_INTERVAL: 1,    // 排序间隔（帧数）
+                    BATCH_SIZE: 100,     // 批量处理大小
+                    ENABLE_CACHING: true // 启用排序缓存
+                }
+            }
+        },
+
         // 摄像机配置
         CAMERA: {
             ZOOM: 0.7,               // 摄像机缩放比例

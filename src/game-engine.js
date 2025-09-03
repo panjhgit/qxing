@@ -950,22 +950,16 @@ GameEngine.prototype.render = function () {
         }
     } else if (this.gameState === 'playing') {
         if (this.viewSystem) {
+            // 🔴 优化：使用统一排序渲染，解决视觉遮挡问题
             this.viewSystem.renderMap(this.mapSystem);
-            this.viewSystem.renderCharacters(this.characterManager);
-
-            if (this.zombieManager) {
-                var zombies = this.zombieManager.getAllZombies();
-                this.viewSystem.renderZombies(this.zombieManager, this.characterManager);
-            } else {
-                throw new Error('GameEngine.render: zombieManager未初始化');
-            }
-
-            if (window.partnerManager) {
-                var partners = window.partnerManager.getAllPartners();
-                this.viewSystem.renderPartners(window.partnerManager);
-            } else {
-                throw new Error('GameEngine.render: partnerManager未初始化');
-            }
+            
+            // 使用新的统一渲染方法
+            this.viewSystem.renderAllGameEntities(
+                this.characterManager, 
+                this.zombieManager, 
+                window.partnerManager, 
+                this.mapSystem
+            );
 
             this.viewSystem.renderJoystick(this.joystick);
             this.viewSystem.renderTimeInfo(this);
